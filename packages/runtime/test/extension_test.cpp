@@ -9,8 +9,11 @@
 #include <cstdio>
 #include <limits>
 #include <memory>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "lucent/extension.h"
 #include "lucent/lucent.h"
@@ -224,6 +227,51 @@ static void failures_() {
   CHECK(thrown([] { ext::fail("orbit_apply", ""); }) == "Error: orbit_apply failed");
 }
 
+/// What a C++ call throws is an Error (decision 0125): std::exception's what(), or that it threw.
+static void cxxExceptions() {
+  CHECK(ext::cxxCall("Counter.add", [] { return 2; }) == 2);
+  CHECK(thrown([] { ext::cxxCall("Counter.add", []() -> int { throw std::invalid_argument("negative"); }); }) ==
+        "Error: negative");
+  CHECK(thrown([] { ext::cxxCall("Counter.fail", [] { throw 42; }); }) ==
+        "Error: Counter.fail threw a C++ exception");
+}
+
+/// Strings, vectors and optionals cross as C++'s own, NUL characters and all.
+static void cxxValues() {
+  CHECK(ext::cxxString(String::fromUtf8(std::string("a\0b", 3))) == std::string("a\0b", 3));
+  CHECK(ext::fromCxx(std::string_view("h\xC3\xA9")).toUtf8() == "h\xC3\xA9");
+
+  Array<double> numbers{1.5, 2};
+  std::vector<int> ints = ext::cxxVector<int>(numbers, [](double x) { return ext::integer<int>(x, "n"); });
+  CHECK((ints == std::vector<int>{1, 2}));
+  Array<double> back = ext::fromCxxVector(std::vector<int>{3, 4}, [](int x) { return ext::number(x); });
+  CHECK(back.size() == 2 && back.at(0) == 3 && back.at(1) == 4);
+  Array<bool> flags = ext::fromCxxVector(std::vector<bool>{true, false}, [](bool x) { return x; });
+  CHECK(flags.size() == 2 && flags.at(0) && !flags.at(1));
+
+  Opt<String> none;
+  CHECK(!ext::cxxOptional<std::string>(none, [](const String& x) { return ext::cxxString(x); }));
+  Opt<String> some(String::fromUtf8("n"));
+  CHECK(ext::cxxOptional<std::string>(some, [](const String& x) { return ext::cxxString(x); }) == std::string("n"));
+  CHECK(!ext::fromCxxOptional(std::optional<std::string>(), [](const std::string& x) { return ext::fromCxx(x); }).has());
+  CHECK(ext::fromCxxOptional(std::optional<std::string>("y"), [](const std::string& x) { return ext::fromCxx(x); })
+            .get()
+            .toUtf8() == "y");
+}
+
+/// A handle of a C++ object deletes it once.
+static void cxxObjects() {
+  static int deleted = 0;
+  struct Object {
+    ~Object() { deleted++; }
+  };
+
+  Handle h = Handle::open("Object", new Object(), &ext::deleteObject<Object>);
+  h.close();
+  h.close();
+  CHECK(deleted == 1);
+}
+
 int main() {
   closesOnce();
   lastCopyDestroys();
@@ -237,6 +285,9 @@ int main() {
   floats();
   strings();
   failures_();
+  cxxExceptions();
+  cxxValues();
+  cxxObjects();
 
   std::printf("extension: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

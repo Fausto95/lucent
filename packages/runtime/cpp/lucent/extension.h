@@ -8,17 +8,28 @@
 // The conversions check what crosses into C: numbers into integer
 // parameters as WebIDL's [EnforceRange] does, bigints exactly, byte counts
 // against their length type, and strings as NUL-terminated UTF-8.
+//
+// A C++ header's classes (decision 0125) are handles too, of the objects
+// their constructors make, which the handle deletes. Their calls go
+// through cxxCall, which makes what C++ throws an Error; strings, vectors
+// and optionals cross as C++'s own.
 #pragma once
 
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
+#include "array.h"
 #include "bigint.h"
 #include "bytes.h"
 #include "execution.h"
@@ -205,6 +216,69 @@ std::string utf8(const String& s, const char* what);
 /// function's name when it has none) and its code.
 [[noreturn]] void fail(const char* function, const char* message);
 [[noreturn]] void fail(const char* function, const char* message, long long code);
+
+// --- C++ classes (decision 0125) -------------------------------------------------------
+
+/// A string for C++: its UTF-8, NUL characters and all.
+std::string cxxString(const String& s);
+
+/// A C++ string, UTF-8, as Lucent's.
+String fromCxx(std::string_view s);
+
+/// Throws the Error a C++ call threw: `message` (an exception's what()),
+/// or, for one that is no std::exception, one saying `what` threw.
+[[noreturn]] void cxxThrew(const char* what, const char* message);
+
+/// Runs a call into C++, `what` (`Counter.add`): what it throws becomes an
+/// Error here, so no C++ exception unwinds through Lucent's frames.
+template <class F>
+decltype(auto) cxxCall(const char* what, F&& f) {
+  try {
+    return f();
+  } catch (const std::exception& e) {
+    cxxThrew(what, e.what());
+  } catch (...) {
+    cxxThrew(what, nullptr);
+  }
+}
+
+/// An array as a std::vector of C++'s `C`, `each` converting an element.
+template <class C, class T, class F>
+std::vector<C> cxxVector(const Array<T>& a, F each) {
+  std::vector<C> out;
+  out.reserve(a.size());
+  for (size_t i = 0; i < a.size(); i++) out.push_back(each(a.at(i)));
+  return out;
+}
+
+/// An optional value as a std::optional of C++'s `C`: none for undefined.
+template <class C, class T, class F>
+std::optional<C> cxxOptional(const Opt<T>& o, F each) {
+  if (!o.has()) return std::nullopt;
+  return std::optional<C>(each(o.get()));
+}
+
+/// A std::vector as an array, `each` converting an element.
+template <class T, class F>
+auto fromCxxVector(const std::vector<T>& v, F each) {
+  using U = std::decay_t<decltype(each(std::declval<const T&>()))>;
+  Array<U> out;
+  for (const auto& x : v) out.push(each(x));
+  return out;
+}
+
+/// A std::optional as an optional value: undefined for none.
+template <class T, class F>
+auto fromCxxOptional(const std::optional<T>& o, F each) {
+  using U = std::decay_t<decltype(each(std::declval<const T&>()))>;
+  return o ? Opt<U>(each(*o)) : Opt<U>(undefined);
+}
+
+/// Deletes an object of `T` a handle owns: its destroy function.
+template <class T>
+void deleteObject(void* p) {
+  delete static_cast<T*>(p);
+}
 
 }  // namespace ext
 }  // namespace lucent

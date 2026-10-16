@@ -93,5 +93,14 @@ void fail(const char* function, const char* message, long long code) {
   throwError(e);
 }
 
+std::string cxxString(const String& s) { return s.toUtf8(); }
+
+String fromCxx(std::string_view s) { return String::fromUtf8(s); }
+
+void cxxThrew(const char* what, const char* message) {
+  throwError(makeError(message ? String::fromUtf8(std::string_view(message, std::strlen(message)))
+                               : String::fromUtf8(std::string(what) + " threw a C++ exception")));
+}
+
 }  // namespace ext
 }  // namespace lucent

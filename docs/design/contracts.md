@@ -1203,17 +1203,16 @@ build the C code into the one native package.
 | Integers   | Wider than 32 bits: exact bigints. Others: numbers under WebIDL's `[EnforceRange]`. Floats round as `Math.fround`.                                                                                             |
 | Failure    | Throws an `Error` with the struct's message (copied at once) and code, else `<f> failed`. `nonzero` and `false` results are statuses. An `error` parameter needs `failsWhen`; `release` runs after every call. |
 | Exceptions | One escaping a C function ends the process (`ext::call` is `noexcept`). Conversion errors throw before the call.                                                                                               |
+| C++        | `language: "c++"` (0125): a class is a handle of its objects, its overloads its members'; strings, vectors, optionals, enums and objects cross; `ext::cxxCall` makes what C++ throws an `Error`.               |
 | Binding    | A function needing no declaration binds as it is; one taking a handle must be named. Function pointers, variadics and structs by value are listed as skipped, or fail when named.                              |
 | Outputs    | `.lucent/native/types/ext/<name>.d.ts`; each extension in `resolved.json`; the `extract:extensions` node.                                                                                                      |
 | Runtime    | `Handle::open(what, pointer, destroy, destroyOn?)`, `use<T>()` for one call, idempotent `close()`, shared state (`identity()`); `ext::integer`, `real`, `data`, `length`, `utf8`, `number`, `bigint`.          |
 
-**Planned:** [T142](../tasks.md#t142) reads C++ headers
-([0125](../decisions/0125-a-cpp-headers-classes-are-handles-the-generated-cpp-calls.md)):
-a class is a handle, `std::string` a string, `std::vector` an array,
-`std::optional` an optional, and templates and inheritance are left out.
-The generated call catches C++ exceptions into an `Error`. Functions take
-callbacks on a stated context and an `AbortSignal` as a flag.
-`android.prefab` links Gradle prefab modules.
+**Planned:** [T142](../tasks.md#t142)'s functions take callbacks on a
+stated context and an `AbortSignal` as a flag, and `android.prefab` links
+Gradle prefab modules. C++ headers are read as
+[0125](../decisions/0125-a-cpp-headers-classes-are-handles-the-generated-cpp-calls.md)
+decides.
 
 ## Accepted decisions these contracts assume
 

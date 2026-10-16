@@ -2332,7 +2332,9 @@ export class FnEmitter {
     if (ts.isPropertyAccessExpression(callee)) {
       const event = views.eventCall(this, node);
       if (event) return event;
-      const n = native.nativeCall(this, node, undefined);
+      const n =
+        native.nativeCall(this, node, undefined) ??
+        extensions.extensionStaticCall(this, node, callee);
       if (n) return n;
       const s = builtins.staticCall(this, node, callee);
       if (s) return s;

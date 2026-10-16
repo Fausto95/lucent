@@ -11,7 +11,8 @@ import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import type { FunctionBinding, HandleBinding, ParamBinding } from "../extensions/bind.ts";
-import { findExtension, findFunction, findHandle } from "../extensions/registry.ts";
+import { findClass, findExtension, findFunction, findHandle } from "../extensions/registry.ts";
+import { cxxMethodCall, cxxNew, cxxStaticCall } from "./cxx-extensions.ts";
 import { extensionModuleOf } from "../program.ts";
 import { type LType, T } from "../types.ts";
 import type { E } from "./context.ts";
@@ -19,8 +20,11 @@ import type { FnEmitter } from "./function.ts";
 import { DISPOSE } from "./classes.ts";
 import { inMainContext } from "./native.ts";
 
-/** `new OrbitFilter(…)`: the handle's create. */
+/** `new OrbitFilter(…)`: the handle's create; a C++ class's constructor. */
 export function handleNew(em: FnEmitter, node: ts.NewExpression, t: LType & { k: "handle" }): E {
+  const cls = findClass(t.extension, t.name);
+  if (cls) return cxxNew(em, node, cls, t.extension);
+
   const h = handleOf(t, node);
 
   return call(
@@ -53,6 +57,9 @@ export function extensionFunctionCall(em: FnEmitter, node: ts.CallExpression): E
 /** `filter.apply(…)`, `filter.close()`, `filter[Symbol.dispose]()`. */
 export function handleMethodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExpression): E {
   const t = obj.t as LType & { k: "handle" };
+  const cls = findClass(t.extension, t.name);
+  if (cls) return cxxMethodCall(em, obj, name, node, cls, t.extension);
+
   const h = handleOf(t, node);
 
   if (name === "close" || name === DISPOSE) {
@@ -64,6 +71,24 @@ export function handleMethodCall(em: FnEmitter, obj: E, name: string, node: ts.C
   if (!m) fail(node, Codes.UnsupportedCall, `${name} is not a method of ${t.name}`);
 
   return call(em, t.extension, m.fn, obj, node.arguments, node, `${t.name}.${name}`);
+}
+
+/** `Counter.live()`: a static member function of a C++ class; undefined for any other call. */
+export function extensionStaticCall(
+  em: FnEmitter,
+  node: ts.CallExpression,
+  callee: ts.PropertyAccessExpression,
+): E | undefined {
+  if (!ts.isIdentifier(callee.expression)) return undefined;
+
+  const sym = em.checker.getSymbolAtLocation(callee.expression);
+  const decl = sym && em.ctx.resolve(sym).valueDeclaration;
+  if (!decl || !ts.isClassDeclaration(decl) || !decl.name) return undefined;
+
+  const extension = extensionModuleOf(decl.getSourceFile());
+  const cls = extension ? findClass(extension, decl.name.text) : undefined;
+
+  return cls ? cxxStaticCall(em, node, callee.name.text, cls, extension!) : undefined;
 }
 
 /** The call a `using` declaration makes when it disposes a handle. */
