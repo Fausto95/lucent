@@ -5,6 +5,12 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const {
+  readExtensionTargets,
+  withExtensionPods,
+  withExtensionTargets,
+  writeExtensionFiles,
+} = require("./ios-extensions.js");
 
 let built = false;
 
@@ -269,6 +275,7 @@ function withLucent(config) {
     withInfoPlist,
     withPodfile,
     withProjectBuildGradle,
+    withXcodeProject,
   } = require("expo/config-plugins");
   // Gradle builds run lucent build first, like `lucent init` sets up in bare apps; the app's
   // build applies the Gradle plugins packages need.
@@ -318,10 +325,35 @@ function withLucent(config) {
     );
     return c;
   });
+  // The app extensions' targets (decision 0124), from what the build records: the Xcode
+  // project's, their files, and the Podfile's.
+  config = withXcodeProject(config, (c) => {
+    if (c.modRequest.introspect) return c;
+    buildOnce(c.modRequest.projectRoot);
+    const manifest = readExtensionTargets(c.modRequest.projectRoot);
+    if (manifest) {
+      withExtensionTargets(c.modResults, manifest, {
+        bundleIdentifier: c.ios?.bundleIdentifier,
+        version: c.version,
+        buildNumber: c.ios?.buildNumber,
+      });
+      writeExtensionFiles(c.modRequest.platformProjectRoot, manifest);
+    }
+    return c;
+  });
+  const extensionPods = (projectRoot, iosDir, contents) => {
+    const manifest = readExtensionTargets(projectRoot);
+    if (!manifest) return contents;
+    const podPath = path.relative(iosDir, path.join(projectRoot, manifest.nativePackage));
+    return withExtensionPods(contents, manifest, podPath.split(path.sep).join("/")) ?? contents;
+  };
   // pod install builds again once the packages' pods are installed (cocoapods/lucent.rb).
   if (withPodfile)
     config = withPodfile(config, (c) => {
-      c.modResults.contents = withPodHook(c.modResults.contents) ?? c.modResults.contents;
+      const hooked = withPodHook(c.modResults.contents) ?? c.modResults.contents;
+      c.modResults.contents = c.modRequest.introspect
+        ? hooked
+        : extensionPods(c.modRequest.projectRoot, c.modRequest.platformProjectRoot, hooked);
       return c;
     });
   else
@@ -330,8 +362,12 @@ function withLucent(config) {
       async (c) => {
         const podfile = path.join(c.modRequest.platformProjectRoot, "Podfile");
         if (!fs.existsSync(podfile)) return c;
-        const text = withPodHook(fs.readFileSync(podfile, "utf8"));
-        if (text !== undefined) fs.writeFileSync(podfile, text);
+        const before = fs.readFileSync(podfile, "utf8");
+        const hooked = withPodHook(before) ?? before;
+        const text = c.modRequest.introspect
+          ? hooked
+          : extensionPods(c.modRequest.projectRoot, c.modRequest.platformProjectRoot, hooked);
+        if (text !== before) fs.writeFileSync(podfile, text);
         return c;
       },
     ]);
@@ -359,3 +395,4 @@ module.exports.withPodHook = withPodHook;
 module.exports.withGradleClasspaths = withGradleClasspaths;
 module.exports.withGradlePlugins = withGradlePlugins;
 module.exports.appliesPlugin = appliesPlugin;
+module.exports.iosExtensions = require("./ios-extensions.js");
