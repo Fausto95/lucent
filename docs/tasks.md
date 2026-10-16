@@ -22,57 +22,57 @@ what became of each one that is still linked or was still open.
 
 ## Status
 
-| Task                     | Title                                                      | State                                            |
-| ------------------------ | ---------------------------------------------------------- | ------------------------------------------------ |
-| **Module parity**        |                                                            |                                                  |
-| [T100](#t100)            | Typed arrays and `DataView`                                | done (2026-10-13)                                |
-| [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | done (2026-10-13)                                |
-| [T102](#t102)            | Recursive union types, for JSON-shaped values              | done (2026-10-14)                                |
-| [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | done (2026-10-13)                                |
-| [T104](#t104)            | Timers and `queueMicrotask`                                | done (2026-10-13)                                |
-| [T105](#t105)            | Web APIs that shared code uses                             | done (2026-10-14)                                |
-| [T106](#t106)            | Language gaps module code meets                            | done (2026-10-15)                                |
-| [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                |
-| [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                |
-| [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                |
-| [T110](#t110)            | App-delegate and Activity events                           | done (2026-10-14)                                |
-| [T111](#t111)            | The app's own native needs and options                     | done (2026-10-15)                                |
-| [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                      |
-| [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                |
-| [T114](#t114)            | Native code that calls Lucent modules                      | in progress (#315 to #322)                       |
-| [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299, #300, #301, #302)             |
-| **View parity**          |                                                            |                                                  |
-| [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                |
-| [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                |
-| [T122](#t122)            | UIKit components with a view-controller root               | in progress (#324, #325)                         |
-| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | in progress (#328 to #339 merged, #340, #341)    |
-| [T124](#t124)            | A component's ref as a module function's argument          | in progress (#326 merged)                        |
-| [T125](#t125)            | Android views made after setup keep the Activity's context | in progress (#327)                               |
-| **Execution modes**      |                                                            |                                                  |
-| [T130](#t130)            | A native root: module code with no JavaScript runtime      | done (2026-10-13)                                |
-| [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | done (2026-10-14)                                |
-| [T132](#t132)            | iOS background execution                                   | done (2026-10-14); relaunches are T137           |
-| [T133](#t133)            | iOS app extensions and widgets                             | in progress (#345 to #356): decided (0124)       |
-| [T134](#t134)            | Calls from worklet runtimes                                | in progress (#342–#344): a device run remains    |
-| [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it  |
-| [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T133                              |
-| [T137](#t137)            | Relaunches for background URL sessions and silent pushes   | ready                                            |
-| **Distribution**         |                                                            |                                                  |
-| [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190 to #204, #363 merged)          |
-| [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                |
-| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #362): decided (0125, 0126) |
-| [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                            |
-| [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                            |
-| [T145](#t145)            | The package distribution matrix                            | ready                                            |
-| **Production candidate** |                                                            |                                                  |
-| [T150](#t150)            | Reference ports for each parity row                        | waiting; each port names its needs               |
-| [T151](#t151)            | Lifetime, concurrency and Fabric stress validation         | ready                                            |
-| [T152](#t152)            | The no-catalog audit                                       | ready                                            |
-| [T153](#t153)            | Benchmarks against Nitro and Expo Modules                  | ready                                            |
-| [T154](#t154)            | Guides for every parity row, and migration guides          | waiting; needs T150                              |
-| [T155](#t155)            | The production-candidate gate                              | waiting; needs every other task but T135         |
-| [T156](#t156)            | CI runs what the docs say it runs                          | ready                                            |
-| [T157](#t157)            | Small fixes the docs rewrite found                         | ready                                            |
+| Task                     | Title                                                      | State                                                  |
+| ------------------------ | ---------------------------------------------------------- | ------------------------------------------------------ |
+| **Module parity**        |                                                            |                                                        |
+| [T100](#t100)            | Typed arrays and `DataView`                                | done (2026-10-13)                                      |
+| [T101](#t101)            | Keep `null` apart from `undefined` everywhere              | done (2026-10-13)                                      |
+| [T102](#t102)            | Recursive union types, for JSON-shaped values              | done (2026-10-14)                                      |
+| [T103](#t103)            | Promise chaining, combinators and JavaScript's await order | done (2026-10-13)                                      |
+| [T104](#t104)            | Timers and `queueMicrotask`                                | done (2026-10-13)                                      |
+| [T105](#t105)            | Web APIs that shared code uses                             | done (2026-10-14)                                      |
+| [T106](#t106)            | Language gaps module code meets                            | done (2026-10-15)                                      |
+| [T107](#t107)            | Native objects: memory pressure and native handles         | done (2026-10-13)                                      |
+| [T108](#t108)            | Platform memory as JavaScript bytes, without copying       | done (2026-10-13)                                      |
+| [T109](#t109)            | Executors for platform callbacks                           | done (2026-10-13)                                      |
+| [T110](#t110)            | App-delegate and Activity events                           | done (2026-10-14)                                      |
+| [T111](#t111)            | The app's own native needs and options                     | done (2026-10-15)                                      |
+| [T112](#t112)            | SDK shapes Lucent still refuses                            | in progress                                            |
+| [T113](#t113)            | Classes that extend `EventEmitter`                         | done (2026-10-15)                                      |
+| [T114](#t114)            | Native code that calls Lucent modules                      | in progress (#315 to #322)                             |
+| [T115](#t115)            | Native configuration packages can't declare yet            | in progress (#299, #300, #301, #302)                   |
+| **View parity**          |                                                            |                                                        |
+| [T120](#t120)            | Instances of exported classes as view props                | done (2026-10-13)                                      |
+| [T121](#t121)            | React Native's view props, refs and view libraries         | done (2026-10-14)                                      |
+| [T122](#t122)            | UIKit components with a view-controller root               | in progress (#324, #325)                               |
+| [T123](#t123)            | Native objects and helpers in SwiftUI and Compose bodies   | in progress (#328 to #339 merged, #340, #341)          |
+| [T124](#t124)            | A component's ref as a module function's argument          | in progress (#326 merged)                              |
+| [T125](#t125)            | Android views made after setup keep the Activity's context | in progress (#327)                                     |
+| **Execution modes**      |                                                            |                                                        |
+| [T130](#t130)            | A native root: module code with no JavaScript runtime      | done (2026-10-13)                                      |
+| [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | done (2026-10-14)                                      |
+| [T132](#t132)            | iOS background execution                                   | done (2026-10-14); relaunches are T137                 |
+| [T133](#t133)            | iOS app extensions and widgets                             | in progress (#345 to #356): decided (0124)             |
+| [T134](#t134)            | Calls from worklet runtimes                                | in progress (#342–#344): a device run remains          |
+| [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it        |
+| [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T133                                    |
+| [T137](#t137)            | Relaunches for background URL sessions and silent pushes   | ready                                                  |
+| **Distribution**         |                                                            |                                                        |
+| [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190 to #204, #363 merged)                |
+| [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                      |
+| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #364): decided (0125, 0126, 0128) |
+| [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                                  |
+| [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                  |
+| [T145](#t145)            | The package distribution matrix                            | ready                                                  |
+| **Production candidate** |                                                            |                                                        |
+| [T150](#t150)            | Reference ports for each parity row                        | waiting; each port names its needs                     |
+| [T151](#t151)            | Lifetime, concurrency and Fabric stress validation         | ready                                                  |
+| [T152](#t152)            | The no-catalog audit                                       | ready                                                  |
+| [T153](#t153)            | Benchmarks against Nitro and Expo Modules                  | ready                                                  |
+| [T154](#t154)            | Guides for every parity row, and migration guides          | waiting; needs T150                                    |
+| [T155](#t155)            | The production-candidate gate                              | waiting; needs every other task but T135               |
+| [T156](#t156)            | CI runs what the docs say it runs                          | ready                                                  |
+| [T157](#t157)            | Small fixes the docs rewrite found                         | ready                                                  |
 
 ## Gates
 
@@ -1562,8 +1562,8 @@ manual step, and Xcode builds without Metro running.
 **Goal:** A package wraps a C++ library, as a Nitro C++ Hybrid Object
 does, through typed extensions.
 
-- **Status:** in progress (#357 to #362): decided (0125, 0126), C++
-  headers' classes bound and called, callbacks' types read.
+- **Status:** in progress (#357 to #364): decided (0125, 0126, 0128),
+  C++ headers' classes bound and called, callbacks' types read.
 - **Area:** compiler, bindings, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V4, V7.
@@ -1583,8 +1583,8 @@ does, through typed extensions.
       unwinds through Lucent (0125, #360).
 - [ ] Extension functions take callbacks (refused today in
       `extensions/bind.ts`), called on a stated context: decided in 0126
-      (#361); bindgen reads a function pointer's and a `std::function`'s
-      signature (#362).
+      (#361) and 0128 (#364); bindgen reads a function pointer's and a
+      `std::function`'s signature (#362).
 - [ ] Extension calls can be cancelled: an `AbortSignal` reaches the
       function as a flag it reads.
 - [ ] Bytes parameters (`bytes: read|write`) borrow a `NativeBuffer`'s or

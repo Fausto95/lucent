@@ -23,6 +23,7 @@ it shapes. Decisions 0001 to 0047 came from ROADMAP.md's decisions log
 
 | Number                                                                                    | Date       | Decision                                                                                             |
 | ----------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
+| [0128](0128-an-extensions-callback-runs-at-once-on-its-contexts-thread.md)                | 2026-10-16 | An extension's callback runs at once on its context's thread, and is posted from any other           |
 | [0127](0127-react-native-0-88-and-expo-sdk-58-join-the-window.md)                         | 2026-10-16 | React Native 0.88 and Expo SDK 58 join the window, and 0.85 and SDK 56 leave it                      |
 | [0126](0126-an-extensions-callback-runs-where-its-call-ran.md)                            | 2026-10-16 | An extension's callback runs where its call ran, for as long as its declaration says                 |
 | [0125](0125-a-cpp-headers-classes-are-handles-the-generated-cpp-calls.md)                 | 2026-10-16 | A C++ header's classes are handles, which the generated C++ calls                                    |
