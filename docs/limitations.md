@@ -175,6 +175,10 @@ generated from this file.
 - Lucent compiles a package's Kotlin and Java without the app's `R` class
   or Kotlin compiler plugins (Compose, serialization). Sources that need
   them don't bind.
+- On the web, a module that imports platform code, even behind a
+  `PLATFORM` test, needs a web twin, and views aren't available. A twin
+  can't conform to an enum its module declares, which TypeScript compares
+  by name.
 - Tracing records allocations for native buffers only, and its buffer uses
   one mutex: fine for debugging, not for continuous production use.
 - Swift calling a module's exports gets a record as a `Dictionary`, which

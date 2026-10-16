@@ -67,8 +67,22 @@ function module_(file, args, proxy) {
     return `"use strict";\nconst { Platform } = require("react-native");\nconst implementations = {\n${each},\n};\nconst load = implementations[Platform.OS];\nif (!load) throw new Error("Lucent: ${path.basename(file)} has no " + Platform.OS + " implementation");\nmodule.exports = load();\n`;
   }
 
+  return javascript(file, args.src);
+}
+
+/**
+ * Module `file`'s source `src` as CommonJS, each `lucent:*` import what JS
+ * dev mode makes it (`lucentImport`): what JS dev mode and the web bundle
+ * run.
+ */
+function javascript(file, src) {
+  return lucentImports(file, transpile(file, src));
+}
+
+/** Module `file`'s source `src` as CommonJS, its imports `require(...)`s: type-only ones are gone. */
+function transpile(file, src) {
   const ts = require("typescript");
-  const out = ts.transpileModule(args.src, {
+  return ts.transpileModule(src, {
     fileName: file,
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
@@ -78,9 +92,13 @@ function module_(file, args, proxy) {
       useDefineForClassFields: true,
     },
   }).outputText;
-  return out.replace(/\brequire\((["'])(lucent:[^"']+)\1\)/g, (_, _q, spec) =>
+}
+
+/** `js`'s `require("lucent:…")`s, as JS dev mode makes them. */
+function lucentImports(file, js) {
+  return js.replace(/\brequire\((["'])(lucent:[^"']+)\1\)/g, (_, _q, spec) =>
     lucentImport(file, spec),
   );
 }
 
-module.exports = { enabled, module: module_ };
+module.exports = { enabled, javascript, lucentImports, module: module_, transpile };

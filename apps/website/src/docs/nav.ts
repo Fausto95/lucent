@@ -44,6 +44,7 @@ export const docsSections: DocSection[] = [
         items: [
           "guides/apply-a-change",
           "guides/iterate-in-javascript",
+          "guides/run-on-the-web",
           "guides/use-a-lucent-package",
           "guides/use-a-third-party-sdk",
           "guides/upgrade-lucent",

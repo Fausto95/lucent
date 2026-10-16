@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { nativePackage } = require("./native-package.cjs");
+const web = require("./web.cjs");
 
 /**
  * Wraps a Metro config:
@@ -20,6 +21,9 @@ const { nativePackage } = require("./native-package.cjs");
  * `{ js: true }` (or LUCENT_JS=1) is JS dev mode: Metro bundles each module
  * as its JavaScript, so edits refresh without a native rebuild, and
  * platform SDK calls throw (js-dev.cjs). Development builds only.
+ *
+ * For the web, Metro bundles each module as its JavaScript, and resolves a
+ * module to its web twin, m.web.lucent.ts, when it has one (web.cjs).
  */
 function withLucent(config, options = {}) {
   const root = config.projectRoot || process.cwd();
@@ -63,11 +67,32 @@ function withLucent(config, options = {}) {
       extraNodeModules: Object.assign(Object.create(resolver.extraNodeModules || null), {
         "lucent:views": path.join(nativePackage(root), "js/_lucent/components"),
       }),
+      resolveRequest: webResolver(resolver.resolveRequest),
     },
     transformer: {
       ...config.transformer,
       babelTransformerPath: path.join(__dirname, "transformer.cjs"),
     },
+  };
+}
+
+/**
+ * The app's resolver (`upstream`, else Metro's own), with the web's rules
+ * (decision 0133): a module resolves to its web twin when it has one, and a component's
+ * `lucent:views/*` fails, its views being native.
+ */
+function webResolver(upstream) {
+  return (context, moduleName, platform) => {
+    const resolve = upstream || context.resolveRequest;
+    if (platform !== "web") return resolve(context, moduleName, platform);
+
+    if (moduleName.startsWith("lucent:views/"))
+      throw new Error(
+        `Lucent: ${moduleName} is a component, whose views are native: the web has none. Render a React component on the web instead, in a .web.tsx file beside the code that imports it.`,
+      );
+    const found = resolve(context, moduleName, platform);
+    const twin = found && found.type === "sourceFile" ? web.webTwin(found.filePath) : undefined;
+    return twin ? { type: "sourceFile", filePath: twin } : found;
   };
 }
 

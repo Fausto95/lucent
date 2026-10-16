@@ -1,0 +1,35 @@
+---
+title: Run your modules in a web build
+sidebar_label: Run on the web
+description: "For React Native Web, Metro bundles each `*.lucent.ts` module as its JavaScript. A module that calls a platform SDK gives the web its exports from a `*.web.lucent.ts` twin."
+kind: guide
+---
+
+```ts title="store.web.lucent.ts"
+export function save(key: string, value: string): void {
+  localStorage.setItem(key, value);
+}
+
+export function load(key: string): string | undefined {
+  return localStorage.getItem(key) ?? undefined;
+}
+```
+
+A web build has no native code. For the web, `withLucent` has Metro bundle each `*.lucent.ts` module as its JavaScript, as [JS dev mode](/docs/guides/iterate-in-javascript/) does, release builds included:
+
+- `lucent:core` and `lucent:thread` are their JavaScript implementations, and `PLATFORM` is `"web"`.
+- A module that imports only those runs as it is: parsing, formatting, state, algorithms.
+
+## Give a module a web twin
+
+A module that imports a platform SDK, a native extension or a view toolkit can't run on the web. Neither can a module split into `.ios.lucent.ts` and `.android.lucent.ts` files. Put a twin beside it, `store.web.lucent.ts` for `store.lucent.ts`: on the web, Metro resolves the module's imports to the twin.
+
+A twin is plain TypeScript, so the DOM, `fetch` and npm packages are yours to use. Of Lucent's modules it imports `lucent:core`, `lucent:thread` and `lucent:platform`. Native builds leave it out.
+
+`lucent build` type-checks each twin with the DOM's types, against its module's exports. A twin missing an export, or giving one another type, is [LUCENT3005](/docs/api/diagnostics/#lucent3005) at the twin.
+
+## What fails
+
+Without its twin, a module that needs one fails the web build. The error names the platform files, or the line of the import the web can't run, and the twin to add.
+
+Components are native views, so a `.lucent.tsx` module or a `lucent:views/…` import fails the web build too. On the web, render a React component instead, from a `.web.tsx` file beside the code that uses it.

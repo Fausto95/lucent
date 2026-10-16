@@ -4,8 +4,12 @@ import type { Block, CppFile } from "../../apps/website/src/docs/types.ts";
 import { compileSamples, type Sample } from "./compile.ts";
 import type { CheckedPage } from "./pages.ts";
 
+/** A Lucent module's sample, which compiles: not a web twin, which is TypeScript for the web (decision 0133). */
 const isSample = (b: { filename: string; diff?: true; from?: string }): boolean =>
-  /\.lucent\.tsx?$/.test(b.filename) && !b.diff && !b.from;
+  /\.lucent\.tsx?$/.test(b.filename) &&
+  !b.filename.endsWith(".web.lucent.ts") &&
+  !b.diff &&
+  !b.from;
 
 function samplesOf(blocks: Block[]): Sample[] {
   return blocks.flatMap((b): Sample[] => {
