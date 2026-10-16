@@ -1210,7 +1210,9 @@ build the C code into the one native package.
 | Runtime    | `Handle::open(what, pointer, destroy, destroyOn?)`, `use<T>()` for one call, idempotent `close()`, `whenDestroyed(f)`, shared state (`identity()`); `ext::integer`, `real`, `data`, `length`, `utf8`, `number`, `bigint`; callbacks: `ext::Callback<F>` (`context()`, `until(handle)`, `function<R, A...>()`, `done()`), `ext::callBack<F, R>(context, args…)`. |
 
 **Planned:** [T142](../tasks.md#t142)'s functions take an `AbortSignal`
-as a flag, and `android.prefab` links Gradle prefab modules. Callbacks run
+as a flag, as
+[0129](../decisions/0129-an-extension-calls-abortsignal-is-a-flag-set-as-soon-as-it-aborts.md)
+decides, and `android.prefab` links Gradle prefab modules. Callbacks run
 as [0126](../decisions/0126-an-extensions-callback-runs-where-its-call-ran.md)
 and [0128](../decisions/0128-an-extensions-callback-runs-at-once-on-its-contexts-thread.md)
 decide. C++ headers are read as
