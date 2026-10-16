@@ -1208,9 +1208,10 @@ build the C code into the one native package.
 | Outputs    | `.lucent/native/types/ext/<name>.d.ts`; each extension in `resolved.json`; the `extract:extensions` node.                                                                                                      |
 | Runtime    | `Handle::open(what, pointer, destroy, destroyOn?)`, `use<T>()` for one call, idempotent `close()`, shared state (`identity()`); `ext::integer`, `real`, `data`, `length`, `utf8`, `number`, `bigint`.          |
 
-**Planned:** [T142](../tasks.md#t142)'s functions take callbacks on a
-stated context and an `AbortSignal` as a flag, and `android.prefab` links
-Gradle prefab modules. C++ headers are read as
+**Planned:** [T142](../tasks.md#t142)'s functions take callbacks as
+[0126](../decisions/0126-an-extensions-callback-runs-where-its-call-ran.md)
+decides and an `AbortSignal` as a flag, and `android.prefab` links Gradle
+prefab modules. C++ headers are read as
 [0125](../decisions/0125-a-cpp-headers-classes-are-handles-the-generated-cpp-calls.md)
 decides.
 
