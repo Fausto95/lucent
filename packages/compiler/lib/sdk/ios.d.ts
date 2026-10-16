@@ -208,11 +208,12 @@ export type SceneEvent =
  *
  * Lucent observes the notifications, so the app's delegate and other
  * modules' stay as they are. What `listener` throws is logged, and the app
- * goes on.
+ * goes on. App extensions have no app to observe.
  *
  * @param event The notification, by name.
  * @param listener Called on the main thread each time it is posted.
  * @param signal Stops listening, as the returned function does.
+ * @extensionUnavailable
  */
 export declare function onAppEvent(
   event: AppEvent,
@@ -461,11 +462,12 @@ export declare function onAppEvent(
 
 /**
  * Like `onAppEvent`, for each scene's `event`: `listener` gets the scene's
- * session's `persistentIdentifier`.
+ * session's `persistentIdentifier`. App extensions have no scenes to observe.
  *
  * @param event The notification, by name.
  * @param listener Called with the scene's `persistentIdentifier`.
  * @param signal Stops listening, as the returned function does.
+ * @extensionUnavailable
  */
 export declare function onSceneEvent(
   event: SceneEvent,
@@ -495,8 +497,11 @@ export declare function onSceneEvent(
  * the component's view controller, if its root is one. Unmounting the
  * component dismisses it.
  *
+ * App extensions have no scene of the app's to present from.
+ *
  * @param build Makes the view controller, on the main thread.
  * @param signal Dismisses it and rejects with an `AbortError`.
+ * @extensionUnavailable
  */
 export declare function present<T>(
   build: (resolve: (value: T) => void, reject: (reason: Error) => void) => UIViewController,

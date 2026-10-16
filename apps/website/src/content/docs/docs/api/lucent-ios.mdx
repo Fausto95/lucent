@@ -235,7 +235,7 @@ function onAppEvent(
 
 Calls `listener` each time the app posts `event`, until the returned function is called or `signal` aborts. It runs on the main thread, as UIKit posts it, so main-thread APIs work there without `main()`.
 
-Lucent observes the notifications, so the app's delegate and other modules' stay as they are. What `listener` throws is logged, and the app goes on.
+Lucent observes the notifications, so the app's delegate and other modules' stay as they are. What `listener` throws is logged, and the app goes on. App extensions have no app to observe.
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -495,7 +495,7 @@ function onSceneEvent(
 ): () => void;
 ```
 
-Like `onAppEvent`, for each scene's `event`: `listener` gets the scene's session's `persistentIdentifier`.
+Like `onAppEvent`, for each scene's `event`: `listener` gets the scene's session's `persistentIdentifier`. App extensions have no scenes to observe.
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -521,6 +521,8 @@ It settles once, and whatever settles it dismisses the view controller if it is 
 It rejects with an `InvalidStateError` when no scene is in the foreground, or UIKit doesn't present it.
 
 A component's code calling it before its first `await` presents from the component's view controller, if its root is one. Unmounting the component dismisses it.
+
+App extensions have no scene of the app's to present from.
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |

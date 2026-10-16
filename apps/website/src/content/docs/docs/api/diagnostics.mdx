@@ -61,6 +61,8 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3015`](#lucent3015) | A Lucent package's lucent.json lists a module in `launch` that the package doesn't have. |
 | [`LUCENT3016`](#lucent3016) (warning) | Two exported functions whose native entry points, `lucent_<module>_<export>`, come out with the same name. |
 | [`LUCENT3017`](#lucent3017) (warning) | Two modules whose Swift names come out the same, or a module whose Swift name is one of the Swift API's own. |
+| [`LUCENT3018`](#lucent3018) | An iOS API that app extensions can't use, in a module an app extension's code reaches (lucent.json's `ios.appExtensions`). |
+| [`LUCENT3019`](#lucent3019) | A Lucent package's lucent.json names a module in an app extension's `class`, `provider` or `body` that the package doesn't have. |
 | [`LUCENT3020`](#lucent3020) | An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component. |
 | [`LUCENT3021`](#lucent3021) | A component prop, event or ref command whose type views cannot carry, or whose name React or the host keeps. |
 | [`LUCENT3022`](#lucent3022) | A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread. |
@@ -1437,6 +1439,144 @@ export function c(): number {
 ```ts title="other.lucent.ts (right)"
 export function d(): number {
   return 2;
+}
+```
+
+</TabItem>
+</Tabs>
+
+### LUCENT3018
+
+**API unavailable in app extensions**
+
+An app extension runs without the app's `UIApplication`, so the SDK marks some APIs unavailable to it (`NS_EXTENSION_UNAVAILABLE_IOS`), as Lucent marks `present()` and `onAppEvent()`. Lucent refuses them in every module the extension's code reaches through its imports, as Xcode does in extension code. A module the app shares is one too, since its code is built into the extension.
+
+**Fix:** move the code the app alone runs into a module the extension's code doesn't import.
+
+<Tabs>
+<TabItem label="✗ package.json">
+
+```json title="package.json (wrong)"
+{ "name": "lucent-push", "version": "1.0.0", "lucent": {} }
+```
+
+</TabItem>
+<TabItem label="✗ lucent.json">
+
+```json title="lucent.json (wrong)"
+{ "ios": { "appExtensions": [{ "kind": "notificationService", "name": "RichPush", "class": "push#Rich" }] } }
+```
+
+</TabItem>
+<TabItem label="✗ push.lucent.ts">
+
+```ts title="push.lucent.ts (wrong)"
+export declare function idleTimerOff(): Promise<boolean>;
+```
+
+</TabItem>
+<TabItem label="✗ push.ios.lucent.ts">
+
+```ts title="push.ios.lucent.ts (wrong)"
+import { UIApplication } from "lucent:ios/UIKit";
+import { UNNotificationServiceExtension } from "lucent:ios/UserNotifications";
+import { main } from "lucent:thread";
+
+export class Rich extends UNNotificationServiceExtension {}
+
+export async function idleTimerOff(): Promise<boolean> {
+  return main(() => UIApplication.shared.isIdleTimerDisabled);
+}
+```
+
+</TabItem>
+<TabItem label="✓ package.json">
+
+```json title="package.json (right)"
+{ "name": "lucent-push", "version": "1.0.0", "lucent": {} }
+```
+
+</TabItem>
+<TabItem label="✓ lucent.json">
+
+```json title="lucent.json (right)"
+{ "ios": { "appExtensions": [{ "kind": "notificationService", "name": "RichPush", "class": "push#Rich" }] } }
+```
+
+</TabItem>
+<TabItem label="✓ push.lucent.ts">
+
+```ts title="push.lucent.ts (right)"
+export declare function ready(): boolean;
+```
+
+</TabItem>
+<TabItem label="✓ push.ios.lucent.ts">
+
+```ts title="push.ios.lucent.ts (right)"
+import { UNNotificationServiceExtension } from "lucent:ios/UserNotifications";
+
+export class Rich extends UNNotificationServiceExtension {}
+
+export function ready(): boolean {
+  return true;
+}
+```
+
+</TabItem>
+</Tabs>
+
+### LUCENT3019
+
+**App extension code that isn't one**
+
+`ios.appExtensions` names the Lucent code each extension runs, as `<module path>#<name>`: the module by its path under the package's sources without the extension, so `push/rich#Rich` names `Rich` in `push/rich.lucent.ts`. A module that matches none would leave the extension with no code, so the build fails.
+
+**Fix:** name the module by its path under the package's sources, without .lucent.ts.
+
+<Tabs>
+<TabItem label="✗ package.json">
+
+```json title="package.json (wrong)"
+{ "name": "lucent-push", "version": "1.0.0", "lucent": {} }
+```
+
+</TabItem>
+<TabItem label="✗ lucent.json">
+
+```json title="lucent.json (wrong)"
+{ "ios": { "appExtensions": [{ "kind": "notificationService", "name": "RichPush", "class": "rich#Rich" }] } }
+```
+
+</TabItem>
+<TabItem label="✗ push.lucent.ts">
+
+```ts title="push.lucent.ts (wrong)"
+export function ready(): boolean {
+  return true;
+}
+```
+
+</TabItem>
+<TabItem label="✓ package.json">
+
+```json title="package.json (right)"
+{ "name": "lucent-push", "version": "1.0.0", "lucent": {} }
+```
+
+</TabItem>
+<TabItem label="✓ lucent.json">
+
+```json title="lucent.json (right)"
+{ "ios": { "appExtensions": [{ "kind": "notificationService", "name": "RichPush", "class": "push#Rich" }] } }
+```
+
+</TabItem>
+<TabItem label="✓ push.lucent.ts">
+
+```ts title="push.lucent.ts (right)"
+export function ready(): boolean {
+  return true;
 }
 ```
 

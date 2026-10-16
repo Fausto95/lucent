@@ -34,6 +34,7 @@ import {
 } from "./identity.ts";
 import { javaSubclass, osMade } from "./java.ts";
 import { osConstructorParams, osFactory, settleOsNames } from "./os-classes.ts";
+import { checkExtensionCode, extensionModules } from "../analysis/app-extensions.ts";
 import { kotlinExports } from "./kotlin-exports.ts";
 import { SWIFT_EXPORTS, swiftExports } from "./swift-exports.ts";
 import { kotlinFiles } from "./kotlin.ts";
@@ -221,6 +222,14 @@ export function emitProgram(
     for (const s of m.declaration ? declarationValues(m.declaration) : [])
       ctx.guard(() => collect(ctx, m, s, exportsOf.get(m)!, imports.get(m)!, byFile));
   }
+  // The code of app extensions: what they can't use is refused there (decision 0124).
+  if (ctx.platform === "ios")
+    for (const [m, extensions] of extensionModules(
+      currentCompile()?.appExtensions ?? new Map(),
+      lp.modules,
+      imports,
+    ))
+      checkExtensionCode(lp.checker, m, extensions, (f) => ctx.guard(f));
   // Main-thread state starts on the main thread, after the rest: it has no dead zone.
   for (const [sym, g] of ctx.globals) if (g.kind === "var" && mainState.has(sym)) delete g.early;
   // Calls from other modules resolve to the declarations; route them to the

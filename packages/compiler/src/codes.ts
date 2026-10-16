@@ -44,6 +44,8 @@ export const Codes = {
   UnknownLaunchModule: "LUCENT3015",
   EntryNameClash: "LUCENT3016",
   SwiftNameClash: "LUCENT3017",
+  ExtensionUnavailable: "LUCENT3018",
+  UnknownExtensionCode: "LUCENT3019",
   ComponentExport: "LUCENT3020",
   ComponentContract: "LUCENT3021",
   ComponentMainThread: "LUCENT3022",
@@ -641,6 +643,51 @@ export const Explanations: Record<Code, Explanation> = {
     right: {
       "a_b.lucent.ts": "export function c(): number {\n  return 1;\n}\n",
       "other.lucent.ts": "export function d(): number {\n  return 2;\n}\n",
+    },
+  },
+  LUCENT3018: {
+    title: "API unavailable in app extensions",
+    summary:
+      "An iOS API that app extensions can't use, in a module an app extension's code reaches (lucent.json's `ios.appExtensions`).",
+    details:
+      "An app extension runs without the app's `UIApplication`, so the SDK marks some APIs unavailable to it (`NS_EXTENSION_UNAVAILABLE_IOS`), as Lucent marks `present()` and `onAppEvent()`. Lucent refuses them in every module the extension's code reaches through its imports, as Xcode does in extension code. A module the app shares is one too, since its code is built into the extension.",
+    fix: "move the code the app alone runs into a module the extension's code doesn't import",
+    wrong: {
+      "package.json": '{ "name": "lucent-push", "version": "1.0.0", "lucent": {} }\n',
+      "lucent.json":
+        '{ "ios": { "appExtensions": [{ "kind": "notificationService", "name": "RichPush", "class": "push#Rich" }] } }\n',
+      "push.lucent.ts": "export declare function idleTimerOff(): Promise<boolean>;\n",
+      "push.ios.lucent.ts":
+        'import { UIApplication } from "lucent:ios/UIKit";\nimport { UNNotificationServiceExtension } from "lucent:ios/UserNotifications";\nimport { main } from "lucent:thread";\n\nexport class Rich extends UNNotificationServiceExtension {}\n\nexport async function idleTimerOff(): Promise<boolean> {\n  return main(() => UIApplication.shared.isIdleTimerDisabled);\n}\n',
+    },
+    right: {
+      "package.json": '{ "name": "lucent-push", "version": "1.0.0", "lucent": {} }\n',
+      "lucent.json":
+        '{ "ios": { "appExtensions": [{ "kind": "notificationService", "name": "RichPush", "class": "push#Rich" }] } }\n',
+      "push.lucent.ts": "export declare function ready(): boolean;\n",
+      "push.ios.lucent.ts":
+        'import { UNNotificationServiceExtension } from "lucent:ios/UserNotifications";\n\nexport class Rich extends UNNotificationServiceExtension {}\n\nexport function ready(): boolean {\n  return true;\n}\n',
+    },
+    sdk: "ios",
+  },
+  LUCENT3019: {
+    title: "App extension code that isn't one",
+    summary:
+      "A Lucent package's lucent.json names a module in an app extension's `class`, `provider` or `body` that the package doesn't have.",
+    details:
+      "`ios.appExtensions` names the Lucent code each extension runs, as `<module path>#<name>`: the module by its path under the package's sources without the extension, so `push/rich#Rich` names `Rich` in `push/rich.lucent.ts`. A module that matches none would leave the extension with no code, so the build fails.",
+    fix: "name the module by its path under the package's sources, without .lucent.ts",
+    wrong: {
+      "package.json": '{ "name": "lucent-push", "version": "1.0.0", "lucent": {} }\n',
+      "lucent.json":
+        '{ "ios": { "appExtensions": [{ "kind": "notificationService", "name": "RichPush", "class": "rich#Rich" }] } }\n',
+      "push.lucent.ts": "export function ready(): boolean {\n  return true;\n}\n",
+    },
+    right: {
+      "package.json": '{ "name": "lucent-push", "version": "1.0.0", "lucent": {} }\n',
+      "lucent.json":
+        '{ "ios": { "appExtensions": [{ "kind": "notificationService", "name": "RichPush", "class": "push#Rich" }] } }\n',
+      "push.lucent.ts": "export function ready(): boolean {\n  return true;\n}\n",
     },
   },
   LUCENT3020: {
