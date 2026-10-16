@@ -209,6 +209,8 @@ function withExtensionTargets(project, manifest, app) {
         PRODUCT_BUNDLE_IDENTIFIER: quoted(`${bundleIdentifier}.${e.name}`),
         PRODUCT_NAME: '"$(TARGET_NAME)"',
         SKIP_INSTALL: "YES",
+        // A widget's entry point is Swift.
+        ...(sources.some((f) => f.endsWith(".swift")) ? { SWIFT_VERSION: "5.0" } : {}),
       });
     }
   }

@@ -55,7 +55,7 @@ import { componentExports } from "../ui/proxy.ts";
 import { androidComponentHosts, iosComponentViews } from "./views.ts";
 import type { FunctionLike } from "../ui/roots.ts";
 import { emitSetup, mountUnit, planSetup } from "./setups.ts";
-import { emitWidget, planWidget } from "./widgets.ts";
+import { emitWidget, planWidget, widgetGlue, widgetHeader } from "./widgets.ts";
 import { type ToolkitName, toolkitOfPlatform } from "../ui/toolkits.ts";
 import { helperStatement } from "../ui/view-helpers.ts";
 import type { WidgetBody } from "../ui/widgets.ts";
@@ -741,6 +741,25 @@ export function emitProgram(
       ],
     }),
   );
+
+  // Each widget's glue: its provider's methods, as the C functions its Swift calls (widgets.ts).
+  for (const w of widgetsPlanned) {
+    const name = `widgets/${w.body.extension}`;
+    const headers = lp.modules.map((m) => cpp.include(`../${m.ns}.h`));
+    const types = typeFiles.includes(
+      [
+        cpp.fn("lucent_widget_types", cpp.voidType, [
+          cpp.param(ctx.reg.cppType(w.entry), "entry"),
+          cpp.param(ctx.reg.cppType(w.timeline.type), "timeline"),
+          cpp.param(cpp.type(`lucent_app::${w.provider}`), "provider"),
+        ]),
+      ],
+      headers,
+      "../",
+    );
+    files.set(`${name}.h`, widgetHeader(w));
+    files.set(`${name}.mm`, widgetGlue(ctx, w, [...headers, ...types.types], declared));
+  }
 
   if (views.length) for (const [name, text] of fabricSources(views)) files.set(name, text);
   // Each component's Mount, and on iOS the view class React Native's renderer creates, which drives it.

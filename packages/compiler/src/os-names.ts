@@ -35,3 +35,13 @@ export function osJavaName(module: string, name: string): string {
 export function osObjcName(module: string, name: string): string {
   return `LucentApp_${module.replace(/[^A-Za-z0-9]/g, "_")}_${name}`;
 }
+
+/**
+ * A widget's Swift names start with `LucentWidget_<extension>` (decision
+ * 0124), its target's name with `-` as `_`: the widget its extension's
+ * entry point names, and its view, values, entry and provider. Its glue's
+ * C functions are `lucent_widget_<extension>_…`, the same way.
+ */
+export function widgetName(extension: string): string {
+  return extension.replace(/-/g, "_");
+}

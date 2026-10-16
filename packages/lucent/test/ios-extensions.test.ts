@@ -129,6 +129,43 @@ describe("an app extension's target", () => {
     expect(ext.withExtensionTargets(written, manifest, app)).toBe(false);
   });
 
+  it("compiles a widget's entry point, in Swift", () => {
+    const { project: p } = project();
+    const widget: Manifest = {
+      ...manifest,
+      extensions: [
+        {
+          name: "Weather",
+          kind: "widget",
+          pod: "LucentExtensions/Weather",
+          infoPlist: {
+            NSExtension: { NSExtensionPointIdentifier: "com.apple.widgetkit-extension" },
+          },
+          entitlements: {},
+          sources: { "LucentWidget.swift": "@main\nstruct LucentWidgetBundle {}\n" },
+        },
+      ],
+    };
+    expect(ext.withExtensionTargets(p, widget, { bundleIdentifier: "dev.lucent.hello" })).toBe(
+      true,
+    );
+
+    const [, weather] = named(p, "Weather")!;
+    const configs = p.pbxXCBuildConfigurationSection();
+    const list = p.pbxXCConfigurationList()[weather.buildConfigurationList as string]!;
+    for (const r of list.buildConfigurations)
+      expect(configs[r.value]!.buildSettings.SWIFT_VERSION).toBe("5.0");
+    expect(p.writeSync()).toMatch(/LucentWidget\.swift in Sources/);
+    // The notification service's target compiles no Swift.
+    const { project: q } = project();
+    ext.withExtensionTargets(q, manifest, { bundleIdentifier: "dev.lucent.hello" });
+    const [, rich] = named(q, "RichPush")!;
+    const richConfigs = q.pbxXCBuildConfigurationSection();
+    for (const r of q.pbxXCConfigurationList()[rich.buildConfigurationList as string]!
+      .buildConfigurations)
+      expect(richConfigs[r.value]!.buildSettings.SWIFT_VERSION).toBeUndefined();
+  });
+
   it("takes the app's version from the app when its target has none", () => {
     const { project: p } = project();
     // An Expo app's target has no MARKETING_VERSION: app.json gives it.

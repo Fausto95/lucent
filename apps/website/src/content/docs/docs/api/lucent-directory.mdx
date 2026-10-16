@@ -64,7 +64,7 @@ kind: reference
 | `react-native.config.js` | What autolinking reads: the Android library, its C++ module and the components' descriptors. iOS links through the podspec. |
 | `LucentNative.podspec` | The iOS pod: the C++ and Swift to compile, and the frameworks, pods and files that the modules and Lucent packages need. Its build phase runs `lucent build` in every Xcode build. |
 | `LucentExtensions.podspec` | With iOS app extensions (`ios.appExtensions` in `lucent.json`): a subspec per extension, which its target in the Podfile names. Each builds the code the extension reaches and the runtime's JSI-free core, without React Native. |
-| `ios-extensions.json` | What adding each app extension's target takes: its subspec, its Info.plist, entitlements and the source that links its principal class. The Expo plugin and `lucent init` read it. |
+| `ios-extensions.json` | What adding each app extension's target takes: its subspec, its Info.plist, entitlements and its one source. That source links its principal class, or is a widget's entry point. The Expo plugin and `lucent init` read it. |
 | `.pod-install` | Written by the podspec at `pod install`: a digest of the podspec and the sources CocoaPods listed. The build phase compares it with the package's to tell when `pod install` must run again. |
 | `manifest.json` | The modules built, and the key of the build's inputs: a build with the same inputs is skipped. It's written last, and Metro's cache keys on it. |
 | `resolved.json` | What the app's Lucent packages need, merged from their `lucent.json` files, with the package each need came from. The Expo plugin reads it. |
@@ -72,7 +72,7 @@ kind: reference
 | `cpp/rn/` | The TurboModule that React Native calls, and the host of components' views. |
 | `cpp/third_party/` | Vendored libraries for number formatting and regular expressions. |
 | `prebuilt/` | The runtime's core, prebuilt for each Android ABI and for iOS, when the installed package has it for this runtime. The podspec and CMake link it instead of compiling those sources; `LUCENT_RUNTIME_FROM_SOURCE=1` compiles them. |
-| `cpp/generated/` | Each module compiled to C++, and the Swift shims on iOS. A project with platform code gets one set per target, such as `ios/` and `android/`, and one per iOS app extension, in `ios-extensions/<name>/`. |
+| `cpp/generated/` | Each module compiled to C++, and the Swift shims on iOS. A project with platform code gets one set per target, such as `ios/` and `android/`, and one per iOS app extension, in `ios-extensions/<name>/`. A widget's has `widgets/<name>.swift`, its view and what WidgetKit takes, and the glue calling its provider. |
 | `ios/LucentRegistration.mm` | Registers the TurboModule when the app loads, without codegen or a change to the app delegate. |
 | `android/` | The Android library: `build.gradle`, and the C++ build in `CMakeLists.txt`. When Lucent packages ship C or C++ sources, `packages.cmake` adds them. |
 | `android/include/` | Headers that React Native's autolinking includes: `lucentnative.h` and the components' descriptors. |
