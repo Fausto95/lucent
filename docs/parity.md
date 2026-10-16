@@ -67,7 +67,7 @@ each system lets an author do, not how it does it.
 | Swift `async` and Kotlin `suspend` APIs  | ✅                     | ✅                                   | ✅ as promises, cancelled by `AbortSignal`     | —                     |
 | Platform callbacks off the module's lock | By hand                | By hand                              | ✅ `on(executor(…), …)`: no wait for the actor | —                     |
 | Bounded streams with backpressure        | By hand                | By hand                              | ✅ `Channel`                                   | —                     |
-| Calls from worklet runtimes              | ✅ any runtime         | ✅ `installOnUIRuntime`              | ❌                                             | [T134](tasks.md#t134) |
+| Calls from worklet runtimes              | ✅ any runtime         | ✅ `installOnUIRuntime`              | 🟡 sync; async with the runtime's scheduler    | [T134](tasks.md#t134) |
 | Code that runs with no JS runtime        | By hand                | By hand                              | ❌ module state needs a live runtime           | [T130](tasks.md#t130) |
 | iOS background tasks                     | By hand                | ✅ `expo-background-task`            | ✅ from a package's launch module              | —                     |
 | Android WorkManager, services, receivers | By hand (Kotlin)       | ✅ task consumers, Kotlin            | ✅ Lucent classes the OS makes                 | —                     |

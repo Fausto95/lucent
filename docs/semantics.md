@@ -860,7 +860,11 @@ Other platform callbacks enter module code under their actor's lock, so
 a frame delegate waits behind synchronous JavaScript calls;
 `serialQueue(label)` from `lucent:ios` only moves them off the main
 thread. A function or a delegate can go on an executor instead (below).
-Worklet runtimes can't call Lucent yet ([T134](tasks.md#t134)).
+A worklet runtime calls through a host attached to it
+([0123](decisions/0123-a-runtime-that-calls-lucent-gets-a-host-there.md)).
+A synchronous export runs on its thread, entering as main-thread entries
+do on the UI runtime. An async one rejects with `NotSupportedError` until
+the runtime's creator gives it a scheduler ([T134](tasks.md#t134)).
 
 ### Compute tasks
 

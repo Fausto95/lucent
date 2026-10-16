@@ -617,4 +617,19 @@ jsi::Value rejectedPromise(jsi::Runtime& rt, const jsi::Value& reason) {
   return promise.getPropertyAsFunction(rt, "reject").callWithThis(rt, promise, reason);
 }
 
+std::optional<jsi::Value> unusablePromise(jsi::Runtime& rt, Host& host) {
+  auto gone = host.unusable();
+  if (!gone) return std::nullopt;
+  return rejectedPromise(rt, host.errorToJs(rt, *gone));
+}
+
+std::optional<jsi::Value> unscheduledPromise(jsi::Runtime& rt, Host& host) {
+  if (!host.attached() || host.scheduled()) return std::nullopt;
+
+  Error error = makeError(String::fromLatin1("NotSupportedError"),
+                          String::fromLatin1("A promise of a runtime Lucent's functions were carried into settles "
+                                             "through the scheduler its creator gives (Host::attach)"));
+  return rejectedPromise(rt, host.errorToJs(rt, error));
+}
+
 }  // namespace lucent::js

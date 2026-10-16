@@ -579,9 +579,10 @@ object on the context it names (the main context on iOS). Module work
 belongs to the JavaScript runtime it runs for (`RuntimeEntry`,
 `ownedScope()`), so tearing one down cancels its work only.
 
-> **Planned:** module code with no JavaScript runtime
-> ([T130](tasks.md#t130)), and calls from worklet runtimes
-> ([T134](tasks.md#t134)).
+A runtime Lucent's functions are carried into (a worklet's) calls through
+a host attached to it, whose work is its own but which is never the
+default runtime and holds no module state
+([0123](decisions/0123-a-runtime-that-calls-lucent-gets-a-host-there.md)).
 
 ### Scopes, operations and resources
 

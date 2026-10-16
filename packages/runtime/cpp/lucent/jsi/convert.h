@@ -715,9 +715,21 @@ void settleLater(Host& host, uint64_t id, const Promise<T>& p, uint64_t traceId 
 
 /// Hands a Lucent promise to JavaScript: the JS promise settles on the JS
 /// thread when the Lucent one does.
+/// A promise of an attached runtime whose creator gave it no scheduler,
+/// which could never settle: rejected at once (decision 0123). None for
+/// any other host.
+std::optional<jsi::Value> unscheduledPromise(jsi::Runtime& rt, Host& host);
+/// What a call to an async export from an attached runtime returns while
+/// no module state lasts: rejected with what checkUsable throws. None
+/// otherwise.
+std::optional<jsi::Value> unusablePromise(jsi::Runtime& rt, Host& host);
+
 template <class T>
 struct Convert<Promise<T>> {
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Promise<ValueOf<T>>& p) {
+    if (h.attached()) [[unlikely]]
+      if (auto rejected = unscheduledPromise(rt, h)) return std::move(*rejected);
+
     uint64_t id = 0;
     jsi::Value jsPromise = h.createPromise(rt, id);
     settleLater(h, id, p);
@@ -728,6 +740,13 @@ struct Convert<Promise<T>> {
 };
 
 // --- functions -------------------------------------------------------------------------------
+
+/// What a call from an attached runtime throws while no module state
+/// lasts (decision 0123): the runtime that kept it is gone.
+inline void checkUsable(jsi::Runtime& rt, Host& host) {
+  if (host.attached()) [[unlikely]]
+    host.throwIfUnusable(rt);
+}
 
 /// A JavaScript function held by Lucent. Calling it on the JS thread is a
 /// normal synchronous call; from the Lucent thread the call is posted to the
@@ -897,11 +916,14 @@ struct Convert<Fn<R(A...)>> {
     return jsi::Function::createFromHostFunction(
         rt, jsi::PropNameID::forAscii(rt, "lucentFunction"), sizeof...(A),
         [f, weak, actor](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
-          // A torn-down host's function answers through the runtime's host.
+          // A torn-down host's function answers through the runtime's host;
+          // one a library carried into another runtime, through the host
+          // attached there (decision 0123).
           auto kept = weak.lock();
-          Host& host = kept && kept->alive() ? *kept : Host::get(rt);
+          Host& host = kept && kept->alive() ? Host::from(rt, kept) : Host::get(rt);
+          checkUsable(rt, host);
           RuntimeEntry entry(host.id());
-          LucentScope scope(*actor);
+          LucentScope scope(*actor, host.entersFromMain());
           try {
             return call(rt, host, f, args, count, std::index_sequence_for<A...>{});
           } catch (const Exception& e) {
@@ -981,9 +1003,10 @@ Promise<ValueOf<T>> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Val
 /// errors into JS exceptions.
 template <class F>
 jsi::Value callSync(jsi::Runtime& rt, Host& host, Actor& actor, F&& body) {
+  checkUsable(rt, host);
   RuntimeEntry entry(host.id());
   try {
-    LucentScope scope(actor);
+    LucentScope scope(actor, host.entersFromMain());
     return body();
   } catch (const Exception& e) {
     throw jsi::JSError(rt, host.errorToJs(rt, e.error()));
@@ -1012,9 +1035,13 @@ jsi::Value rejectedPromise(jsi::Runtime& rt, const jsi::Value& reason);
 /// function's throw does, instead of throwing from the call.
 template <class F>
 jsi::Value callAsyncEntry(jsi::Runtime& rt, Host& host, Actor& actor, F&& body) {
+  // From an attached runtime while no module state lasts (decision 0123).
+  if (host.attached()) [[unlikely]]
+    if (auto rejected = unusablePromise(rt, host)) return std::move(*rejected);
+
   RuntimeEntry entry(host.id());
   try {
-    LucentScope scope(actor);
+    LucentScope scope(actor, host.entersFromMain());
     return body();
   } catch (const Exception& e) {
     return rejectedPromise(rt, host.errorToJs(rt, e.error()));
@@ -1046,6 +1073,9 @@ jsi::Value callSync(jsi::Runtime& rt, Host& host, const trace::Site* site, F&& b
 /// host is torn down first.
 template <class T, class F>
 jsi::Value callAsync(jsi::Runtime& rt, Host& host, Actor& actor, const trace::Site* site, F&& start) {
+  if (host.attached()) [[unlikely]]
+    if (auto rejected = unscheduledPromise(rt, host)) return std::move(*rejected);
+
   uint64_t traceId = site && trace::enabled() ? trace::newId() : 0;
 
   std::optional<trace::Scope> entry;

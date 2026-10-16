@@ -246,18 +246,81 @@ std::shared_ptr<Host> Host::create(jsi::Runtime& rt, JsPoster poster) {
   return host;
 }
 
-Host& Host::get(jsi::Runtime& rt) {
+std::shared_ptr<Host> Host::makeAttached(jsi::Runtime& rt, JsPoster poster) {
+  std::shared_ptr<Host> host(new Host(rt, std::move(poster), true));
+  {
+    std::lock_guard<std::mutex> g(registryMutex());
+    registry()[&rt] = host;
+    registryGeneration++;
+  }
+  // Torn down with its runtime, as React Native's host is.
+  rt.global().setProperty(rt, "__lucentHost", jsi::Object::createFromHostObject(rt, std::make_shared<Anchor>(host)));
+
+  // Its work is its own, but it is never the default runtime, and module
+  // state neither starts nor ends with it (decision 0123).
+  attachRuntime(host->id(), host);
+  return host;
+}
+
+Host& Host::attachedTo(jsi::Runtime& rt) {
+  if (Host* h = find(rt); h && h->alive()) [[likely]]
+    return *h;
+
+  // Its runtime keeps it (the global anchor holds it).
+  return *makeAttached(rt, nullptr);
+}
+
+std::shared_ptr<Host> Host::attach(jsi::Runtime& rt, JsPoster poster) {
+  {
+    std::lock_guard<std::mutex> g(registryMutex());
+    auto it = registry().find(&rt);
+    if (it != registry().end())
+      if (auto h = it->second.lock(); h && h->alive()) {
+        // React Native's host keeps the poster it was made with.
+        if (h->attached_) {
+          std::lock_guard<std::mutex> p(h->posterMutex_);
+          h->poster_ = std::move(poster);
+        }
+        return h;
+      }
+  }
+
+  return makeAttached(rt, std::move(poster));
+}
+
+bool Host::scheduled() const {
+  std::lock_guard<std::mutex> g(posterMutex_);
+  return static_cast<bool>(poster_);
+}
+
+void Host::throwIfUnusable(jsi::Runtime& rt) {
+  if (auto gone = unusable()) throw jsi::JSError(rt, errorToJs(rt, *gone));
+}
+
+std::optional<Error> Host::unusable() const {
+  // A runtime of its own keeps module state; an attached one only uses it.
+  if (!attached_ || moduleGeneration()) return std::nullopt;
+  return goneError();
+}
+
+Host* Host::find(jsi::Runtime& rt) {
   uint64_t generation = registryGeneration.load(std::memory_order_acquire);
   CachedHost& c = cached;
-  if (c.runtime == &rt && c.generation == generation) return *c.host;
+  if (c.runtime == &rt && c.generation == generation) return c.host;
   std::lock_guard<std::mutex> g(registryMutex());
   auto it = registry().find(&rt);
   if (it != registry().end()) {
     if (auto h = it->second.lock()) {
       c = {&rt, h.get(), registryGeneration.load(std::memory_order_relaxed)};
-      return *h;
+      return h.get();
     }
   }
+  return nullptr;
+}
+
+Host& Host::get(jsi::Runtime& rt) {
+  if (Host* h = find(rt)) [[likely]]
+    return *h;
   throw jsi::JSError(rt, "Lucent is not initialized for this runtime");
 }
 
@@ -267,9 +330,10 @@ const jsi::PropNameID& Host::makeProp(jsi::Runtime& rt, const PropName& name) {
   return *props_[name.id];
 }
 
-Host::Host(jsi::Runtime& rt, JsPoster poster)
+Host::Host(jsi::Runtime& rt, JsPoster poster, bool attached)
     : id_(newRuntimeId()),
       rt_(rt),
+      attached_(attached),
       poster_(std::move(poster)),
       jsThread_(std::this_thread::get_id()),
       scope_(Scope::create(id_, Actor::shared().root())) {
@@ -306,8 +370,17 @@ bool Host::postToJs(JsTask task, Job dropped) {
 
   if (!alive_.load()) return false;
 
+  JsPoster poster;
+  {
+    std::lock_guard<std::mutex> g(posterMutex_);
+    poster = poster_;
+  }
+
+  // An attached runtime its creator gave no scheduler: the task is dropped.
+  if (!poster) return false;
+
   std::weak_ptr<Host> weak = weak_from_this();
-  poster_([weak, parcel](jsi::Runtime& rt) {
+  poster([weak, parcel](jsi::Runtime& rt) {
     auto self = weak.lock();
     if (!self || !self->alive()) return;
 
@@ -393,7 +466,7 @@ void Host::tearDown(bool runtimeUsable) {
   // it: its destroy hooks run, each in its actor, before the next
   // initialization (Host::create tears the old host down first). Then each
   // scope cancels its operations and runs its cleanups.
-  endModuleStateUnlessHeld(id_);
+  if (!attached_) endModuleStateUnlessHeld(id_);
 
   std::vector<std::shared_ptr<Scope>> scopes;
   {

@@ -338,6 +338,20 @@ class LucentScope {
   /// On the main thread, which must answer now (LucentLock::lockFromMain).
   LucentScope(Actor& actor, FromMain);
 
+  /// As the main thread enters if `fromMain`, else as any thread does: a
+  /// call from a runtime attached on the main thread (decision 0123).
+  LucentScope(Actor& actor, bool fromMain) : actor_(actor) {
+    if (fromMain) [[unlikely]] {
+      actor.lock().lockFromMain(actor.name());
+    } else if (trace::enabled()) [[unlikely]] {
+      lockTraced(actor.lock());
+    } else {
+      actor.lock().lock();
+    }
+
+    push();
+  }
+
   ~LucentScope() {
     if (actor_.hasMicrotasks()) handOffMicrotasks();
 
