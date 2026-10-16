@@ -308,8 +308,8 @@ Last, it loads the Metro and Expo integrations and
 diagnostics. It builds no app.
 
 `window-app.ts` makes a fresh app per release of the window: bare from
-React Native's template (0.85 to 0.87), Expo from `create-expo-app`'s
-(SDK 56 and 57). It adds a module of each kind and a component, and an
+React Native's template (0.86 to 0.88), Expo from `create-expo-app`'s
+(SDK 57 and 58). It adds a module of each kind and a component, and an
 `App.tsx` that checks them. Then it runs `lucent doctor` and `lucent
 build`, and the platform's Release build for the simulator or Android.
 

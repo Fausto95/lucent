@@ -52,10 +52,10 @@ export async function hasStringAsync(): Promise<boolean> {
 
 ## Install
 
-You need React Native 0.85 to 0.87, or Expo SDK 56 or 57 in a development
-build, and Node 22.12 or later. The React Native 0.88 release candidate and
-the Expo SDK 58 preview work too, on Lucent's prerelease lane. iOS builds
-need macOS; Linux builds Android only.
+You need React Native 0.86 to 0.88, or Expo SDK 57 or 58 in a development
+build, and Node 22.12 or later. React Native 0.89's release candidates and
+the Expo SDK 59 preview, once published, work too, on Lucent's prerelease
+lane. iOS builds need macOS; Linux builds Android only.
 
 ```sh
 npm i -D @lucent-lang/lucent

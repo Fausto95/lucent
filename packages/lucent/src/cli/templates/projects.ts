@@ -26,18 +26,18 @@ export const PROJECT_TEMPLATE_SUMMARIES: Record<ProjectTemplate, string> = {
 
 /**
  * The versions the templates pin: the newest stable releases of the window
- * (decisions 0074 and 0079), as React Native 0.87's template and Expo SDK
- * 57 pair them. The example apps stay on the prerelease lane.
+ * (decisions 0074, 0079 and 0127), as React Native 0.88's template and Expo
+ * SDK 58 pair them. The example apps stay on the prerelease lane.
  */
 const VERSIONS = {
-  react: "19.2.3",
-  reactNative: "0.87.1",
-  rnTooling: "0.87.1",
+  react: "19.3.0",
+  reactNative: "0.88.0",
+  rnTooling: "0.88.0",
   rnCli: "20.2.0",
-  expo: "~57.0.28",
-  expoReactNative: "0.86.3",
-  expoDevClient: "~57.0.20",
-  expoStatusBar: "~57.0.1",
+  expo: "~58.0.12",
+  expoReactNative: "0.88.0",
+  expoDevClient: "~58.0.13",
+  expoStatusBar: "~58.0.3",
   typesReact: "^19.2.0",
   typescript: "~5.9.3",
 };

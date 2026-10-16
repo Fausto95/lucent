@@ -239,7 +239,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "in progress",
-        "text": "React Native 0.85 to 0.87 and Expo SDK 56 and 57, with fresh apps built nightly."
+        "text": "React Native 0.86 to 0.88 and Expo SDK 57 and 58, with fresh apps built nightly."
       },
       {
         "status": "done",

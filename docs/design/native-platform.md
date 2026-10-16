@@ -1104,12 +1104,12 @@ any other:
 
 Lucent supports the stable Expo SDKs of the window and the React Native
 releases from the oldest one's to the newest stable, with a prerelease
-lane ([0074][d0074], [0079][d0079]):
+lane ([0074][d0074], [0079][d0079], [0127][d0127]):
 
-| Lane       | React Native     | Expo SDK     |
-| ---------- | ---------------- | ------------ |
-| Window     | 0.85, 0.86, 0.87 | 56, 57       |
-| Prerelease | 0.88 (candidate) | 58 (preview) |
+| Lane       | React Native      | Expo SDK     |
+| ---------- | ----------------- | ------------ |
+| Window     | 0.86, 0.87, 0.88  | 57, 58       |
+| Prerelease | 0.89 (candidates) | 59 (preview) |
 
 `REQUIREMENTS` in `packages/lucent/src/cli/doctor.ts` holds the window,
 which `lucent doctor` checks and the website's compatibility page shows.
@@ -1227,4 +1227,5 @@ change.
 [d0081]: ../decisions/0081-functions-on-an-executor-share-only-constants-and-channels.md
 [d0082]: ../decisions/0082-objects-go-on-an-executor-where-they-are-made.md
 [d0079]: ../decisions/0079-react-native-0-85-is-in-the-window-and-no-release-needs-a-fallback.md
+[d0127]: ../decisions/0127-react-native-0-88-and-expo-sdk-58-join-the-window.md
 [d0080]: ../decisions/0080-the-plan-is-rewritten-for-parity-with-nitro-and-expo-modules.md

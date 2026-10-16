@@ -187,10 +187,11 @@ generated from this file.
   hosts, with Linux's Swift and the desktop JNI host. The bare example's
   Platform screen checks its own Swift and Kotlin calling one, which the
   device check hasn't run yet ([T114](tasks.md#t114)).
-- Fresh apps on the window's releases (React Native 0.85 to 0.87, Expo
-  SDK 56 and 57) build and run a short check nightly, on the simulator and
+- Fresh apps on the window's releases (React Native 0.86 to 0.88, Expo
+  SDK 57 and 58) build and run a short check nightly, on the simulator and
   the emulator. The full Tests screen runs only in the example apps, which
-  are on the prerelease lane.
+  are on the prerelease lane: 0.88's release candidate and the SDK 58
+  preview until 0.89's and SDK 59's are published.
 - The actors' iOS and Android glue has run through host tests and the
   example apps, not under stress ([T151](tasks.md#t151)).
 - StoreKit's `purchase()` needs a `.storekit` configuration, which only an

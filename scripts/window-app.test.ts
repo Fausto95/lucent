@@ -39,7 +39,7 @@ describe("the window's apps", () => {
     for (const app of apps)
       expect(app.runner).toBe(app.platform === "ios" ? "macos-26" : "ubuntu-latest");
     expect(new Set(apps.map((a) => a.name)).size).toBe(apps.length);
-    expect(apps.map((a) => a.name)).toContain("Expo SDK 56 (iOS simulator)");
+    expect(apps.map((a) => a.name)).toContain("Expo SDK 58 (iOS simulator)");
   });
 });
 

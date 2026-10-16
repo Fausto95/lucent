@@ -189,18 +189,19 @@ describe("init and the app's React Native", () => {
     });
 
   it("says when the app's React Native is older than Lucent supports, and what to do", () => {
-    const r = lucent(installing("0.84.1"), "--yes");
+    const r = lucent(installing("0.85.3"), "--yes");
 
     expect(r.status).toBe(0);
     expect(r.out).toContain(
-      "React Native 0.84.1; Lucent supports 0.85 to 0.87, and 0.88 on its prerelease lane",
+      "React Native 0.85.3; Lucent supports 0.86 to 0.88, and 0.89 on its prerelease lane",
     );
-    expect(r.out).toMatch(/\n +upgrade react-native to 0\.87\n/);
+    expect(r.out).toMatch(/\n +upgrade react-native to 0\.88\n/);
   });
 
   it("says nothing of a release Lucent supports", () => {
     expect(planInit(installing("0.86.3")).releases).toEqual([]);
-    expect(planInit(installing("0.88.0-rc.4")).releases).toEqual([]);
+    expect(planInit(installing("0.88.0")).releases).toEqual([]);
+    expect(planInit(installing("0.89.0-rc.1")).releases).toEqual([]);
   });
 });
 

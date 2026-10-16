@@ -54,11 +54,11 @@ export async function hasStringAsync(): Promise<boolean> {
 }
 ```
 
-Supports bare React Native 0.85 to 0.87 and Expo SDK 56 and 57
+Supports bare React Native 0.86 to 0.88 and Expo SDK 57 and 58
 (development builds), the current and the previous stable releases, and a
-prerelease lane beside them: the React Native 0.88 release candidate and
-the Expo SDK 58 preview, where the example apps run. Develop on macOS for iOS and
-Android. Linux builds Android only: iOS code is untyped there and skipped
+prerelease lane beside them: React Native 0.89's release candidates and the
+Expo SDK 59 preview, where the example apps run once they're published.
+Develop on macOS for iOS and Android. Linux builds Android only: iOS code is untyped there and skipped
 with a warning. Windows is unsupported; WSL works as Linux does.
 [Compatibility](https://lucent-lang.dev/docs/api/compatibility/#operating-systems)
 has the details.
