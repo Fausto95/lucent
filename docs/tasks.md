@@ -60,7 +60,7 @@ what became of each one that is still linked or was still open.
 | **Distribution**         |                                                            |                                                                |
 | [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190 to #204, #363 merged)                        |
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                              |
-| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #371): decided (0125, 0126, 0128 to 0130) |
+| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #372): decided (0125, 0126, 0128 to 0131) |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                                          |
 | [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                          |
 | [T145](#t145)            | The package distribution matrix                            | ready                                                          |
@@ -1562,8 +1562,8 @@ manual step, and Xcode builds without Metro running.
 **Goal:** A package wraps a C++ library, as a Nitro C++ Hybrid Object
 does, through typed extensions.
 
-- **Status:** in progress (#357 to #371): decided (0125, 0126, 0128 to
-  0130), C++ headers' classes bound and called, C and C++ callbacks,
+- **Status:** in progress (#357 to #372): decided (0125, 0126, 0128 to
+  0131), C++ headers' classes bound and called, C and C++ callbacks,
   signals, and bytes from any buffer.
 - **Area:** compiler, bindings, tooling.
 - **Needs:** nothing.
@@ -1603,7 +1603,8 @@ does, through typed extensions.
       bytes, a NativeBuffer's under a `Lease` (#371).
 - [ ] `android.prefab`: Gradle artifacts whose prefab modules the
       runtime's CMake links, with their headers on the extension's include
-      path. Vendored frameworks and pods expose headers the same way.
+      path. Vendored frameworks and pods expose headers the same way:
+      decided in 0131 (#372).
 - [ ] A fixture C++ library with a class, overloads, callbacks and
       exceptions, run on the host and the JNI host.
 - [ ] `lucent-mmkv` through MMKV's C++ core on both platforms, with

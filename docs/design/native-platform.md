@@ -639,9 +639,12 @@ the header with clang. Lucent code, shared code included, imports the
 functions and handles from `lucent:ext/<name>`. Nothing escapes a call,
 and every integer is range-checked as it enters C.
 
-**Planned:** C++ headers as classes, callbacks, cancellation and prefab
-([T142](../tasks.md#t142)), with C++ exceptions caught before they reach
-Lucent. A package's own Kotlin and Java typed in Lucent
+A C++ header's classes are handles, with C++ exceptions caught before they
+reach Lucent (0125), and functions take callbacks, signals and buffers'
+bytes (0126, 0128 to 0130).
+
+**Planned:** prefab modules and pods' headers on an extension's include
+path ([T142](../tasks.md#t142), 0131). A package's own Kotlin and Java typed in Lucent
 ([T143](../tasks.md#t143)); its Swift sources already are, as
 `lucent:ios/LucentNative`.
 
