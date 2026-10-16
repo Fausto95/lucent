@@ -98,7 +98,10 @@ modules and platform modules. A platform module is `name.lucent.ts`,
 which only declares exports, and `name.ios.lucent.ts` or
 `name.android.lucent.ts`, which implement them. A target without its
 platform's file compiles the declaration as stubs that throw or reject.
-A shared module may branch on `PLATFORM` from `lucent:platform`.
+A shared module may branch on `PLATFORM` from `lucent:platform`. A web
+twin, `name.web.lucent.ts`, is no Lucent file: `web-twins.ts` checks it
+in a program of the twins, with the DOM's types, against its module's
+exports.
 
 **Programs.** Without platform code, one program serves every target,
 and its identity says `all`. Otherwise each target gets a TypeScript

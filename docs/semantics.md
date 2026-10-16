@@ -575,8 +575,13 @@ declare class`), types, imports and shared constants and enums. A
 declared class is each platform file's class of its name, which has the
 declared members in the same forms (field, accessor, method) and no other
 public ones; shared code and JavaScript use it as declared. The rules are in
-[platform-bindings.md](platform-bindings.md); a web platform is
-[T144](tasks.md#t144).
+[platform-bindings.md](platform-bindings.md).
+
+A module's web twin, `<name>.web.lucent.ts`, is plain TypeScript for the
+web ([0133](decisions/0133-a-modules-web-twin-is-typescript-checked-against-its-exports.md)).
+Native builds leave it out. The compiler type-checks it with the DOM's
+types against the module's exports (`LUCENT3005` when they differ). On the
+web, `PLATFORM` is `"web"` ([T144](tasks.md#t144)).
 
 The compiler checks what TypeScript can't: a main-thread-only API outside
 `main(() => …)` (`LUCENT3006`), and an API newer than the app's oldest OS

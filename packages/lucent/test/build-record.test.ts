@@ -153,10 +153,11 @@ describe("lucent build's record", () => {
 
     const check = node(r, "check")!;
     expect(check).toMatchObject({ kind: "check", status: "ok" });
-    // The files it read besides: the package.json naming the module (none here), and
-    // those outside the project, the compiler's own, by what they hold.
+    // The files it read besides: the module's web twin and the package.json naming the
+    // module (none here), and those outside the project, the compiler's own, by what they hold.
     expect(check.inputs.map((i) => i.key)).toEqual([
       "a.lucent.ts",
+      "a.web.lucent.ts",
       "outside-project",
       "package.json",
       "targets",

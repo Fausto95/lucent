@@ -150,7 +150,7 @@ function untypedSdkText(): string {
   });
 }
 
-function sdkLibPath(name: string): string {
+export function sdkLibPath(name: string): string {
   return sdkLibFile(`${name}.d.ts`);
 }
 
@@ -333,9 +333,12 @@ export function compilerOptions(): ts.CompilerOptions {
   };
 }
 
-/** The `*.lucent.ts` files of the package `root` is in (see findOwnFiles). */
+/**
+ * The `*.lucent.ts` files of the package `root` is in (see findOwnFiles),
+ * but web twins (`*.web.lucent.ts`), which are TypeScript for the web bundle.
+ */
 export function findLucentFiles(root: string): string[] {
-  return findOwnFiles(root, LUCENT_EXTENSION);
+  return findOwnFiles(root, LUCENT_EXTENSION).filter((f) => !f.endsWith(".web.lucent.ts"));
 }
 
 /** Text of a file that differs from disk (an editor's unsaved buffer), if any. */
@@ -349,7 +352,7 @@ const declarationCache = new Map<string, { text: string; sf: ts.SourceFile }>();
 const DECLARATIONS_KEPT = 4000;
 
 /** `f`'s declaration source file with `text`, parsed once while it holds that text. */
-function cachedDeclaration(
+export function cachedDeclaration(
   f: string,
   text: string,
   language: ts.ScriptTarget | ts.CreateSourceFileOptions,

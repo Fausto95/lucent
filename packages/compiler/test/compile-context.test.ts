@@ -85,7 +85,8 @@ describe("compile contexts", () => {
     results.forEach((r, i) => {
       expect(r.diagnostics).toEqual([]);
       const own = [...r.read.keys()].filter((k) => k.endsWith(".lucent.ts"));
-      expect(own).toEqual([files[i]]);
+      // Its module, and the web twin it looked for (none: decision 0133).
+      expect(own).toEqual([files[i], files[i]!.replace(/\.lucent\.ts$/, ".web.lucent.ts")]);
     });
   });
 

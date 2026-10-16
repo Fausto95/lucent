@@ -22,7 +22,7 @@ export function greeting(): string {
 ### PLATFORM
 
 ```ts title="platform.d.ts"
-const PLATFORM: "ios" | "android";
+const PLATFORM: "ios" | "android" | "web";
 ```
 
-The platform: `if (PLATFORM === "ios") { … } else { … }` and `PLATFORM === "ios" ? … : …` compile each platform's branch only, so a shared module can use `lucent:ios/…` and `lucent:android/…` in them.
+The platform: `if (PLATFORM === "ios") { … } else { … }` and `PLATFORM === "ios" ? … : …` compile each platform's branch only, so a shared module can use `lucent:ios/…` and `lucent:android/…` in them. In a web bundle, where modules run as JavaScript, it is `"web"`.
