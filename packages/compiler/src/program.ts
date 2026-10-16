@@ -67,6 +67,8 @@ export interface LucentProgram {
   checker: ts.TypeChecker;
   modules: LucentModule[];
   diagnostics: Diagnostic[];
+  /** The iOS app extension whose build this program is (decision 0124); none for the app's. */
+  appExtension?: string;
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -581,6 +583,8 @@ export function createLucentProgram(
     libCheck?: boolean;
     /** What the last check kept, which this program reuses; under `key`, its target's program. */
     session?: { session: CompileSession; key: string };
+    /** The iOS app extension whose build the program is. */
+    appExtension?: string;
   } = {},
 ): LucentProgram {
   const references = extra.references ?? [];
@@ -698,7 +702,14 @@ export function createLucentProgram(
       );
     }
   }
-  return { program, platform, checker, modules, diagnostics };
+  return {
+    program,
+    platform,
+    checker,
+    modules,
+    diagnostics,
+    ...(extra.appExtension !== undefined ? { appExtension: extra.appExtension } : {}),
+  };
 }
 
 /** TypeScript's errors for a member a type does not have (2551: with a suggestion). */

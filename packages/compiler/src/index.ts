@@ -484,7 +484,7 @@ function appExtensionBuilds(
         modules.map((m) => m.file),
         options.readSource,
         "ios",
-        { references, stubs },
+        { references, stubs, appExtension: name },
       ),
       references,
     );
@@ -703,7 +703,9 @@ function compileChecked(
   if (views?.diagnostics.length)
     return { files: new Map(), proxies: new Map(), diagnostics: views.diagnostics, ok: false };
 
-  const fabric = views?.components.length ? views.components : undefined;
+  // An app extension's build has no views: they need React Native (decision 0124).
+  const fabric =
+    views?.components.length && lp.appExtension === undefined ? views.components : undefined;
   const { identity, ...result } = emitProgram(
     lp,
     target,
@@ -711,6 +713,7 @@ function compileChecked(
     fabric,
     fabric ? views?.setups : undefined,
     views?.mainState,
+    views?.widgets,
   );
   const ok = result.diagnostics.length === 0;
   const components = views?.components.length ? { components: views.components } : {};

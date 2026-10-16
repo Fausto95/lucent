@@ -54,6 +54,11 @@ export interface BodySetup {
   readonly propsSymbol?: ts.Symbol;
   readonly export: string;
   readonly registration: string;
+  /**
+   * A widget's body (decision 0124), of the widget named: its function is
+   * the setup, its entry the props, and WidgetKit draws it once per entry.
+   */
+  readonly widget?: string;
 }
 
 /** A number (a Double), a boolean or a string, maybe null: what crosses back from a body. */
@@ -620,6 +625,12 @@ export class Crossings {
   ): ListSlot {
     const title = TOOLKITS[this.toolkit].title;
 
+    if (this.setup.widget)
+      bodyFail(
+        site,
+        `the widget ${this.setup.widget}'s body shows no list (\`ForEach\`), for now: show each of the entry's items in a view of its own`,
+      );
+
     if (this.listOf(site))
       bodyFail(site, `a ${title} list's item shows no list of its own, for now`);
 
@@ -701,6 +712,8 @@ export class Crossings {
    */
   bind(call: ts.CallExpression): { value: ValueSlot; change: ActionSlot } {
     const title = TOOLKITS[this.toolkit].title;
+
+    if (this.setup.widget) this.refuseInWidget(call, "binds nothing");
     const [arg] = call.arguments;
     const signal = arg && skipParentheses(arg);
 
@@ -790,6 +803,8 @@ export class Crossings {
    * a number, a boolean or a string crossing back into Lucent.
    */
   action(id: ts.Identifier, args: readonly ts.Expression[] = []): ActionSlot {
+    if (this.setup.widget) this.refuseInWidget(id, `calls nothing back (\`${id.text}\`)`);
+
     const items = args.map((a) => this.itemOf(a));
     // What Lucent code computes is computed when the action runs (one action per call).
     const computed = args.map((a) => !this.itemOf(a) && this.computedAtCall(a));
@@ -901,6 +916,17 @@ export class Crossings {
       );
 
     this.refusePlain(e);
+  }
+
+  /**
+   * Refused in a widget's body: what `does` (a callback, a binding) needs
+   * a view that stays, where WidgetKit draws a widget once per entry.
+   */
+  private refuseInWidget(node: ts.Node, does: string): never {
+    bodyFail(
+      node,
+      `the widget ${this.setup.widget}'s body ${does}: WidgetKit draws a widget once per entry, from what its body computes from the entry, and runs none of its code after`,
+    );
   }
 
   /** Refused: a setup function called where the body draws, which would run each time it does. */

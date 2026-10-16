@@ -47,6 +47,7 @@ import type { IrUnit } from "./through-ir.ts";
 import { liftedStatements } from "./toolkit.ts";
 import { traceSite } from "./trace-site.ts";
 import { refuseSharedWithExecutor } from "./executors.ts";
+import { widgetOf } from "./widgets.ts";
 
 /** A prop, an event or a command of a compiled setup: its C++ member and its Lucent type(s). */
 export interface SetupProp {
@@ -327,6 +328,14 @@ export function uiCall(em: FnEmitter, node: ts.CallExpression): E | undefined {
   if (!helper) return undefined;
 
   const setup = setupOf(em.ctx, node);
+  const widget = !setup && widgetOf(em.ctx, node);
+
+  if (widget)
+    fail(
+      node,
+      Codes.ToolkitBody,
+      `${helper} is for a component's setup, and the widget ${widget.body.extension}'s body is drawn once per entry: WidgetKit draws what it computes from the entry, and runs none of its code after`,
+    );
 
   if (!setup)
     fail(

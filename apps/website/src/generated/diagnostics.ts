@@ -513,8 +513,8 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT3019",
     "title": "App extension code that isn't one",
-    "summary": "An app extension's `class`, `provider` or `body` in lucent.json names a module the package doesn't have, or a principal class the OS can't make.",
-    "details": "`ios.appExtensions` names the Lucent code each extension runs, as `<module path>#<name>`: `push/rich#Rich` names `Rich` in `push/rich.lucent.ts`. A module that matches none would leave the extension with no code, so the build fails. A principal class (`class`) is one the OS makes with `init`: exported, extending an iOS class, with a constructor and a `super()` that take nothing.",
+    "summary": "lucent.json's `ios.appExtensions` names code the package doesn't have, a class the OS can't make, or a widget body that isn't one.",
+    "details": "`ios.appExtensions` names the Lucent code each extension runs, as `<module path>#<name>`: `push/rich#Rich` names `Rich` in `push/rich.lucent.ts`. A module that matches none would leave the extension with no code, so the build fails. A principal class (`class`) is one the OS makes with `init`: exported, extending an iOS class, with a constructor and a `super()` that take nothing.\n\nA widget's `body` is an exported function of an iOS JSX file that draws its entry: `(entry: E) => View`, where `E` is a record with a `date: Date`.",
     "fix": "name the module by its path under the package's sources, without .lucent.ts, and a class the OS can make",
     "wrong": {
       "package.json": "{ \"name\": \"lucent-push\", \"version\": \"1.0.0\", \"lucent\": {} }\n",
@@ -595,7 +595,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT3024",
     "title": "SwiftUI or Compose body that cannot be compiled",
     "summary": "A component's SwiftUI or Jetpack Compose body that Lucent cannot write out in Swift or Kotlin, or toolkit code used outside such a body.",
-    "details": "A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose. Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.",
+    "details": "A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose. Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.\n\nA widget's body is SwiftUI too, but WidgetKit draws it once per entry. So it has no callbacks, bindings or signals, and no lists (`ForEach`) for now.",
     "fix": "make the view in the body, and move logic into a function of the setup that the body calls",
     "wrong": {
       "package.json": "{ \"name\": \"example-app\" }\n",

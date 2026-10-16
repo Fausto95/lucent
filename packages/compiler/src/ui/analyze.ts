@@ -58,6 +58,7 @@ import {
 } from "./roots.ts";
 import { setupSlot } from "./slot.ts";
 import { type InstanceClass, ViewTypes } from "./values.ts";
+import { hasWidgetBodies, type WidgetBody, widgetBodies } from "./widgets.ts";
 
 /** What the analysis needs to know about the program's SDKs and helpers. */
 export interface ViewEnv {
@@ -83,6 +84,8 @@ export interface ViewAnalysis {
   readonly setups: ReadonlyMap<string, FunctionLike>;
   /** Module variables only main-thread code uses, which components may use (analysis/main-state.ts). */
   readonly mainState: ReadonlySet<ts.Symbol>;
+  /** In a widget's build, its body (ui/widgets.ts): `declarations` has it too. */
+  readonly widgets: readonly WidgetBody[];
   readonly diagnostics: Diagnostic[];
 }
 
@@ -112,9 +115,9 @@ export function sdkViews(lp: LucentProgram): ViewEnv {
   };
 }
 
-/** Whether a program has modules that may export components. */
+/** Whether a program has modules that may export components, or a widget's body. */
 export function hasComponentModules(lp: LucentProgram): boolean {
-  return lp.modules.some((m) => isComponentFile(m.file));
+  return lp.modules.some((m) => isComponentFile(m.file)) || hasWidgetBodies(lp);
 }
 
 /** An export whose code returns a view. */
@@ -133,9 +136,16 @@ export function analyzeViews(lp: LucentProgram, env: ViewEnv = sdkViews(lp)): Vi
   const diagnostics: Diagnostic[] = [];
   const declarations = new Set<ts.Node>();
   const candidates: Candidate[] = [];
+  // Widget bodies are left out, as components are: their widgets' builds compile them.
+  const widgets = widgetBodies(lp, (m) => exportedFunctions(lp, m));
+
+  diagnostics.push(...widgets.diagnostics);
+  for (const s of widgets.statements) declarations.add(s);
 
   for (const m of lp.modules.filter((x) => isComponentFile(x.file)))
     for (const e of exportedFunctions(lp, m)) {
+      if (widgets.statements.has(e.statement)) continue;
+
       const found = candidate(lp, env, m, e, diagnostics);
 
       if (found !== "value") declarations.add(e.statement);
@@ -161,6 +171,7 @@ export function analyzeViews(lp: LucentProgram, env: ViewEnv = sdkViews(lp)): Vi
       declarations,
       setups: new Map(),
       mainState: new Set(),
+      widgets: widgets.bodies,
       diagnostics: inSourceOrder(diagnostics),
     };
 
@@ -197,6 +208,7 @@ export function analyzeViews(lp: LucentProgram, env: ViewEnv = sdkViews(lp)): Vi
     declarations,
     setups: diagnostics.length ? new Map() : setups,
     mainState: facts.mainState().owned,
+    widgets: widgets.bodies,
     diagnostics: inSourceOrder(diagnostics),
   };
 }

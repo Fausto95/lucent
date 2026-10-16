@@ -55,8 +55,10 @@ import { componentExports } from "../ui/proxy.ts";
 import { androidComponentHosts, iosComponentViews } from "./views.ts";
 import type { FunctionLike } from "../ui/roots.ts";
 import { emitSetup, mountUnit, planSetup } from "./setups.ts";
+import { emitWidget, planWidget } from "./widgets.ts";
 import { type ToolkitName, toolkitOfPlatform } from "../ui/toolkits.ts";
 import { helperStatement } from "../ui/view-helpers.ts";
+import type { WidgetBody } from "../ui/widgets.ts";
 
 export interface EmitResult {
   /** Generated C++ sources, keyed by file name. */
@@ -133,6 +135,7 @@ export function emitProgram(
   views: readonly ComponentDescription[] = [],
   setups: ReadonlyMap<string, FunctionLike> = new Map(),
   mainState: ReadonlySet<ts.Symbol> = new Set(),
+  widgets: readonly WidgetBody[] = [],
 ): EmitResult {
   const ctx = new Ctx(lp.checker, lp.modules);
   ctx.platform = lp.platform;
@@ -343,6 +346,14 @@ export function emitProgram(
     if (!out) continue;
     moduleDecls.get(s.module)!.push(...out.decls);
     moduleDefs.get(s.module)!.push(...out.defs);
+  }
+  // A widget's body, in its build (widgets.ts): its values, computed from its entry.
+  const widgetsPlanned = widgets.flatMap((w) => ctx.guard(() => planWidget(ctx, w)) ?? []);
+  for (const w of widgetsPlanned) {
+    const out = ctx.guard(() => emitWidget(ctx, w, (unit) => throughIr(ctx, unit, ir)));
+    if (!out) continue;
+    moduleDecls.get(w.body.module)!.push(...out.decls);
+    moduleDefs.get(w.body.module)!.push(...out.defs);
   }
 
   // Module state and init().
@@ -746,6 +757,11 @@ export function emitProgram(
     for (const [name, text] of iosComponentViews(ctx, planned)) files.set(name, text);
   // SwiftUI bodies, written out in Swift.
   for (const [name, text] of toolkitFiles(ctx, "swiftui")) files.set(name, text);
+  // Widgets' Swift: their bodies' views, and what WidgetKit takes.
+  for (const file of ctx.widgetFiles.values()) {
+    const { name, text } = file();
+    files.set(name, text);
+  }
   if (ctx.platform === "android")
     for (const [name, text] of androidComponentHosts(ctx, planned)) files.set(name, text);
 

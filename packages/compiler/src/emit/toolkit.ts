@@ -51,9 +51,10 @@ import { nativeJsx } from "./native-jsx.ts";
 import type { Ctx, E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
 import { enterMount, type Setup, setupOf, site } from "./setups.ts";
-import { swiftUIEmitter } from "./swiftui.ts";
+import { swiftUIEmitter, swiftUIWidget } from "./swiftui.ts";
 import { encoded, scalarType } from "./toolkit-values.ts";
 import { traceSite } from "./trace-site.ts";
+import { WIDGET_VALUES, type Widget, widgetOf } from "./widgets.ts";
 
 /** A body's generated file: `views/<registration>.swift`, or Kotlin under the library's sources. */
 export interface ToolkitFile {
@@ -200,6 +201,10 @@ export function toolkitJsx(em: FnEmitter, node: ts.Expression): E {
 
   if (!toolkit) throw new Error("JSX in a file of no toolkit (the program refuses it)");
 
+  const widget = widgetOf(em.ctx, node);
+
+  if (widget) return widgetJsx(em, widget, node, toolkit);
+
   const { title } = TOOLKITS[toolkit];
 
   if (!setup || setup.toolkit !== toolkit || !inSetupCode(node, setup.fn))
@@ -257,6 +262,71 @@ function host(em: FnEmitter, setup: Setup, bodyNode: Body, where: ts.Expression)
   ];
 
   return { c: cpp.statementExpr(statements, host.value), t: setup.root };
+}
+
+/**
+ * A widget's body (widgets.ts): each value computed once, in the order the
+ * view reads them, and encoded, the array of them its function returns.
+ */
+function widgetJsx(em: FnEmitter, widget: Widget, node: ts.Expression, toolkit: ToolkitName): E {
+  const { body } = widget;
+
+  if (toolkit !== "swiftui" || !inSetupCode(node, body.fn))
+    bodyFail(
+      node,
+      `the widget ${body.extension}'s views are its body: SwiftUI JSX its function returns, as its last statement`,
+    );
+
+  const drawn = bodyOf(body.fn, toolkit, em.checker);
+
+  if (skipParentheses(drawn) !== skipParentheses(node))
+    bodyFail(
+      node,
+      `the widget ${body.extension}'s views are made in its body, the JSX its function returns: write this view in it`,
+    );
+
+  if (em.ctx.widgetFiles.has(widget))
+    bodyFail(node, `the widget ${body.extension}'s body is made once`);
+
+  const { crossings, file } = swiftUIWidget(em, widget, drawn);
+
+  em.ctx.widgetFiles.set(widget, file);
+  em.ctx.nativeUnit(em.opts.module).include("lucent/platform/swiftui.h");
+
+  // Computed in order, as the view reads them: C++ leaves a call's arguments unordered.
+  const statements: cpp.Stmt[] = [];
+  const fields = crossings.values.map((slot, i) => {
+    const scalar = scalarOf(slot.type);
+    const get = em.thunk(slot.source, {
+      site: slotSite(slot),
+      given: givens(em.checker, slot.source, slot.use),
+      ...(scalar && !scalar.nullable ? { type: scalarType(scalar) } : {}),
+    });
+    const name = `lucent_v${i}`;
+
+    statements.push(
+      cpp.varDecl(cpp.auto, `${name}_of`, get.c),
+      cpp.varDecl(cpp.auto, `${name}_value`, cpp.call(cpp.id(`${name}_of`))),
+      cpp.varDecl(
+        cpp.type("id"),
+        name,
+        encoded(em.ctx, "lucent::swiftui", slot.type, returned(get), cpp.id(`${name}_value`)),
+      ),
+    );
+
+    return cpp.id(name);
+  });
+
+  return {
+    c: cpp.statementExpr(
+      statements,
+      cpp.call("lucent::objc::wrap", [
+        cpp.call("lucent::swiftui::record", [cpp.initList(fields)]),
+        cpp.str(`the widget ${body.extension}'s values`),
+      ]),
+    ),
+    t: WIDGET_VALUES,
+  };
 }
 
 /**

@@ -128,8 +128,9 @@ generated from this file.
   `pod install`), an app with components builds twice on Android.
   Prebuild lists components from the iOS build, and the first Gradle
   build reads that list before it writes it.
-- App extensions aren't run on a simulator yet, and widgets have no body
-  yet ([T133](tasks.md#t133)). On iOS, a launch module's
+- App extensions aren't run on a simulator yet, and a widget's body has no
+  provider calling it yet ([T133](tasks.md#t133)). A widget's body shows
+  no list (`ForEach`) and no `Date` of its entry yet. On iOS, a launch module's
   `BGTaskScheduler` handler runs without JavaScript. Relaunches for background
   URL sessions and silent pushes aren't checked yet
   ([T132](tasks.md#t132)).
