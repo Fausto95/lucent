@@ -52,6 +52,18 @@ What a Lucent package's platform code needs from the app that installs it, next 
 | `ios.privacy.collectedData.<name>.linked` | `boolean` | yes |  |
 | `ios.privacy.collectedData.<name>.tracking` | `boolean` | yes |  |
 | `ios.privacy.collectedData.<name>.purposes` | `string[]` | yes |  |
+| `ios.appExtensions` | `object[]` |  | App extensions (decision 0124): targets of the app's Xcode project that run Lucent code with no JavaScript. Each is a notification service, a share extension or a widget. A name is declared once; packages that declare it differently fail the build, naming both. They're checked and merged, but their targets aren't built yet (T133). |
+| `ios.appExtensions[].kind` | `"notificationService" or "share" or "widget"` | yes |  |
+| `ios.appExtensions[].name` | `string` | yes | The target's name, and the last part of its bundle identifier: \<app's identifier\>.\<name\>. |
+| `ios.appExtensions[].class` | `string` |  | A notification service or share extension's principal class, as "\<module path\>#\<Class\>": an exported class extending the SDK class its extension point makes (UNNotificationServiceExtension, a UIViewController), whose constructor takes no parameters. |
+| `ios.appExtensions[].provider` | `string` |  | A widget's timeline provider, as "\<module path\>#\<Class\>": a class with placeholder(), snapshot() and timeline() methods giving its entries. |
+| `ios.appExtensions[].body` | `string` |  | A widget's body, as "\<module path\>#\<function\>": a function of an iOS JSX file taking an entry and returning SwiftUI. |
+| `ios.appExtensions[].displayName` | `string` |  | A widget's name in the widget gallery. |
+| `ios.appExtensions[].description` | `string` |  | A widget's description in the widget gallery. |
+| `ios.appExtensions[].families` | `string[]` |  | The widget families it supports, as WidgetFamily names them ("systemSmall"). |
+| `ios.appExtensions[].infoPlist` | `{ [name]: string or boolean or string[] }` |  | Info.plist entries of the extension alone. |
+| `ios.appExtensions[].entitlements` | `{ [name]: string or boolean or string[] }` |  | Entitlements of the extension alone. |
+| `ios.appGroups` | `string[]` |  | App Group identifiers ("group.\<reverse DNS name\>"): the app's entitlements and each app extension's get them as com.apple.security.application-groups, so they share UserDefaults(suiteName:) and files. They join the entitlement's value from ios.entitlements. |
 | `android` | `object` |  | What the Android code needs. |
 | `android.dependencies` | `{ [name]: string }` |  | Gradle artifacts: "group:artifact" → version. They become api dependencies of the native package, so lucent:android/\* can import their classes. Every package's version of an artifact goes to Gradle, which picks one; a strict version ("1.0!!") that another package's excludes fails the build. |
 | `android.permissions` | `string[]` |  | Android permissions for the manifest, such as "android.permission.CAMERA". Each is declared once, however many packages list it. Permissions the SDK methods you call require are added without listing them here. |

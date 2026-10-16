@@ -143,6 +143,18 @@ so the outcome never depends on discovery order.
 | `resources`          | files or directories                | Listed paths. One name per bundle root.                          | `s.resources`                                                                 |
 | `resourceBundles`    | bundle → files or directories       | One package per bundle.                                          | `s.resource_bundles`                                                          |
 | `vendoredFrameworks` | `.framework` or `.xcframework` dirs | Listed paths. One framework per name.                            | `s.vendored_frameworks`                                                       |
+| `appExtensions`      | app extension targets               | One declaration per name. A different one fails.                 | Not built yet ([T133](tasks.md#t133))                                         |
+| `appGroups`          | `group.…` identifiers               | Union.                                                           | The `com.apple.security.application-groups` entitlement                       |
+
+An app extension ([0124](decisions/0124-an-app-extension-is-a-target-built-from-the-code-it-reaches.md))
+needs a `kind` (`notificationService`, `share` or `widget`) and a target
+`name`. A notification service or share extension names its principal
+`class`, and a widget its `provider` and `body`, with an optional
+`displayName`, `description` and `families`. Any may add `infoPlist` and
+`entitlements` of its own. Its code is named as the package's modules
+are, `<package>/<path>#<name>`. An app's own extension of a name replaces
+a package's. App Groups join the entitlement's value from
+`entitlements`, which must then be an array.
 
 A pod requirement Lucent can't parse is left to CocoaPods
 (`podsCompatible` in `package-versions.ts`). A Swift package requirement

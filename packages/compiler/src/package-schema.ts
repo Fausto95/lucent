@@ -77,6 +77,42 @@ export interface ManifestComponent {
   metaData?: Record<string, string>;
 }
 
+/** The extension points Lucent writes an iOS app extension's target for (decision 0124). */
+export const APP_EXTENSION_KINDS = ["notificationService", "share", "widget"] as const;
+
+/**
+ * An iOS app extension (decision 0124): a target of the app's Xcode
+ * project, built from the Lucent code it names, without React Native.
+ */
+export interface AppExtension {
+  kind: (typeof APP_EXTENSION_KINDS)[number];
+  /** The target's name, and the last part of its bundle identifier (`<app's identifier>.<name>`). */
+  name: string;
+  /**
+   * A notification service or share extension's principal class, as
+   * `<module path>#<Class>`: an exported class extending the SDK class its
+   * extension point makes.
+   */
+  class?: string;
+  /** A widget's timeline provider, as `<module path>#<Class>`. */
+  provider?: string;
+  /** A widget's body, as `<module path>#<function>`: SwiftUI JSX of its entry. */
+  body?: string;
+  /** A widget's name in the widget gallery. */
+  displayName?: string;
+  /** A widget's description in the widget gallery. */
+  description?: string;
+  /** The widget families it supports, as WidgetKit names them (`"systemSmall"`). */
+  families?: string[];
+  /** Info.plist entries of the extension alone. */
+  infoPlist?: Record<string, PlistValue>;
+  /** Entitlements of the extension alone. */
+  entitlements?: Record<string, PlistValue>;
+}
+
+/** What each kind of app extension names, and which fields only a widget has. */
+const WIDGET_FIELDS = ["provider", "body", "displayName", "description", "families"] as const;
+
 /** A privacy manifest's declarations (`PrivacyInfo.xcprivacy`), as Apple names them. */
 export interface PrivacyManifest {
   /** `NSPrivacyTracking`: whether the code tracks users, as App Tracking Transparency defines it. */
@@ -221,6 +257,10 @@ export interface PackageNative {
     deploymentTarget?: string;
     /** What the code's privacy manifest says (PrivacyInfo.xcprivacy). */
     privacy?: PrivacyManifest;
+    /** App extensions: targets of the app's Xcode project the package's code runs in (decision 0124). */
+    appExtensions?: AppExtension[];
+    /** App Group identifiers (`group.…`) the app's entitlements and each app extension's get. */
+    appGroups?: string[];
   };
   android?: {
     dependencies?: Record<string, string>;
@@ -434,6 +474,59 @@ const lucentClass: Check = (v, at) => {
     : `${at} must be a Lucent class of the package: "<module path>#<Class>", as "workers#SyncWorker"`;
 };
 
+/** A Lucent function of the package: `<module path>#<function>`. */
+const lucentFunction: Check = (v, at) => {
+  const [module, name, ...rest] = typeof v === "string" ? v.split("#") : [];
+  return module !== undefined &&
+    name !== undefined &&
+    !rest.length &&
+    /^[A-Za-z_$][\w$]*$/.test(name)
+    ? modulePath(module, at)
+    : `${at} must be a Lucent function of the package: "<module path>#<function>", as "widget#Body"`;
+};
+
+/** A target's name: a letter, then letters, digits or `-`, as a bundle identifier's part may be. */
+const targetName: Check = (v, at) =>
+  typeof v === "string" && /^[A-Za-z][A-Za-z0-9-]*$/.test(v)
+    ? undefined
+    : `${at} must be a target's name: a letter, then letters, digits or -`;
+
+/** A WidgetKit family's name, as `WidgetFamily` spells its case. */
+const widgetFamily: Check = (v, at) =>
+  typeof v === "string" && /^[a-z][A-Za-z]*$/.test(v)
+    ? undefined
+    : `${at} must be a widget family, as WidgetFamily names it ("systemSmall")`;
+
+const appExtension = refine(
+  fields(
+    {
+      kind: oneOf(APP_EXTENSION_KINDS),
+      name: targetName,
+      class: lucentClass,
+      provider: lucentClass,
+      body: lucentFunction,
+      displayName: string,
+      description: string,
+      families: listOf(widgetFamily),
+      infoPlist: recordOf(plistValue),
+      entitlements: recordOf(plistValue),
+    } satisfies Record<keyof AppExtension, Check>,
+    ["kind", "name"],
+  ),
+  (v, at) => {
+    if (v.kind === "widget") {
+      const missing = (["provider", "body"] as const).find((f) => v[f] === undefined);
+      if (missing) return `${at}.${missing} is required for a widget`;
+      return v.class === undefined
+        ? undefined
+        : `${at}.class is a notification service or share extension's: a widget names its provider and body`;
+    }
+    if (v.class === undefined) return `${at}.class is required for a ${String(v.kind)} extension`;
+    const widgetOnly = WIDGET_FIELDS.find((f) => v[f] !== undefined);
+    return widgetOnly && `${at}.${widgetOnly} is a widget's`;
+  },
+);
+
 const component = refine(
   fields(
     {
@@ -493,6 +586,8 @@ export const PACKAGE_FIELDS = {
         ),
       ),
     } satisfies Record<keyof PrivacyManifest, Check>),
+    appExtensions: listOf(appExtension),
+    appGroups: strings,
   },
   android: {
     dependencies: recordOf(string),

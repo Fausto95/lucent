@@ -167,6 +167,78 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "description": ""
   },
   {
+    "field": "ios.appExtensions",
+    "type": "object[]",
+    "required": false,
+    "description": "App extensions (decision 0124): targets of the app's Xcode project that run Lucent code with no JavaScript. Each is a notification service, a share extension or a widget. A name is declared once; packages that declare it differently fail the build, naming both. They're checked and merged, but their targets aren't built yet (T133)."
+  },
+  {
+    "field": "ios.appExtensions[].kind",
+    "type": "\"notificationService\" or \"share\" or \"widget\"",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "ios.appExtensions[].name",
+    "type": "string",
+    "required": true,
+    "description": "The target's name, and the last part of its bundle identifier: <app's identifier>.<name>."
+  },
+  {
+    "field": "ios.appExtensions[].class",
+    "type": "string",
+    "required": false,
+    "description": "A notification service or share extension's principal class, as \"<module path>#<Class>\": an exported class extending the SDK class its extension point makes (UNNotificationServiceExtension, a UIViewController), whose constructor takes no parameters."
+  },
+  {
+    "field": "ios.appExtensions[].provider",
+    "type": "string",
+    "required": false,
+    "description": "A widget's timeline provider, as \"<module path>#<Class>\": a class with placeholder(), snapshot() and timeline() methods giving its entries."
+  },
+  {
+    "field": "ios.appExtensions[].body",
+    "type": "string",
+    "required": false,
+    "description": "A widget's body, as \"<module path>#<function>\": a function of an iOS JSX file taking an entry and returning SwiftUI."
+  },
+  {
+    "field": "ios.appExtensions[].displayName",
+    "type": "string",
+    "required": false,
+    "description": "A widget's name in the widget gallery."
+  },
+  {
+    "field": "ios.appExtensions[].description",
+    "type": "string",
+    "required": false,
+    "description": "A widget's description in the widget gallery."
+  },
+  {
+    "field": "ios.appExtensions[].families",
+    "type": "string[]",
+    "required": false,
+    "description": "The widget families it supports, as WidgetFamily names them (\"systemSmall\")."
+  },
+  {
+    "field": "ios.appExtensions[].infoPlist",
+    "type": "{ [name]: string or boolean or string[] }",
+    "required": false,
+    "description": "Info.plist entries of the extension alone."
+  },
+  {
+    "field": "ios.appExtensions[].entitlements",
+    "type": "{ [name]: string or boolean or string[] }",
+    "required": false,
+    "description": "Entitlements of the extension alone."
+  },
+  {
+    "field": "ios.appGroups",
+    "type": "string[]",
+    "required": false,
+    "description": "App Group identifiers (\"group.<reverse DNS name>\"): the app's entitlements and each app extension's get them as com.apple.security.application-groups, so they share UserDefaults(suiteName:) and files. They join the entitlement's value from ios.entitlements."
+  },
+  {
     "field": "android",
     "type": "object",
     "required": false,

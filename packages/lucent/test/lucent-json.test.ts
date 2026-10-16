@@ -37,6 +37,8 @@ const read = {
     "entitlements",
     "deploymentTarget",
     "privacy",
+    "appExtensions",
+    "appGroups",
   ],
   android: [
     "dependencies",
@@ -125,6 +127,21 @@ describe("lucent.json schema", () => {
           "com.apple.security.application-groups": ["group.dev.orbit"],
         },
         deploymentTarget: "15.1",
+        appExtensions: [
+          { kind: "notificationService", name: "RichPush", class: "push/rich#Rich" },
+          {
+            kind: "widget",
+            name: "Steps",
+            provider: "widgets/steps#Timeline",
+            body: "widgets/steps#Body",
+            displayName: "Steps",
+            description: "Today's steps",
+            families: ["systemSmall"],
+            infoPlist: { NSExtensionAttributes: "x" },
+            entitlements: { "com.apple.developer.healthkit": true },
+          },
+        ],
+        appGroups: ["group.dev.orbit", "{{group}}"],
       },
       android: {
         dependencies: { "androidx.biometric:biometric": "1.1.0" },
@@ -180,5 +197,17 @@ describe("lucent.json schema", () => {
         ios: { swiftPackages: { u: { requirement: { kind: "from" }, products: [] } } },
       }),
     ).not.toEqual([]);
+    // An app extension's fields, as its kind needs them.
+    const appExtension = (e: object) => validate({ ios: { appExtensions: [e] } });
+    expect(await appExtension({ kind: "share", name: "Share" })).not.toEqual([]);
+    expect(await appExtension({ kind: "share", name: "Share", class: "s#S" })).toEqual([]);
+    expect(
+      await appExtension({ kind: "share", name: "Share", class: "s#S", families: [] }),
+    ).not.toEqual([]);
+    expect(await appExtension({ kind: "widget", name: "W", provider: "w#P" })).not.toEqual([]);
+    expect(
+      await appExtension({ kind: "widget", name: "W", provider: "w#P", body: "w#B", class: "w#C" }),
+    ).not.toEqual([]);
+    expect(await validate({ ios: { appGroups: ["dev.orbit"] } })).not.toEqual([]);
   });
 });
