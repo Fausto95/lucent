@@ -1233,13 +1233,13 @@ function androidProvenance(
   const file = jars.find((j) => from.has(j));
   if (!file) return undefined;
 
-  const { artifact, kind } = jarArtifact(file);
+  const { artifact, kind, contentHash } = jarArtifact(file);
   const target = jars.map((j) => jarArtifact(j).target).find(Boolean) ?? "android";
 
   return {
     artifact,
     kind,
-    contentHash: archiveIndex(file).contentHash,
+    contentHash: contentHash ?? archiveIndex(file).contentHash,
     target,
     extractor: extractorVersion(),
   };

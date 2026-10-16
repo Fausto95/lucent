@@ -40,6 +40,7 @@ export { extractIos, buildIosSchemas, type IosOptions } from "./ios.ts";
 export {
   androidJars,
   androidLevels,
+  androidSourcesJar,
   cachedModules,
   cachedSchema,
   extractionCount,
@@ -88,6 +89,7 @@ export {
   type SwiftPod,
 } from "./pods.ts";
 export { OWN_SWIFT_MODULE, swiftFilesUnder } from "./swift-modules.ts";
+export { jvmFilesUnder, packageOf } from "./jvm-sources.ts";
 export { type LocalSwiftPackage, type SwiftPackagePin, type XcodeApp, xcodeApp } from "./xcode.ts";
 export {
   type BuiltLocalSwiftPackage,

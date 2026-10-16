@@ -202,6 +202,36 @@ describe("Lucent's Gradle scripts", () => {
   );
 
   it.skipIf(!canRun)(
+    "record the Kotlin compiler the app builds with, which compiles its packages' Kotlin",
+    () => {
+      // Kotlin's Gradle plugin resolves its compiler in kotlinCompilerClasspath.
+      const root = app({
+        classpaths: ["debugCompileClasspath", "kotlinCompilerClasspath"],
+        build: {
+          file: "app/build.gradle",
+          text: `plugins { id "com.android.application" }
+apply from: ${JSON.stringify(path.join(gradleDir, "lucent.gradle"))}
+repositories { maven { url = uri("../repo") } }
+dependencies {
+  debugCompileClasspath "lucent.test:debug:1.0"
+  kotlinCompilerClasspath "lucent.test:kotlinCompilerClasspath:1.0"
+}
+`,
+        },
+      });
+      const r = lucentClasspath(root);
+      expect(r.status, r.out).toBe(0);
+      const record = JSON.parse(
+        fs.readFileSync(path.join(root, ".lucent/android-classpath.json"), "utf8"),
+      ) as { kotlinCompiler?: string[] };
+      expect(record.kotlinCompiler?.map((f) => path.basename(f))).toEqual([
+        "kotlinCompilerClasspath-1.0.jar",
+      ]);
+    },
+    300_000,
+  );
+
+  it.skipIf(!canRun)(
     "warn and bind no library when the app has neither a debug nor a release variant",
     () => {
       const root = app({ classpaths: ["stagingCompileClasspath"] });

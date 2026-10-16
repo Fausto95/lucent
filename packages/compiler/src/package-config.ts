@@ -9,7 +9,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { swiftFilesUnder } from "@lucent-lang/bindgen";
+import { jvmFilesUnder, swiftFilesUnder } from "@lucent-lang/bindgen";
 import {
   DIRECTORY,
   eachFile,
@@ -208,6 +208,12 @@ export interface NativeInputs {
   binaries: { ios: string[]; android: string[] };
   /** The Swift files of the packages' ios.nativeSources, absolute: `lucent:ios/LucentNative` binds them. */
   swiftSources: string[];
+  /**
+   * The Kotlin and Java files of the packages' android.nativeSources,
+   * absolute: compiled, the Java packages they declare bind as
+   * `lucent:android/<package>` (decision 0132).
+   */
+  jvmSources: string[];
   /** The packages' native extensions, by name. */
   extensions: ExtensionInput[];
 }
@@ -613,6 +619,7 @@ export function resolveNative(
     read: [...new Set(read)].sort(),
     binaries: { ios: at(ios.vendoredFrameworks), android: at(android.libraries) },
     swiftSources: swiftFilesUnder(at(ios.nativeSources)),
+    jvmSources: jvmFilesUnder(at(android.nativeSources)),
     extensions: extensions.map(
       ({ name, pkg, header, include, includePaths, declaration, hash }) => ({
         name,

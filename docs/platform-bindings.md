@@ -14,14 +14,14 @@ views in [design/views.md](design/views.md). What is still missing is in
 
 ## Imports
 
-| Specifier                          | What it binds                                                                                             |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `lucent:ios/<Module>`              | A Clang or Swift module: an SDK framework, a pod, a module map, a Swift module, a Swift package's product |
-| `lucent:ios/LucentNative`          | The Swift files in the app's Lucent packages' `ios.nativeSources`                                         |
-| `lucent:android/<java.package>`    | A Java package of `android.jar`, of the app's compile classpath, or of a package's `android.libraries`    |
-| `lucent:ext/<name>`                | A C header a package declares in `lucent.json` `extensions`, on both platforms                            |
-| `lucent:ios`, `lucent:android`     | Helpers written by hand: `available`, `Out`, `nativeError`, `appContext`, `currentActivity`…              |
-| `lucent:thread`, `lucent:platform` | `main(f)`, and `PLATFORM`                                                                                 |
+| Specifier                          | What it binds                                                                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `lucent:ios/<Module>`              | A Clang or Swift module: an SDK framework, a pod, a module map, a Swift module, a Swift package's product                      |
+| `lucent:ios/LucentNative`          | The Swift files in the app's Lucent packages' `ios.nativeSources`                                                              |
+| `lucent:android/<java.package>`    | A Java package of `android.jar`, of the app's compile classpath, of a package's `android.libraries`, or of its Kotlin and Java |
+| `lucent:ext/<name>`                | A C header a package declares in `lucent.json` `extensions`, on both platforms                                                 |
+| `lucent:ios`, `lucent:android`     | Helpers written by hand: `available`, `Out`, `nativeError`, `appContext`, `currentActivity`…                                   |
+| `lucent:thread`, `lucent:platform` | `main(f)`, and `PLATFORM`                                                                                                      |
 
 ```ts
 import { UIDevice } from "lucent:ios/UIKit";
@@ -75,6 +75,7 @@ Paths never enter an identity.
 | `android-sdk:<N>`                                 | `platforms/android-N`: `android.jar`, `data/api-versions.xml`, `data/annotations.zip` |
 | `maven:<group>:<name>:<version>`                  | A jar or AAR from Gradle's cache                                                      |
 | `jar:<file>`, `aar:<file>`                        | Any other jar or AAR, by file name                                                    |
+| `sources:android.nativeSources`                   | The packages' Kotlin and Java, by their contents, compiled on this machine            |
 
 `projectSdk` (`compiler/src/project-sdk.ts`) gathers a project's inputs:
 pods, the Xcode project, the Gradle classpath file, packages' prebuilt
@@ -141,6 +142,15 @@ types' kinds, native names and struct fields, from its symbol graph
   once per change of the Gradle inputs.
 - **Packages' `android.libraries`** bind before Gradle runs; the
   classpath's copy of one is dropped by content.
+- **Packages' Kotlin and Java** (`android.nativeSources`, decision 0132)
+  are one artifact declaring the Java packages their `package` lines
+  name. `jvm-sources.ts` compiles them the first time one of those is
+  imported: Kotlin first, seeing the Java, then Java against its classes,
+  each against the SDK and the classpath (an AAR's `classes.jar`
+  extracted), into `jvm-sources/<key>/sources-<hash>.jar`. Kotlin compiles
+  with `$KOTLINC`, else the app's Kotlin compiler, which the classpath
+  file records (`kotlinCompiler`), else `kotlinc` on the `PATH`. Sources
+  that don't compile are LUCENT3004 with the compiler's errors.
 
 Indexing an archive reads only its zip directory: its packages, and a hash
 of its classes by name and CRC (`archiveIndex` in `android.ts`). Extraction
@@ -175,6 +185,8 @@ Schemas are cached per machine, never in the project.
   sdk/android/<android-N | jars>-<key>/<package>/<entry>.json
   memo/<extractor>/                     what files' contents give, by their stats; pods' frameworks
   swift-modules/<Module>-<key>/         emitted Swift pods and LucentNative
+  jvm-sources/<key>/sources-<hash>.jar  packages' Kotlin and Java, compiled
+  aar-classes/<hash>/                   AARs' class jars, which those compile against
   spm/<identity>-<key>/                 checked-out and built Swift packages
   declarations/<hash>.d.ts              generated SDK declarations
 ```
@@ -800,7 +812,7 @@ The app adds a Swift package to its project but not its product to the
 app target: linked by both, a static package's symbols would be
 duplicated. A package's pod binds once installed; in Expo, `expo prebuild`
 stops at one not installed yet ([T141](tasks.md#t141)). Packages' Kotlin
-and Java are compiled but not typed ([T143](tasks.md#t143)).
+and Java compile in the Lucent library too, the same sources Lucent binds.
 
 ## Android permissions
 

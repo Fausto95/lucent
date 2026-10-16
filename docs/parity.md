@@ -122,7 +122,7 @@ is written in TypeScript against the SDK, so each row is a task.
 | Swift packages                    | ✅             | ✅            | ✅                                          | —                     |
 | C libraries                       | ✅ C++         | ✅ by hand    | ✅ typed extensions                         | —                     |
 | C++ libraries and prefab          | ✅ C++ objects | ✅ by hand    | 🟡 C++ classes and prefab, no MMKV port yet | [T142](tasks.md#t142) |
-| The package's own Kotlin and Java | ✅             | ✅            | 🟡 compiled, not typed                      | [T143](tasks.md#t143) |
+| The package's own Kotlin and Java | ✅             | ✅            | ✅ typed from what they compile to          | —                     |
 | SDK shapes Lucent still refuses   | —              | —             | 🟡 listed in the task                       | [T112](tasks.md#t112) |
 
 ## Distribution and tooling

@@ -25,12 +25,13 @@ export const projectHashes = (root: string) =>
 
 /**
  * Where this project's bindings come from: the SDKs, and what the app
- * links: its pods, Swift packages and Gradle classpath, and the prebuilt
- * frameworks and libraries its Lucent packages ship (`native`, resolved
- * here when not given); and the iOS version it is deployed to.
+ * links: its pods, Swift packages and Gradle classpath, the prebuilt
+ * frameworks and libraries its Lucent packages ship and their Swift,
+ * Kotlin and Java (`native`, resolved here when not given); and the iOS
+ * version it is deployed to.
  */
 export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
-  const { binaries, swiftSources } = native ?? packageBinaries(root);
+  const { binaries, swiftSources, jvmSources } = native ?? packageBinaries(root);
   const pods = podsSearchPaths(path.join(root, "ios"));
 
   // The app's Xcode project: the iOS version it is deployed to, and its Swift packages, built.
@@ -62,6 +63,7 @@ export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
     android: {
       classpath: path.join(root, ".lucent/android-classpath.json"),
       ...(binaries.android.length ? { libraries: binaries.android } : {}),
+      ...(jvmSources.length ? { sources: jvmSources } : {}),
     },
     ...(ios
       ? { ios: { ...ios, frameworkPaths: [...(ios.frameworkPaths ?? []), ...frameworkPaths] } }
@@ -74,14 +76,16 @@ export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
  * building (lucent sdk …, the editor): none when a lucent.json is invalid,
  * which the build reports.
  */
-function packageBinaries(root: string): Pick<NativeInputs, "binaries" | "swiftSources"> {
+function packageBinaries(
+  root: string,
+): Pick<NativeInputs, "binaries" | "swiftSources" | "jvmSources"> {
   const hashes = projectHashes(root);
 
   try {
-    const { binaries, swiftSources } = resolveNative(nativePackages(root), { hashes });
+    const { binaries, swiftSources, jvmSources } = resolveNative(nativePackages(root), { hashes });
     hashes.save();
-    return { binaries, swiftSources };
+    return { binaries, swiftSources, jvmSources };
   } catch {
-    return { binaries: { ios: [], android: [] }, swiftSources: [] };
+    return { binaries: { ios: [], android: [] }, swiftSources: [], jvmSources: [] };
   }
 }

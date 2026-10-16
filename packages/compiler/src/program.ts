@@ -759,7 +759,8 @@ function nativeMemberHint(
       fix: WRAP_UNBOUND[sdk.platform],
     };
 
-  if (provenance.kind === "sdk") return undefined;
+  // The SDK's, or the packages' own Kotlin and Java: no other version to install.
+  if (provenance.kind === "sdk" || provenance.kind === "sources") return undefined;
 
   return {
     message: `${symbol.name} is ${spec}'s, from ${provenance.artifact} as installed, which has no ${name.text}.`,

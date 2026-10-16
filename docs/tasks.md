@@ -61,7 +61,7 @@ what became of each one that is still linked or was still open.
 | [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190 to #204, #363 merged)                              |
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                                    |
 | [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #375): all but lucent-mmkv, which needs devices |
-| [T143](#t143)            | Typed Kotlin and Java sources in packages                  | in progress (#377): decided (0132)                                   |
+| [T143](#t143)            | Typed Kotlin and Java sources in packages                  | done (2026-10-16)                                                    |
 | [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                                |
 | [T145](#t145)            | The package distribution matrix                            | ready                                                                |
 | **Production candidate** |                                                            |                                                                      |
@@ -1627,23 +1627,26 @@ does, through typed extensions.
 **Goal:** A package's own Kotlin and Java sources are typed in Lucent, as
 its Swift sources are.
 
-- **Status:** in progress (#377): decided
-  ([0132](decisions/0132-a-packages-kotlin-and-java-are-compiled-to-be-bound.md)).
+- **Status:** done (2026-10-16): decided
+  ([0132](decisions/0132-a-packages-kotlin-and-java-are-compiled-to-be-bound.md))
+  (#377), compiled and bound (#378).
 - **Area:** bindings, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
 - **Where:** `bindgen/src/`, `native-build-files.ts`.
 
-Today a package's Swift sources are typed as `lucent:ios/LucentNative`,
-but its Kotlin and Java sources are compiled and not bound.
+A package's Swift sources are typed as `lucent:ios/LucentNative`, and
+now its Kotlin and Java as the Java packages they declare.
 
-- [ ] `android.nativeSources` Kotlin and Java compile into a jar the SDK
+- [x] `android.nativeSources` Kotlin and Java compile into a jar the SDK
       cache keys on the sources' content, bound as
       `lucent:android/<package>`. The same sources ship in the library, so
-      Gradle compiles them for the app.
-- [ ] A compile failure is a diagnostic with the compiler's errors, as
-      Swift's is with swiftc's.
-- [ ] Tests on the desktop JVM host.
+      Gradle compiles them for the app. Kotlin compiles with the app's
+      own compiler, which `lucentClasspath` records (#378).
+- [x] A compile failure is a diagnostic with the compiler's errors, as
+      Swift's is with swiftc's (#378).
+- [x] Tests on the desktop JVM host: fixtures/greeter's Lucent code calls
+      its Kotlin and Java (`package-kotlin-jni.test.ts`, #378).
 
 **Done when:** a fixture package calls its own Kotlin from Lucent.
 

@@ -296,7 +296,11 @@ export interface PackageNative {
      */
     prefab?: Record<string, string[]>;
     permissions?: string[];
-    /** Java and Kotlin source roots; their C and C++ files join the runtime's CMake target. */
+    /**
+     * Java and Kotlin source roots, whose Java packages Lucent code imports
+     * as `lucent:android/<package>` (decision 0132); their C and C++ files
+     * join the runtime's CMake target.
+     */
     nativeSources?: string[];
     /** Android resource directories (`res` layout). */
     resources?: string[];
