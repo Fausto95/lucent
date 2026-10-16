@@ -139,6 +139,17 @@ export {
   formatCType,
 } from "./c-header.ts";
 export {
+  type CxxClass,
+  type CxxConstructor,
+  type CxxEnum,
+  type CxxHeader,
+  type CxxMethod,
+  type CxxParam,
+  type CxxType,
+  extractCxxHeader,
+  formatCxxType,
+} from "./cxx-header.ts";
+export {
   type Backend,
   type BindingPlan,
   type ConversionOp,
