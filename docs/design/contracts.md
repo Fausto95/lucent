@@ -1207,12 +1207,13 @@ build the C code into the one native package.
 | Outputs    | `.lucent/native/types/ext/<name>.d.ts`; each extension in `resolved.json`; the `extract:extensions` node.                                                                                                      |
 | Runtime    | `Handle::open(what, pointer, destroy, destroyOn?)`, `use<T>()` for one call, idempotent `close()`, shared state (`identity()`); `ext::integer`, `real`, `data`, `length`, `utf8`, `number`, `bigint`.          |
 
-**Planned:** [T142](../tasks.md#t142) reads C++ headers: a class is a
-handle, `std::string` a string, `std::vector` an array, `std::optional` an
-optional, and templates and inheritance are refused. A generated wrapper
-catches C++ exceptions into the error struct. Functions take callbacks on
-a stated context and an `AbortSignal` as a flag. `android.prefab` links
-Gradle prefab modules.
+**Planned:** [T142](../tasks.md#t142) reads C++ headers
+([0125](../decisions/0125-a-cpp-headers-classes-are-handles-the-generated-cpp-calls.md)):
+a class is a handle, `std::string` a string, `std::vector` an array,
+`std::optional` an optional, and templates and inheritance are left out.
+The generated call catches C++ exceptions into an `Error`. Functions take
+callbacks on a stated context and an `AbortSignal` as a flag.
+`android.prefab` links Gradle prefab modules.
 
 ## Accepted decisions these contracts assume
 
