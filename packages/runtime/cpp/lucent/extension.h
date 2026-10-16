@@ -35,6 +35,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -248,6 +249,9 @@ class CallFrame {
     if (error_) std::rethrow_exception(std::exchange(error_, nullptr));
   }
 
+  /// What a callback threw during the call (null if none), no longer kept.
+  std::exception_ptr take() { return std::exchange(error_, nullptr); }
+
  private:
   CallFrame* const outer_;
   std::exception_ptr error_;
@@ -280,6 +284,27 @@ decltype(auto) call(F&& f) {
     frame.rethrow();
     return r;
   }
+}
+
+/// As call(), but what a callback threw is left in `thrown`: the caller
+/// throws it (rethrow) once it has released what the call filled in.
+template <class F>
+decltype(auto) call(std::exception_ptr& thrown, F&& f) {
+  detail::CallFrame frame;
+
+  if constexpr (std::is_void_v<decltype(f())>) {
+    detail::callC(f);
+    thrown = frame.take();
+  } else {
+    decltype(auto) r = detail::callC(f);
+    thrown = frame.take();
+    return r;
+  }
+}
+
+/// Throws `thrown`, if it holds an error.
+inline void rethrow(std::exception_ptr& thrown) {
+  if (thrown) std::rethrow_exception(std::exchange(thrown, nullptr));
 }
 
 /// A string argument: NUL-terminated UTF-8 (TypeError if it holds NUL).
@@ -552,6 +577,50 @@ CR callBack(void* context, CA... args) {
   if (state->lives() == Lives::Once) endCallback(context);
 
   return detail::dispatch<CR>(std::static_pointer_cast<CallbackOf<F>>(std::move(state)), kept(args)...);
+}
+
+namespace detail {
+
+/// Element `I` of `t`, as a tuple of it, or none for `Skip`.
+template <size_t Skip, size_t I, class T>
+auto unless(T& t) {
+  if constexpr (I == Skip)
+    return std::tuple<>();
+  else
+    return std::tuple<std::tuple_element_t<I, T>>(std::get<I>(t));
+}
+
+/// The function C is given, of C's own type: it finds the callback by its
+/// `void *` (at `Context`) and passes the rest.
+template <class F, size_t Context, class P>
+struct Thunk;
+
+template <class F, size_t Context, class R, class... A>
+struct Thunk<F, Context, R (*)(A...)> {
+  static R call(A... args) {
+    auto all = std::forward_as_tuple(args...);
+    void* context = std::get<Context>(all);
+
+    return [&]<size_t... I>(std::index_sequence<I...>) -> R {
+      return std::apply([context](auto&... rest) -> R { return callBack<F, R>(context, rest...); },
+                        std::tuple_cat(unless<Context, I>(all)...));
+    }(std::index_sequence_for<A...>{});
+  }
+};
+
+}  // namespace detail
+
+/// The function C is given for a callback of the Lucent function type `F`:
+/// of the type `P` its parameter has (`paramOf`), its `void *` at `Context`.
+template <class F, size_t Context, class P>
+P thunk(P) {
+  return &detail::Thunk<F, Context, P>::call;
+}
+
+/// A null value of the type C function `f`'s parameter `I` has.
+template <size_t I, class R, class... A>
+auto paramOf(R (*)(A...)) {
+  return std::tuple_element_t<I, std::tuple<A...>>{};
 }
 
 /// A Lucent function a call hands C or C++, as the call holds it: made

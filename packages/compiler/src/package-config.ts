@@ -48,6 +48,7 @@ export {
   PACKAGE_FIELDS,
   type Affinity,
   type AppExtension,
+  type CallbackDeclaration,
   type ErrorDeclaration,
   type ExtensionDeclaration,
   type FailsWhen,

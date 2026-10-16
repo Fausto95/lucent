@@ -83,10 +83,10 @@ describe.skipIf(!clang)("binding a native extension", () => {
     const processed = ext!.functions.find((f) => f.name === "orbit_filter_processed")!;
     expect(processed.result).toEqual({ kind: "bigint", c: uint64Name() });
 
-    // A function with a callback is left out, with the reason.
+    // A function pointer its declaration doesn't make a callback is left out, with the reason.
     expect(ext!.functions.some((f) => f.name === "orbit_filter_each")).toBe(false);
     expect(ext!.skipped).toEqual([
-      "orbit_filter_each: parameter visit is a function pointer; extensions cannot take callbacks yet",
+      "orbit_filter_each: parameter visit is a function pointer: declare it in params as a callback, with its context",
     ]);
     // Destroying is the handle's close(), never a function Lucent code calls.
     expect(ext!.functions.some((f) => f.name === "orbit_filter_destroy")).toBe(false);

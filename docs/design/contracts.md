@@ -1184,34 +1184,36 @@ build the C code into the one native package.
 `cLinkage`, `findClang`), `compiler/src/extensions/bind.ts` and `dts.ts`,
 `compiler/src/emit/extensions.ts`, and `lucent/extension.h`.
 
-| Field (`lucent.json` `extensions.<name>`) | Meaning                                                                                                            |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `header`                                  | Relative to the package, in a directory both `ios.nativeSources` and `android.nativeSources` list.                 |
-| `handles.<CType>`                         | `create` (a pointer, null on failure), `destroy` (`void f(T *)`), `methods` (taking the handle first), `affinity`. |
-| `functions.<f>`                           | `params`, `failsWhen`, `affinity`, `blocking` (a main-thread call warns).                                          |
-| `params.<p>`                              | `{ bytes: "read" \| "write", length }`, `{ string: "utf8" }` or `{ error: "<Struct>" }`.                           |
-| `errors.<Struct>`                         | `code` (an integer field), `message` (a `const char *` field), `release` (`void f(E *)`).                          |
-| `affinity`                                | `any` (the default: any thread, one call at a time) or `main`.                                                     |
-| `failsWhen`                               | `null`, `negative`, `nonzero`, `zero` or `false`.                                                                  |
+| Field (`lucent.json` `extensions.<name>`) | Meaning                                                                                                                       |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `header`                                  | Relative to the package, in a directory both `ios.nativeSources` and `android.nativeSources` list.                            |
+| `handles.<CType>`                         | `create` (a pointer, null on failure), `destroy` (`void f(T *)`), `methods` (taking the handle first), `affinity`.            |
+| `functions.<f>`                           | `params`, `failsWhen`, `affinity`, `blocking` (a main-thread call warns).                                                     |
+| `params.<p>`                              | `{ bytes: "read" \| "write", length }`, `{ string: "utf8" }`, `{ error: "<Struct>" }` or `{ callback: { context, lives? } }`. |
+| `errors.<Struct>`                         | `code` (an integer field), `message` (a `const char *` field), `release` (`void f(E *)`).                                     |
+| `affinity`                                | `any` (the default: any thread, one call at a time) or `main`.                                                                |
+| `failsWhen`                               | `null`, `negative`, `nonzero`, `zero` or `false`.                                                                             |
 
 | Rule       | Contract                                                                                                                                                                                                                                                                                                                                                        |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Header     | Compiles as C and C++, `extern "C"` for C++. Read with `$LUCENT_CLANG`, else `clang` on the `PATH`, Xcode's, or the newest NDK's. `long` and `size_t` are 64 bits.                                                                                                                                                                                              |
 | Checks     | Every name and shape is checked against the header; a mismatch fails the build with `<package>/lucent.json: extensions.<name>.<field>: <reason>`.                                                                                                                                                                                                               |
 | Handles    | An opaque struct. `close()`, `[Symbol.dispose]()` or its last reference destroys it once; then use throws `InvalidStateError`. A call holds its handles. Handles never cross to JavaScript (LUCENT2006).                                                                                                                                                        |
-| Parameters | Bytes (a `Uint8Array`, its length given), a UTF-8 string (`TypeError` on NUL), or the error struct. Nothing escapes the call.                                                                                                                                                                                                                                   |
+| Parameters | Bytes (a `Uint8Array`, its length given), a UTF-8 string (`TypeError` on NUL), the error struct, or a callback (0126, 0128). Only a callback escapes the call.                                                                                                                                                                                                  |
 | Integers   | Wider than 32 bits: exact bigints. Others: numbers under WebIDL's `[EnforceRange]`. Floats round as `Math.fround`.                                                                                                                                                                                                                                              |
 | Failure    | Throws an `Error` with the struct's message (copied at once) and code, else `<f> failed`. `nonzero` and `false` results are statuses. An `error` parameter needs `failsWhen`; `release` runs after every call.                                                                                                                                                  |
 | Exceptions | One escaping a C function ends the process (`ext::call`'s C part is `noexcept`). Conversion errors throw before the call; what a callback run at once threw, after it (`detail::CallFrame`, 0128).                                                                                                                                                              |
 | C++        | `language: "c++"` (0125): a class is a handle of its objects, its overloads its members'; strings, vectors, optionals, enums and objects cross; `ext::cxxCall` makes what C++ throws an `Error`.                                                                                                                                                                |
-| Binding    | A function needing no declaration binds as it is; one taking a handle must be named. Function pointers, variadics and structs by value are listed as skipped, or fail when named.                                                                                                                                                                               |
+| Binding    | A function needing no declaration binds as it is; one taking a handle must be named. A function pointer not declared a callback, variadics and structs by value are listed as skipped, or fail when named.                                                                                                                                                      |
 | Outputs    | `.lucent/native/types/ext/<name>.d.ts`; each extension in `resolved.json`; the `extract:extensions` node.                                                                                                                                                                                                                                                       |
+| Callbacks  | A function type in Lucent; its context is the binding's. Run at once on a thread running its context's code, else posted there; a result is refused when posted. `lives`: `call`, `once` or a handle.                                                                                                                                                           |
 | Runtime    | `Handle::open(what, pointer, destroy, destroyOn?)`, `use<T>()` for one call, idempotent `close()`, `whenDestroyed(f)`, shared state (`identity()`); `ext::integer`, `real`, `data`, `length`, `utf8`, `number`, `bigint`; callbacks: `ext::Callback<F>` (`context()`, `until(handle)`, `function<R, A...>()`, `done()`), `ext::callBack<F, R>(context, args…)`. |
 
-**Planned:** [T142](../tasks.md#t142)'s functions take callbacks as
+**Planned:** [T142](../tasks.md#t142)'s C++ members take `std::function`
+callbacks as
 [0126](../decisions/0126-an-extensions-callback-runs-where-its-call-ran.md)
 and [0128](../decisions/0128-an-extensions-callback-runs-at-once-on-its-contexts-thread.md)
-decide, and an `AbortSignal` as a flag, and `android.prefab` links Gradle
+decide, functions take an `AbortSignal` as a flag, and `android.prefab` links Gradle
 prefab modules. C++ headers are read as
 [0125](../decisions/0125-a-cpp-headers-classes-are-handles-the-generated-cpp-calls.md)
 decides.

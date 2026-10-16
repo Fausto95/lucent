@@ -26,8 +26,12 @@ export interface NativeCallback {
   readonly timing: Known<"during-call" | "escaping">;
   /** It runs on the main thread. */
   readonly main: boolean;
-  /** When the platform runs it: waiting for it (`sync`), or queued on the Lucent thread. */
-  readonly delivery?: "sync" | "queued";
+  /**
+   * When the platform runs it: waiting for it (`sync`), queued on the
+   * Lucent thread, or `either`: at once during a native call on the
+   * caller's context, else queued there (an extension's callback, 0128).
+   */
+  readonly delivery?: "sync" | "queued" | "either";
 }
 
 /** A use of an SDK member, as its binding plan describes it. */

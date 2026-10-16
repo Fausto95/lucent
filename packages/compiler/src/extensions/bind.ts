@@ -24,6 +24,7 @@ import {
 import { bindCxx, type ClassBinding, CxxRefused, type EnumBinding } from "./bind-cxx.ts";
 import type {
   Affinity,
+  CallbackDeclaration,
   ErrorDeclaration,
   ExtensionInput,
   FailsWhen,
@@ -85,7 +86,30 @@ export type ParamBinding =
   | { kind: "bytes"; name: string; access: "read" | "write"; c: string }
   | { kind: "length"; name: string; c: string; of: number }
   | { kind: "string"; name: string }
-  | { kind: "error"; name: string; error: ErrorBinding };
+  | { kind: "error"; name: string; error: ErrorBinding }
+  /** A function pointer C calls back (decisions 0126 and 0128): a Lucent function. */
+  | {
+      kind: "callback";
+      name: string;
+      /** The `void *` parameter C passes back to it, by index. */
+      context: number;
+      /** Where its own `void *` is among its parameters. */
+      contextAt: number;
+      /** Its other parameters, in order. */
+      params: CallbackValue[];
+      result: CallbackValue | { kind: "void" };
+      /** How long C may call it: for the call, once, or as long as the handle parameter at that index. */
+      lives: "call" | "once" | { handle: number };
+    }
+  /** The `void *` a callback gets back: the binding's to pass. */
+  | { kind: "context"; name: string; callback: number };
+
+/** What a callback takes or gives: numbers, bigints, booleans and (taken) strings, copied. */
+export type CallbackValue =
+  | { kind: "number"; c: string }
+  | { kind: "bigint"; c: string }
+  | { kind: "boolean" }
+  | { kind: "string" };
 
 export type ResultBinding =
   | { kind: "void" }
@@ -392,6 +416,25 @@ function bindFunction(
   for (const name of Object.keys(declared))
     if (!index.has(name)) fail(`${field}.params.${name}`, `${f.name} has no parameter ${name}`);
 
+  // Callbacks' contexts first, as lengths: the callbacks name them.
+  const contexts = new Map<number, number>();
+  const callbacks = new Map<number, CallbackParts>();
+
+  for (const [name, p] of Object.entries(declared)) {
+    if (!("callback" in p)) continue;
+
+    const i = index.get(name)!;
+    const parts = callbackOf(f, i, p.callback, declared, index, scope, `${field}.params.${name}`);
+    if (contexts.has(parts.context))
+      fail(
+        `${field}.params.${name}.callback.context`,
+        `${p.callback.context} is already another callback's context`,
+      );
+
+    contexts.set(parts.context, i);
+    callbacks.set(i, parts);
+  }
+
   // Lengths first: the bytes they measure name them.
   const lengths = new Map<number, number>();
 
@@ -404,7 +447,7 @@ function bindFunction(
 
     if (length.type.k !== "int")
       fail(at, `${p.length} is ${formatCType(length.type)}, not an integer`);
-    if (declared[p.length] || lengths.has(i))
+    if (declared[p.length] || lengths.has(i) || contexts.has(i))
       fail(at, `${p.length} is already declared as something else`);
 
     lengths.set(i, index.get(name)!);
@@ -414,6 +457,12 @@ function bindFunction(
     const of = lengths.get(i);
     if (of !== undefined)
       return { kind: "length", name: p.name, c: (p.type as { name: string }).name, of };
+
+    const callback = contexts.get(i);
+    if (callback !== undefined) return { kind: "context", name: p.name, callback };
+
+    const parts = callbacks.get(i);
+    if (parts) return { kind: "callback", name: p.name, ...parts };
 
     return bindParam(p.name, p.type, declared[p.name], scope, `${field}.params.${p.name}`, field);
   });
@@ -487,7 +536,10 @@ function bindParam(
   if (scalar) return { ...scalar, name } as ParamBinding;
 
   if (t.k === "function")
-    fail(fnField, `parameter ${name} is a function pointer; extensions cannot take callbacks yet`);
+    fail(
+      fnField,
+      `parameter ${name} is a function pointer: declare it in params as a callback, with its context`,
+    );
   if (t.k === "pointer")
     fail(
       fnField,
@@ -495,6 +547,88 @@ function bindParam(
     );
 
   return fail(fnField, `parameter ${name} is ${formatCType(t)}, which Lucent cannot pass`);
+}
+
+type CallbackParts = Omit<ParamBinding & { kind: "callback" }, "kind" | "name">;
+
+/**
+ * A callback parameter, checked: a function pointer whose one `void *` C
+ * passes the context parameter back as, which takes numbers, bigints,
+ * booleans and `const char *` strings and gives one of the first three or
+ * nothing, for as long as `lives` says.
+ */
+function callbackOf(
+  f: CFunction,
+  i: number,
+  d: CallbackDeclaration,
+  declared: Record<string, ParamDeclaration>,
+  index: Map<string, number>,
+  scope: Scope,
+  field: string,
+): CallbackParts {
+  const name = f.params[i]!.name;
+  const t = f.params[i]!.type;
+  if (t.k !== "function")
+    fail(field, `a callback parameter must be a function pointer, not ${formatCType(t)}`);
+
+  const at = `${field}.callback`;
+  const context =
+    index.get(d.context) ?? fail(`${at}.context`, `${f.name} has no parameter ${d.context}`);
+  const ct = f.params[context]!.type;
+  if (!(ct.k === "pointer" && ct.to.k === "void" && !ct.const))
+    fail(
+      `${at}.context`,
+      `${d.context} is ${formatCType(ct)}, not void *: C passes it back to ${name} as its void *`,
+    );
+  if (declared[d.context])
+    fail(`${at}.context`, `${d.context} is already declared as something else`);
+
+  const signature = formatCType(t);
+  if (t.variadic)
+    fail(field, `${name} (${signature}) takes variable arguments, which Lucent cannot take`);
+
+  const voids = t.params.flatMap((p, k) =>
+    p.k === "pointer" && p.to.k === "void" && !p.const ? [k] : [],
+  );
+  if (voids.length !== 1)
+    fail(
+      field,
+      `${name} (${signature}) must take one void *, which C passes ${d.context} back as; it takes ${voids.length}`,
+    );
+
+  const params = t.params.flatMap((p, k): CallbackValue[] => {
+    if (k === voids[0]) return [];
+    if (p.k === "pointer" && p.const && p.to.k === "int" && p.to.name === "char")
+      return [{ kind: "string" }];
+
+    return [
+      scalarOf(p) ??
+        fail(
+          field,
+          `${name} (${signature}) takes ${formatCType(p)}; a callback takes numbers, bigints, booleans and const char * strings`,
+        ),
+    ];
+  });
+
+  const result =
+    t.result.k === "void"
+      ? { kind: "void" as const }
+      : (scalarOf(t.result) ??
+        fail(
+          field,
+          `${name} (${signature}) returns ${formatCType(t.result)}; a callback returns nothing, a number, a bigint or a boolean`,
+        ));
+
+  const lives = d.lives ?? "call";
+  const handle = index.get(lives);
+  const livesAs =
+    lives === "call" || lives === "once"
+      ? lives
+      : handle !== undefined && scope.handleOf(f.params[handle]!.type)
+        ? { handle }
+        : fail(`${at}.lives`, `${lives} is not "call", "once" or a handle parameter of ${f.name}`);
+
+  return { context, contextAt: voids[0]!, params, result, lives: livesAs };
 }
 
 /** A number, bigint or boolean parameter or result: integers wider than 32 bits are bigints. */

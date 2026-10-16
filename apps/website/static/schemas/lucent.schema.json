@@ -772,7 +772,7 @@
               "properties": {
                 "params": {
                   "type": "object",
-                  "description": "C parameter name → what the pointer is. Numbers, booleans and handles need nothing; nothing escapes the call.",
+                  "description": "C parameter name → what the pointer is. Numbers, booleans and handles need nothing; only a callback outlives the call.",
                   "propertyNames": {
                     "pattern": "^[A-Za-z_]\\w*$"
                   },
@@ -815,6 +815,31 @@
                             "type": "string",
                             "pattern": "^[A-Za-z_]\\w*$",
                             "description": "A struct declared in errors."
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "description": "A function pointer the function calls back: a Lucent function, which runs at once on its context's thread and is posted there from any other.",
+                        "additionalProperties": false,
+                        "required": ["callback"],
+                        "properties": {
+                          "callback": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["context"],
+                            "properties": {
+                              "context": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z_]\\w*$",
+                                "description": "The function's void * parameter, which C passes back as the callback's one void * parameter."
+                              },
+                              "lives": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z_]\\w*$",
+                                "description": "How long C may call it: call (the default), until the function returns. once, until its first call. A handle parameter's name, until that handle is destroyed."
+                              }
+                            }
                           }
                         }
                       }

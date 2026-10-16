@@ -5,7 +5,13 @@
  * under its C name.
  */
 import { ts as dts } from "@lucent-lang/codegen";
-import type { ExtensionBinding, FunctionBinding, ParamBinding, ResultBinding } from "./bind.ts";
+import type {
+  CallbackValue,
+  ExtensionBinding,
+  FunctionBinding,
+  ParamBinding,
+  ResultBinding,
+} from "./bind.ts";
 import type { ClassBinding, CxxCallBinding, CxxValue } from "./bind-cxx.ts";
 import { TS_RESERVED } from "./names.ts";
 
@@ -135,7 +141,7 @@ function cxxType(v: CxxValue): dts.Type {
   }
 }
 
-/** What Lucent code passes: lengths and errors are the binding's. */
+/** What Lucent code passes: lengths, errors and callbacks' contexts are the binding's. */
 function params(f: FunctionBinding): dts.Param[] {
   return f.params.flatMap((p, i) => {
     const type = paramType(p);
@@ -162,9 +168,29 @@ function paramType(p: ParamBinding): dts.Type | undefined {
       return dts.ref("Uint8Array");
     case "string":
       return dts.keyword("string");
+    case "callback":
+      return {
+        k: "fn",
+        params: p.params.map((v, i) => ({ name: `arg${i}`, type: callbackType(v) })),
+        ret: p.result.kind === "void" ? dts.keyword("void") : callbackType(p.result),
+      };
     case "length":
     case "error":
+    case "context":
       return undefined;
+  }
+}
+
+function callbackType(v: CallbackValue): dts.Type {
+  switch (v.kind) {
+    case "number":
+      return dts.keyword("number");
+    case "bigint":
+      return dts.ref("bigint");
+    case "boolean":
+      return dts.keyword("boolean");
+    case "string":
+      return dts.keyword("string");
   }
 }
 

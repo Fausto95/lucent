@@ -228,12 +228,25 @@ export interface FunctionDeclaration {
 /**
  * A pointer parameter: bytes it reads or writes, as many as its length
  * parameter says (a Uint8Array, for both); a NUL-terminated UTF-8 string;
- * or the error it fills in. None escapes the call.
+ * the error it fills in; or a function pointer it calls back (decisions
+ * 0126 and 0128). Only a callback outlives the call.
  */
 export type ParamDeclaration =
   | { bytes: "read" | "write"; length: string }
   | { string: "utf8" }
-  | { error: string };
+  | { error: string }
+  | { callback: CallbackDeclaration };
+
+export interface CallbackDeclaration {
+  /** The function's `void *` parameter, which C passes back as the callback's one `void *`. */
+  context: string;
+  /**
+   * How long C may call it: `call` (the default), until the function
+   * returns; `once`, until its first call; or a handle parameter's name,
+   * until that handle's destroy function has returned.
+   */
+  lives?: string;
+}
 
 export interface ErrorDeclaration {
   /** An integer field: the error's code. */
@@ -645,14 +658,20 @@ const namedOf =
 const affinity = oneOf(["any", "main"]);
 
 const param: Check = (v, at) => {
-  const kind = isObject(v) ? ["bytes", "string", "error"].find((k) => k in v) : undefined;
+  const kind = isObject(v)
+    ? ["bytes", "string", "error", "callback"].find((k) => k in v)
+    : undefined;
 
   if (kind === "bytes")
     return fields({ bytes: oneOf(["read", "write"]), length: cName }, ["bytes", "length"])(v, at);
   if (kind === "string") return fields({ string: oneOf(["utf8"]) }, ["string"])(v, at);
   if (kind === "error") return fields({ error: cName }, ["error"])(v, at);
+  if (kind === "callback")
+    return fields({ callback: fields({ context: cName, lives: cName }, ["context"]) }, [
+      "callback",
+    ])(v, at);
 
-  return `${at} must be { bytes, length }, { string } or { error }`;
+  return `${at} must be { bytes, length }, { string }, { error } or { callback }`;
 };
 
 /** Every field of an extension, and how it is checked. */

@@ -1,10 +1,11 @@
 /**
  * What the analyses know about native extension calls: the thread and
  * blocking their package declared, that nothing Lucent passes escapes
- * the call, and that a call whose result reports failure throws.
+ * the call but a callback, and that a call whose result reports failure,
+ * or whose callback may throw, throws.
  */
 import ts from "typescript";
-import type { NativeFactsSource, NativeUse } from "../analysis/native.ts";
+import type { NativeCallback, NativeFactsSource, NativeUse } from "../analysis/native.ts";
 import { extensionModuleOf } from "../program.ts";
 import type { NativeFacts } from "../sdk/schema.ts";
 import type { FunctionBinding } from "./bind.ts";
@@ -99,14 +100,30 @@ function useOf(f: FunctionBinding, decl: ts.Declaration): NativeUse {
     ],
   };
 
-  // Nothing Lucent passes escapes the call: native code cannot keep any of it.
-  const count = ts.isFunctionLike(decl) ? decl.parameters.length : 0;
+  // What Lucent passes, by its position: a method's handle is its receiver.
+  const passed = f.params.filter((p) => !HIDDEN.has(p.kind));
+  const own = ts.isMethodDeclaration(decl) ? passed.slice(1) : passed;
+
+  // A callback runs at once during a native call on the caller's context, during this call
+  // or a later one, or queued there; C keeps it (decisions 0126 and 0128). Nothing else
+  // Lucent passes escapes the call: native code cannot keep any of it.
+  const callbacks = new Map<number, NativeCallback>();
+  const copies = new Set<number>();
+  own.forEach((p, i) => {
+    if (p.kind === "callback") callbacks.set(i, CALLBACK);
+    else copies.add(i);
+  });
 
   return {
     display: f.name,
     facts,
-    callbacks: new Map(),
-    copies: new Set(Array.from({ length: count }, (_, i) => i)),
-    throws: f.failsWhen !== undefined,
+    callbacks,
+    copies,
+    throws: f.failsWhen !== undefined || callbacks.size > 0,
   };
 }
+
+/** Parameters Lucent passes nothing for: the binding fills them in. */
+const HIDDEN = new Set(["length", "error", "context"]);
+
+const CALLBACK: NativeCallback = { timing: "unknown", main: false, delivery: "either" };

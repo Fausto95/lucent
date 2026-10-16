@@ -167,10 +167,12 @@ generated from this file.
 - An Android app with product flavors binds the libraries of its first
   debug variant by name. A library only another flavor depends on can't be
   bound.
-- Typed extensions take no callbacks and can't be cancelled yet
-  ([T142](tasks.md#t142)). A C++ header's class templates, classes with a
-  base, abstract classes and public data members aren't bound. Neither
-  are its C++ functions outside a class.
+- Typed extensions can't be cancelled yet, and a C++ member's
+  `std::function` isn't a callback yet ([T142](tasks.md#t142)). A C
+  callback takes no bytes, handles or structs and returns no string. A
+  C++ header's class templates, classes with a base, abstract classes and
+  public data members aren't bound. Neither are its C++ functions outside
+  a class.
 - A package's Kotlin and Java sources are compiled but not typed in
   Lucent. Its Swift sources are, as `lucent:ios/LucentNative`
   ([T143](tasks.md#t143)).
