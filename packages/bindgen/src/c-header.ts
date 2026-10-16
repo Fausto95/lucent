@@ -24,7 +24,8 @@ export type CType =
   | { k: "pointer"; to: CType; const: boolean }
   /** A struct or union, by its tag (or its typedef's name when it has no tag). */
   | { k: "record"; name: string }
-  | { k: "function" }
+  /** A pointer to a function: what it returns and takes (`void (*)(void *, double)`). */
+  | { k: "function"; result: CType; params: CType[]; variadic: boolean }
   | { k: "unknown"; spelling: string };
 
 export interface CParam {
@@ -395,7 +396,7 @@ export function parseCType(
 
   // An unnamed enum or struct: clang says where it is, in parentheses.
   if (/\((unnamed|anonymous) /.test(s)) return { k: "unknown", spelling: s };
-  if (s.includes("(")) return { k: "function" };
+  if (s.includes("(")) return functionPointer(s, typedef) ?? { k: "unknown", spelling: s };
 
   const parts = s.split("*");
   const base = parts[0]!.trim();
@@ -411,6 +412,60 @@ export function parseCType(
     t = { k: "pointer", to: t, const: i === 1 ? isConst : /\bconst\b/.test(parts[i - 1]!) };
 
   return t;
+}
+
+/**
+ * A pointer to a function, as clang spells one (`int *(*)(void *, const char *)`,
+ * `void (*)(void)`): none for any other spelling with parentheses.
+ */
+function functionPointer(
+  s: string,
+  typedef: (name: string) => CType | undefined,
+): CType | undefined {
+  const star = /\(\s*\*\s*(?:const\s*)?\)/.exec(s);
+  if (!star) return undefined;
+
+  const rest = s.slice(star.index + star[0].length).trim();
+  if (!rest.startsWith("(") || closing(rest, 0) !== rest.length - 1) return undefined;
+
+  const list = splitTopLevel(rest.slice(1, -1));
+  const variadic = list.at(-1) === "...";
+  const spelled = variadic ? list.slice(0, -1) : list;
+  const params =
+    spelled.length === 1 && spelled[0] === "void" ? [] : spelled.map((p) => parseCType(p, typedef));
+
+  return { k: "function", result: parseCType(s.slice(0, star.index), typedef), params, variadic };
+}
+
+/** The index of the parenthesis closing the one at `open`; -1 when none does. */
+function closing(s: string, open: number): number {
+  let depth = 0;
+
+  for (let i = open; i < s.length; i++) {
+    if (s[i] === "(") depth++;
+    else if (s[i] === ")" && --depth === 0) return i;
+  }
+
+  return -1;
+}
+
+/** A parameter list's spellings, split at the commas outside parentheses. */
+function splitTopLevel(list: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let from = 0;
+
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] === "(") depth++;
+    else if (list[i] === ")") depth--;
+    else if (list[i] === "," && depth === 0) {
+      out.push(list.slice(from, i).trim());
+      from = i + 1;
+    }
+  }
+
+  const last = list.slice(from).trim();
+  return last || out.length ? [...out, last] : [];
 }
 
 function baseType(name: string, typedef: (name: string) => CType | undefined): CType {
@@ -444,8 +499,10 @@ export function formatCType(t: CType): string {
       return `enum ${t.name}`;
     case "record":
       return t.name;
-    case "function":
-      return "a function pointer";
+    case "function": {
+      const params = [...t.params.map(formatCType), ...(t.variadic ? ["..."] : [])];
+      return `${formatCType(t.result)} (*)(${params.join(", ") || "void"})`;
+    }
     case "unknown":
       return t.spelling;
     case "pointer":

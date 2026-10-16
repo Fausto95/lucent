@@ -40,6 +40,31 @@ describe("C++ spellings", () => {
     });
     expect(parseSpelling("Counter &&")).toMatchObject({ wraps: ["&&"] });
   });
+
+  it("reads a function type as a template argument, and a pointer to one", () => {
+    const none = { args: [], const: false, wraps: [] };
+    expect(parseSpelling("std::function<int (double, const char *)>")).toEqual({
+      name: "std::function",
+      args: [
+        {
+          name: "int",
+          ...none,
+          params: [
+            { name: "double", ...none },
+            { name: "char", args: [], const: true, wraps: ["*"] },
+          ],
+        },
+      ],
+      const: false,
+      wraps: [],
+    });
+    expect(parseSpelling("std::function<void ()>").args[0]).toMatchObject({ params: [] });
+    expect(parseSpelling("void (*)(int, void *)")).toMatchObject({
+      name: "void",
+      pointer: true,
+      params: [{ name: "int" }, { name: "void", wraps: ["*"] }],
+    });
+  });
 });
 
 describe.skipIf(!clang)("a C++ header", () => {
@@ -118,6 +143,10 @@ describe.skipIf(!clang)("a C++ header", () => {
       "shared",
       "count",
       "raw",
+      "each",
+      "countIf",
+      "onTick",
+      "legacy",
     ]);
     expect(types(c, "bump")).toEqual(["int", "->", "long long"]);
     expect(types(c, "value")).toEqual(["->", "double"]);
@@ -132,6 +161,11 @@ describe.skipIf(!clang)("a C++ header", () => {
     expect(types(c, "split")).toEqual(["->", "acme::Counter"]);
     expect(types(c, "shared")).toEqual(["->", "acme::Counter *"]);
     expect(types(c, "raw")).toEqual(["->", "void *"]);
+    expect(types(c, "each")).toEqual(["std::function<void (double, std::string)>", "->", "void"]);
+    expect(types(c, "countIf")).toEqual(["std::function<bool (long long)>", "->", "int"]);
+    expect(types(c, "onTick")).toEqual(["std::function<void ()>", "->", "void"]);
+    // A C function pointer is no std::function: C++ callbacks are those.
+    expect(types(c, "legacy")).toEqual(["void (*)(int, void *)", "void *", "->", "void"]);
     expect(c.methods.find((m) => m.name === "value")!.const).toBe(true);
     expect(c.methods.find((m) => m.name === "count")!.static).toBe(true);
     expect(c.skipped).toEqual(["as: a member template"]);

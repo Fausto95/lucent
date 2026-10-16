@@ -157,6 +157,8 @@ export function bindCxx(
           return unbindable(`${t.name} by value, which C++ can't move into a handle`);
         return { kind: "object", class: c.name, cxx: c.qualified, by: t.by };
       }
+      case "function":
+        return unbindable(`${formatCxxType(t)}: extensions cannot take callbacks yet`);
       case "void":
         return unbindable("void, which is no value");
       case "unknown":

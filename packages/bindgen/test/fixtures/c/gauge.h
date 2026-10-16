@@ -40,6 +40,10 @@ long long gauge_offset(signed char a, unsigned short b, unsigned int c, unsigned
 typedef struct Gauge* GaugeRef;
 GaugeRef gauge_open(void);
 
+/* A function pointer's typedef names its signature. */
+typedef bool (*gauge_keep)(void* context, const char* name, int64_t at);
+size_t gauge_filter(Gauge* gauge, gauge_keep keep, void* context);
+
 #ifdef __cplusplus
 }
 #endif

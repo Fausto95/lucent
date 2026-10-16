@@ -42,6 +42,8 @@ export type CxxType =
   | { k: "enum"; name: string }
   /** A class of the header's, by its qualified name, and how it is passed. */
   | { k: "class"; name: string; by: "value" | "ref" | "constRef" | "pointer" | "constPointer" }
+  /** A `std::function`, by value or `const &`: what it returns and takes. */
+  | { k: "function"; result: CxxType; params: CxxType[] }
   | { k: "unknown"; spelling: string };
 
 export interface CxxParam {
@@ -157,6 +159,10 @@ interface Spelled {
   const: boolean;
   /** Pointers and references after it, innermost first: `*`, `&`, `&&`. */
   wraps: string[];
+  /** A function type's parameters (`void (double)`): the rest is what it returns. */
+  params?: Spelled[];
+  /** A pointer to that function type: `void (*)(double)`. */
+  pointer?: boolean;
 }
 
 /** The declarations of `header` in clang's JSON AST of a C++ translation unit. */
@@ -429,6 +435,36 @@ export function parseSpelling(spelling: string): Spelled {
         if (!wraps.length) isConst = true;
       } else break;
     }
+    // A function type, as a template argument spells one (`void (double, int)`), or a pointer to one.
+    ws();
+    let pointer = false;
+    if (/^\(\s*\*\s*\)\s*\(/.test(s.slice(i))) {
+      pointer = true;
+      i = s.indexOf("(", s.indexOf(")", i));
+    }
+    if (s[i] === "(") {
+      i++;
+      const params: Spelled[] = [];
+      for (;;) {
+        ws();
+        if (s[i] === ")" || i >= s.length) {
+          i++;
+          break;
+        }
+        params.push(type());
+        ws();
+        if (s[i] === ",") i++;
+      }
+      const none = params.length === 1 && params[0]!.name === "void" && !params[0]!.wraps.length;
+      return {
+        name: words.join(" "),
+        args,
+        const: isConst,
+        wraps,
+        params: none ? [] : params,
+        ...(pointer ? { pointer } : {}),
+      };
+    }
     return { name: words.join(" "), args, const: isConst, wraps };
   };
 
@@ -452,6 +488,8 @@ function cxxType(
   enums: ReadonlySet<string>,
 ): CxxType {
   const unknown = (): CxxType => ({ k: "unknown", spelling: format(t) });
+  // A function type or a pointer to one: only a std::function's argument is read.
+  if (t.params) return unknown();
   const plain = t.wraps.length === 0;
   const constRef = t.const && t.wraps.length === 1 && t.wraps[0] === "&";
   const name = t.name.replace(/^::/, "");
@@ -474,6 +512,15 @@ function cxxType(
       (element.k === "string" && element.of !== "chars")
       ? { k: "vector", of: element }
       : unknown();
+  }
+  if (std === "function" && t.args.length === 1 && t.args[0]!.params && (plain || constRef)) {
+    const { params, pointer, ...result } = t.args[0]!;
+    if (pointer) return unknown();
+    return {
+      k: "function",
+      result: cxxType(result, resolve, enums),
+      params: params!.map((p) => cxxType(p, resolve, enums)),
+    };
   }
   if (std === "optional" && t.args.length === 1 && (plain || constRef)) {
     const inner = of(0);
@@ -518,7 +565,8 @@ function cInteger(name: string): (CxxType & { k: "int" }) | undefined {
 export function format(t: Spelled | undefined): string {
   if (!t) return "";
   const args = t.args.length ? `<${t.args.map(format).join(", ")}>` : "";
-  return `${t.const ? "const " : ""}${t.name}${args}${t.wraps.length ? ` ${t.wraps.join("")}` : ""}`;
+  const params = t.params ? `${t.pointer ? " (*)" : " "}(${t.params.map(format).join(", ")})` : "";
+  return `${t.const ? "const " : ""}${t.name}${args}${t.wraps.length ? ` ${t.wraps.join("")}` : ""}${params}`;
 }
 
 /** A C++ type as Lucent reads it, for messages: `std::vector<double>`. */
@@ -546,6 +594,8 @@ export function formatCxxType(t: CxxType): string {
         pointer: `${t.name} *`,
         constPointer: `const ${t.name} *`,
       }[t.by];
+    case "function":
+      return `std::function<${formatCxxType(t.result)} (${t.params.map(formatCxxType).join(", ")})>`;
     case "unknown":
       return t.spelling;
   }
