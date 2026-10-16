@@ -177,7 +177,8 @@ export function appExtensionsPodspec(inputs: AppExtensionsPodspecInputs): string
     return [
       `  s.subspec ${JSON.stringify(name)} do |e|`,
       `    e.source_files = ${list(sources)}`,
-      `    e.public_header_files = ${list(["cpp/lucent/entry_types.h", `${generated}/lucent_entries.h`])}`,
+      // A widget's glue is C its Swift calls, through the module's headers.
+      `    e.public_header_files = ${list(["cpp/lucent/entry_types.h", `${generated}/lucent_entries.h`, `${generated}/widgets/*.h`])}`,
       `    e.frameworks = ${list([...new Set(["CoreFoundation", ...frameworks])].sort())}`,
       "    e.pod_target_xcconfig = {",
       '      "APPLICATION_EXTENSION_API_ONLY" => "YES",',

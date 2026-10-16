@@ -1,7 +1,7 @@
 /**
- * SwiftUI bodies on hosts without Xcode: a miniature SwiftUI and UIKit
- * (mini-swiftui/*.swift), built with the host's swiftc, stand in for the
- * SDK's. The miniature SwiftUI's symbol graph is its schema, as Xcode's
+ * SwiftUI bodies on hosts without Xcode: a miniature SwiftUI, UIKit and
+ * WidgetKit (mini-swiftui/*.swift), built with the host's swiftc, stand in
+ * for the SDK's. The miniature SwiftUI's symbol graph is its schema, as Xcode's
  * SwiftUI interface is the real one's (lucent:swiftui is generated from
  * either the same way), in a schema set beside a UIKit schema of the
  * classes a body's types name. A component compiled against the set has
@@ -68,7 +68,9 @@ export function miniSwiftUI(): MiniSwiftUI | undefined {
   if (info.status !== 0) return undefined;
 
   const triple = (JSON.parse(info.stdout) as { target: { triple: string } }).target.triple;
-  const files = ["UIKit.swift", "SwiftUI.swift"].map((f) => path.join(sources, f));
+  const files = ["UIKit.swift", "SwiftUI.swift", "WidgetKit.swift"].map((f) =>
+    path.join(sources, f),
+  );
   const key = crypto
     .createHash("sha256")
     .update(info.stdout)
@@ -89,6 +91,8 @@ export function miniSwiftUI(): MiniSwiftUI | undefined {
     for (const [module, file] of [
       ["UIKit", files[0]!],
       ["SwiftUI", files[1]!],
+      // What a widget's Swift uses besides (decision 0124); no Lucent code imports it.
+      ["WidgetKit", files[2]!],
     ] as const) {
       const r = run(swiftc, [
         "-emit-module",

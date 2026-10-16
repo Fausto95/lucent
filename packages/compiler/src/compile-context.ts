@@ -29,6 +29,8 @@ export interface AppExtensionCode {
   provider?: string;
   /** A widget's body, as `<module>#<function>`. */
   body?: string;
+  /** A widget's name, description and families in the widget gallery, as lucent.json gives them. */
+  gallery?: { displayName?: string; description?: string; families?: readonly string[] };
 }
 
 export interface CompileContext {

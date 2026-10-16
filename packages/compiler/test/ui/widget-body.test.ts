@@ -5,128 +5,23 @@
  * C++ function of the entry computing each value its view shows, once, and
  * the Swift of its view, which reads them from a struct. Nothing in it
  * calls back: callbacks, bindings, signals and lists are refused. Built
- * against the miniature SwiftUI (mini-swiftui.ts), whose Swift
+ * against the miniature SwiftUI (widget-fixture.ts), whose Swift
  * type-checks.
  */
-import { spawnSync } from "node:child_process";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { compile, type CompileResult } from "../../src/index.ts";
-import { type MiniSwiftUI, miniSwiftUI } from "./mini-swiftui.ts";
+import { miniSwiftUI } from "./mini-swiftui.ts";
+import { BODY, buildWeather, DECLARATION, errors, widgetSwiftErrors } from "./widget-fixture.ts";
 
 const mini = miniSwiftUI();
 
-const DECLARATION = `import type { View } from "lucent:swiftui";
-
-export type Entry = { date: Date; city: string; degrees: number; rain: boolean; note: string | null };
-
-export declare function Forecast(entry: Entry): View;
-`;
-
-const PROVIDER = `import type { Entry } from "./weather.lucent";
-
-export class Forecasts {
-  placeholder(): Entry {
-    return { date: new Date(0), city: "Lisbon", degrees: 20, rain: false, note: null };
-  }
-}
-`;
-
-const BODY = `import { Color, Font, HStack, Text, VStack } from "lucent:swiftui";
-import type { Entry } from "./weather.lucent";
-
-function Line(props: { label: string; on: boolean }) {
-  return <Text foregroundStyle={props.on ? Color.blue : Color.gray}>{props.label}</Text>;
-}
-
-export function Forecast(entry: Entry) {
-  const sky = entry.rain ? "rain" : "dry";
-
-  return (
-    <VStack spacing={4}>
-      <Text font={Font.headline}>{entry.city}</Text>
-      <HStack>
-        <Text>{\`\${entry.degrees}°\`}</Text>
-        <Line label={sky} on={entry.rain} />
-      </HStack>
-      {entry.note !== null ? <Text>{entry.note ?? ""}</Text> : <Text>no note</Text>}
-    </VStack>
-  );
-}
-`;
-
-/** lucent-weather, whose widget's body is `body` (weather.ios.lucent.tsx) as given. */
-function build(
+/** lucent-weather with its widget's body `body` (weather.ios.lucent.tsx), and its declaration. */
+const build = (
   set: string,
   body = BODY,
   widget: object = {},
   platform: "ios" | "android" = "ios",
   declaration = DECLARATION,
-): { dir: string; result: CompileResult } {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-widget-body-"));
-  const files: Record<string, string> = {
-    "package.json": '{ "name": "lucent-weather", "version": "1.0.0", "lucent": {} }\n',
-    "lucent.json": JSON.stringify({
-      ios: {
-        appExtensions: [
-          {
-            kind: "widget",
-            name: "Weather",
-            provider: "forecasts#Forecasts",
-            body: "weather#Forecast",
-            ...widget,
-          },
-        ],
-      },
-    }),
-    "weather.lucent.ts": declaration,
-    "weather.ios.lucent.tsx": body,
-    "forecasts.lucent.ts": PROVIDER,
-  };
-  for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
-
-  const result = compile(
-    Object.keys(files)
-      .filter((f) => /\.lucent\.tsx?$/.test(f))
-      .map((f) => path.join(dir, f)),
-    {
-      platforms: [platform],
-      sdk: {
-        schemas: set,
-        cacheDir: path.join(dir, "cache"),
-        ios: { xcrun: path.join(dir, "no-xcrun") },
-      },
-    },
-  );
-  return { dir, result };
-}
-
-const errors = (r: CompileResult) => r.diagnostics.map((d) => [d.code, d.message]);
-
-/** What swiftc says type-checking the widget's Swift against the miniature SwiftUI: "" when it does. */
-function swiftErrors(m: MiniSwiftUI, built: { dir: string; result: CompileResult }): string {
-  const file = path.join(built.dir, "swift", "Weather.swift");
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, built.result.files.get("ios-extensions/Weather/widgets/Weather.swift")!);
-  const r = spawnSync(
-    m.swiftc[0],
-    [
-      ...m.swiftc.slice(1),
-      "-typecheck",
-      "-parse-as-library",
-      "-warnings-as-errors",
-      "-swift-version",
-      "5",
-      "-I",
-      m.modules,
-      file,
-    ],
-    { encoding: "utf8" },
-  );
-  return r.status === 0 ? "" : r.stderr;
-}
+) => buildWeather(set, { body, widget, platform, declaration });
 
 describe.skipIf(!mini)("a widget's body", () => {
   it("is compiled in the widget's build: its values in C++, its view in Swift", () => {
@@ -145,7 +40,7 @@ describe.skipIf(!mini)("a widget's body", () => {
     expect(swift).toContain("Text(values.");
     // The helper view's values are computed where the body uses it.
     expect(swift).toMatch(/fileprivate struct \w*Line\w*: View/);
-    expect(swiftErrors(mini!, built)).toBe("");
+    expect(widgetSwiftErrors(mini!, built)).toBe("");
 
     const unit = [...files].find(
       ([f, text]) =>

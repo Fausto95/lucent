@@ -8,7 +8,7 @@
  */
 import ts from "typescript";
 import { Codes } from "../codes.ts";
-import { currentCompile } from "../compile-context.ts";
+import { type AppExtensionCode, currentCompile } from "../compile-context.ts";
 import { CompileError, type Diagnostic, toDiagnostic } from "../diagnostics.ts";
 import type { LucentModule, LucentProgram } from "../program.ts";
 import type { FunctionLike } from "./roots.ts";
@@ -25,6 +25,10 @@ export interface WidgetBody {
   readonly statement: ts.Statement;
   /** Its one parameter: the entry it draws. */
   readonly entry: ts.ParameterDeclaration;
+  /** The widget's provider: the class its `provider` names, which gives the entries. */
+  readonly provider: { readonly module: LucentModule; readonly decl: ts.ClassDeclaration };
+  /** Its name, description and families in the widget gallery. */
+  readonly gallery: NonNullable<AppExtensionCode["gallery"]>;
 }
 
 /** Whether a module of the program has a widget's body: its programs leave it out. */
@@ -83,11 +87,119 @@ export function widgetBodies(
       continue;
     }
 
+    const entry = found.fn.parameters[0]!;
+    const provider = code.provider && providerOf(lp, code.provider);
+    const providerProblem =
+      provider === undefined
+        ? undefined
+        : provider
+          ? classProblem(lp.checker, provider.decl, lp.checker.getTypeAtLocation(entry))
+          : `is no class ${code.provider!.split("#")[0]} exports`;
+    if (providerProblem || !provider) {
+      if (providerProblem)
+        diagnostics.push(
+          toDiagnostic(
+            new CompileError(
+              provider ? provider.decl : found.fn,
+              Codes.UnknownExtensionCode,
+              `the widget ${extension}'s provider, ${code.provider}, ${providerProblem}: a widget's provider is an exported class whose constructor takes nothing, with \`placeholder(): E\`, \`snapshot(): Promise<E>\` and \`timeline(): Promise<{ entries: E[]; reloadAfter?: Date }>\`, \`E\` its body's entry`,
+            ),
+          ),
+        );
+      continue;
+    }
+
     if (lp.appExtension === extension)
-      bodies.push({ extension, module: m, ...found, entry: found.fn.parameters[0]! });
+      bodies.push({
+        extension,
+        module: m,
+        ...found,
+        entry,
+        provider,
+        gallery: code.gallery ?? {},
+      });
   }
 
   return { statements, bodies, diagnostics };
+}
+
+/**
+ * The class `<module>#<Class>` names, exported by its module (with its
+ * code, on the program's platform); null without one, undefined for a
+ * module that is none of the program's (LUCENT3019 already, index.ts).
+ */
+function providerOf(
+  lp: LucentProgram,
+  code: string,
+): { module: LucentModule; decl: ts.ClassDeclaration } | null | undefined {
+  const [moduleName, name] = code.split("#") as [string, string];
+  const m = lp.modules.find((x) => x.name === moduleName);
+  if (!m) return undefined;
+
+  const decl = m.sourceFile.statements.find(
+    (s): s is ts.ClassDeclaration =>
+      ts.isClassDeclaration(s) &&
+      s.name?.text === name &&
+      !!ts.getModifiers(s)?.some((x) => x.kind === ts.SyntaxKind.ExportKeyword) &&
+      !ts.getModifiers(s)?.some((x) => x.kind === ts.SyntaxKind.DeclareKeyword),
+  );
+  return decl ? { module: m, decl } : null;
+}
+
+/**
+ * What keeps class `cls` from being the provider of a widget whose entry
+ * is `entry`, as the rest of a sentence about it; or nothing. Its
+ * methods mirror TimelineProvider's requirements, without their context.
+ */
+function classProblem(
+  checker: ts.TypeChecker,
+  cls: ts.ClassDeclaration,
+  entry: ts.Type,
+): string | undefined {
+  if (cls.typeParameters?.length) return "has type parameters";
+  if (cls.members.find(ts.isConstructorDeclaration)?.parameters.length)
+    return "has a constructor that takes parameters";
+
+  const instance = checker.getTypeAtLocation(cls);
+  const same = (t: ts.Type | undefined) =>
+    !!t && checker.isTypeAssignableTo(t, entry) && checker.isTypeAssignableTo(entry, t);
+  // What method `name` returns, when it takes nothing.
+  const returns = (name: string) => {
+    const symbol = instance.getProperty(name);
+    const signatures = symbol
+      ? checker.getTypeOfSymbolAtLocation(symbol, cls).getCallSignatures()
+      : [];
+    const [only] = signatures;
+    return signatures.length === 1 && !only!.parameters.length
+      ? checker.getReturnTypeOfSignature(only!)
+      : undefined;
+  };
+  const promised = (t: ts.Type | undefined) =>
+    t?.getSymbol()?.name === "Promise" ? checker.getAwaitedType(t) : undefined;
+
+  if (!same(returns("placeholder"))) return "has no `placeholder(): E`";
+  if (!same(promised(returns("snapshot")))) return "has no `snapshot(): Promise<E>`";
+
+  const timeline = promised(returns("timeline"));
+  const field = (name: string) => {
+    const symbol = timeline?.getProperty(name);
+    return symbol && checker.getTypeOfSymbolAtLocation(symbol, cls);
+  };
+  const entries = field("entries");
+  const element =
+    entries && checker.isArrayType(entries)
+      ? checker.getTypeArguments(entries as ts.TypeReference)[0]
+      : undefined;
+  const reload = field("reloadAfter");
+  if (
+    !timeline ||
+    !same(element) ||
+    (reload && checker.typeToString(checker.getNonNullableType(reload)) !== "Date") ||
+    timeline.getProperties().length !== (reload ? 2 : 1)
+  )
+    return "has no `timeline(): Promise<{ entries: E[]; reloadAfter?: Date }>`";
+
+  return undefined;
 }
 
 /** What keeps `e` from being a widget's body, as the rest of a sentence about it; or nothing. */

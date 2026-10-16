@@ -410,9 +410,19 @@ function appExtensionModules(
             file: path.join(pkg.dir, "lucent.json"),
           });
       }
+      const gallery = {
+        ...(e.displayName !== undefined ? { displayName: e.displayName } : {}),
+        ...(e.description !== undefined ? { description: e.description } : {}),
+        ...(e.families !== undefined ? { families: e.families } : {}),
+      };
       // The app's declaration of a name replaces a package's (resolveNative).
       if (pkg.app || !modules.has(e.name))
-        modules.set(e.name, { kind: e.kind, modules: [...roots].sort(), ...named });
+        modules.set(e.name, {
+          kind: e.kind,
+          modules: [...roots].sort(),
+          ...named,
+          ...(Object.keys(gallery).length ? { gallery } : {}),
+        });
     }
   };
 
