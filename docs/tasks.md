@@ -62,7 +62,7 @@ what became of each one that is still linked or was still open.
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                                    |
 | [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #375): all but lucent-mmkv, which needs devices |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | done (2026-10-16)                                                    |
-| [T144](#t144)            | A web target for shared modules                            | in progress (#381): bundled for the web                              |
+| [T144](#t144)            | A web target for shared modules                            | done (2026-10-17)                                                    |
 | [T145](#t145)            | The package distribution matrix                            | ready                                                                |
 | **Production candidate** |                                                            |                                                                      |
 | [T150](#t150)            | Reference ports for each parity row                        | waiting; each port names its needs                                   |
@@ -1658,9 +1658,10 @@ now its Kotlin and Java as the Java packages they declare.
 `registerWebModule` does, per
 [0077](decisions/0077-the-web-is-a-target-for-shared-modules.md).
 
-- **Status:** in progress: decided
+- **Status:** done (2026-10-17): decided
   ([0133](decisions/0133-a-modules-web-twin-is-typescript-checked-against-its-exports.md))
-  (#379); twins are checked (#380); modules bundle for the web (#381).
+  (#379); twins are checked (#380); modules bundle for the web (#381);
+  the Expo example's web build runs in CI (#382).
 - **Area:** tooling, compiler.
 - **Needs:** nothing.
 - **Verify:** V1, V5.
@@ -1678,8 +1679,11 @@ now its Kotlin and Java as the Java packages they declare.
       its platform files or import line (#381).
 - [x] Views on web are a diagnostic: a `.lucent.tsx` module's transform,
       and a `lucent:views/*` resolution, fail on the web (#381).
-- [ ] Tests: the Expo example app's web build runs a shared module and a
-      module with a web twin.
+- [x] Tests: the Expo example app's web build runs a shared module and a
+      module with a web twin: `App.web.tsx` shows the tasks demo (shared)
+      and the crypto demo (Web Crypto twin); `scripts/web-check.ts`
+      exports it and runs it in Chromium, the `web-expo` harness in CI
+      (#382).
 
 **Done when:** the Expo example's web build passes in CI.
 

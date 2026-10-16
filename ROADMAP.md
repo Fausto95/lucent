@@ -154,7 +154,7 @@ Goal: Build and ship Lucent modules and packages like any React Native library.
 - ✅ Performance budgets for calls, kernels and size, checked in CI.
 - 🚧 React Native 0.86 to 0.88 and Expo SDK 57 and 58, with fresh apps built nightly.
 - ✅ iOS builds from Xcode alone, and a package's pods in Expo apps.
-- 🔭 A web target for shared modules.
+- ✅ A web target for shared modules, with web twins for platform code.
 - 🔭 Monorepos, upgrades and Release builds, tested as a matrix.
 - 🔭 Reference ports, benchmarks against Nitro and Expo Modules, and migration guides.
 

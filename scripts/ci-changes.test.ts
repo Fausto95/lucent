@@ -19,6 +19,7 @@ describe("ci-changes", () => {
       "rn-releases",
       "app-check-bare",
       "app-check-expo",
+      "web-expo",
     ]);
   });
 
@@ -67,6 +68,7 @@ describe("ci-changes", () => {
       "bench",
       "app-check-bare",
       "app-check-expo",
+      "web-expo",
     ]);
   });
 
@@ -82,7 +84,7 @@ describe("ci-changes", () => {
   });
 
   it("runs an app's own checks for an app change", () => {
-    expect(keys(["apps/expo-example/App.tsx"])).toEqual(["app-check-expo"]);
+    expect(keys(["apps/expo-example/App.tsx"])).toEqual(["app-check-expo", "web-expo"]);
     expect(plan(["apps/expo-example/App.tsx"]).apps).toBe(false);
     expect(keys(["apps/bare-example/App.tsx"])).toEqual(["app-check-bare"]);
     expect(plan(["apps/bare-example/App.tsx"]).apps).toBe(true);

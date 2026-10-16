@@ -3,8 +3,9 @@
  * source, so they stay the same app:
  *
  *   - scripts/example-app: the shared app (Examples, Lab, the design system);
- *     an app's overlay directory (scripts/example-app-bare) replaces or adds
- *     files for that app only;
+ *     an app's overlay directory (scripts/example-app-bare,
+ *     scripts/example-app-expo) replaces or adds files for that app only,
+ *     such as the Expo app's web entry, App.web.tsx;
  *   - the end-to-end cases (packages/compiler/test/e2e/cases), which the
  *     Lab's Tests screen runs natively against the lines the same code
  *     prints as plain JavaScript;
@@ -15,7 +16,7 @@
  *   - the image filter demo's module again as plain TypeScript, which the
  *     demo times as JavaScript.
  *
- * App.tsx and src/ are rewritten whole: a file removed from the source
+ * App.tsx, App.web.tsx and src/ are rewritten whole: a file removed from the source
  * leaves no copy behind. Unit tests (*.test.ts) stay out.
  *
  *   node scripts/sync-examples.ts
@@ -32,7 +33,7 @@ const shared = "scripts/example-app";
 
 const apps = [
   { dir: "apps/bare-example", overlay: "scripts/example-app-bare" },
-  { dir: "apps/expo-example" },
+  { dir: "apps/expo-example", overlay: "scripts/example-app-expo" },
 ];
 
 const e2e = "packages/compiler/test/e2e/cases";
@@ -86,6 +87,7 @@ for (const app of apps) {
 
   fs.rmSync(src, { recursive: true, force: true });
   fs.rmSync(path.join(appDir, "App.tsx"), { force: true });
+  fs.rmSync(path.join(appDir, "App.web.tsx"), { force: true });
 
   installTree(shared, appDir);
   if (app.overlay) installTree(app.overlay, appDir);
