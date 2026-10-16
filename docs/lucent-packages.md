@@ -410,8 +410,9 @@ Binding rules:
   and exports what JavaScript needs.
 
 C++ behind a C interface must catch its exceptions: one that escapes ends
-the process. C++ headers, callbacks, cancellation and prefab are
-[T142](tasks.md#t142). The editor's declarations are
+the process. A C++ header's classes, callbacks, signals and buffers' bytes
+work as [C-EXT](design/contracts.md#c-ext-typed-native-extensions) says;
+prefab is [T142](tasks.md#t142). The editor's declarations are
 `.lucent/native/types/ext/<name>.d.ts`. The fixture is
 `packages/compiler/test/fixtures/orbit-filter`, a C interface over a C++
 filter.

@@ -258,7 +258,13 @@ with bindgen's `extractCHeader` and checks the declaration against it.
 inside `lucent::ext::call` (see
 [lucent-packages.md](lucent-packages.md#c-extensions)).
 
-> **Planned:** C++ headers, callbacks and prefab ([T142](tasks.md#t142)).
+A C++ header's classes are handles too, called inside `ext::cxxCall`
+([0125](decisions/0125-a-cpp-headers-classes-are-handles-the-generated-cpp-calls.md)).
+Callbacks, signals and buffers' bytes cross as decisions 0126 and 0128
+to 0130 say.
+
+> **Planned:** prefab modules and pods' headers ([T142](tasks.md#t142),
+> [0131](decisions/0131-an-extensions-libraries-come-from-prefab-and-pods.md)).
 
 ### Build records
 
