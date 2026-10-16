@@ -126,6 +126,7 @@ export {
   type UsedSymbol,
 } from "./usage.ts";
 export { frameworkSearchPath } from "./vendored.ts";
+export { ZipArchive } from "./zip.ts";
 export {
   type CFunction,
   type CHeader,

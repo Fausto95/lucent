@@ -85,6 +85,17 @@ export const blocks: Block[] = [
       "A signal aborted before the call throws its reason, and no call is made. One that aborts during the call throws its reason once the call returns, whatever C returned.",
     ],
   },
+  { kind: "h2", text: "Libraries from Maven and CocoaPods" },
+  {
+    kind: "list",
+    items: [
+      '`android.prefab` maps a Gradle artifact of `android.dependencies` to the prefab modules to link: `{ "com.tencent:mmkv": ["mmkv"] }`. The runtime\'s library links each module, found by the name the AAR gives its prefab package.',
+      "A pod of `ios.pods` and a framework of `ios.vendoredFrameworks` link as they always do.",
+      "The extension's header is read with those libraries' headers. On Android, those are each prefab module's `include` directory, from the AAR the app's classpath resolved.",
+      "On iOS, they are the pods' header search paths and the vendored frameworks' headers.",
+      "Until Gradle has resolved the classpath, Android is left to the Gradle build, as its bindings are. With no iOS build to read the header instead, nothing is checked until then.",
+    ],
+  },
   { kind: "h2", text: "C++ headers" },
   {
     kind: "list",

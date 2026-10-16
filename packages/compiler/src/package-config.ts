@@ -183,8 +183,13 @@ export interface ExtensionInput {
   package: string;
   /** The header, absolute. */
   header: string;
-  /** The package's native source directories holding it, absolute: what it may include. */
+  /**
+   * The package's native source directories holding it, absolute: what it
+   * may include; then the headers of the libraries it links (decision 0131).
+   */
   includePaths: string[];
+  /** The frameworks it may include from (pods', vendored ones'), absolute (decision 0131). */
+  frameworkPaths?: string[];
   /** How generated code includes it: relative to the deepest of those directories, which both builds search. */
   include: string;
   declaration: ExtensionDeclaration;
