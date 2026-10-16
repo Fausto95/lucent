@@ -644,6 +644,33 @@ describe("native package", () => {
     expect(cmake).not.toContain("Orbit.kt");
   });
 
+  it("links packages' prefab modules: prefab on in Gradle, each package found and linked in CMake", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const out = path.join(dir, "native");
+
+    writeNativePackage(program(dir), out, {
+      native: nativeOf([
+        "lucent-kv",
+        {
+          android: {
+            dependencies: { "com.tencent:mmkv": "1.3.14" },
+            prefab: { "com.tencent:mmkv": ["mmkv"] },
+          },
+        },
+        {},
+      ]),
+    });
+
+    const gradle = fs.readFileSync(path.join(out, "android/build.gradle"), "utf8");
+    expect(gradle).toMatch(/buildFeatures \{\n\s+prefab true\n\s+\}/);
+    expect(gradle).toContain('api("com.tencent:mmkv:1.3.14")');
+
+    // The runtime's CMakeLists links with target_link_libraries' plain signature: so does this.
+    const cmake = fs.readFileSync(path.join(out, "android/packages.cmake"), "utf8");
+    expect(cmake).toContain("find_package(mmkv REQUIRED CONFIG) # com.tencent:mmkv");
+    expect(cmake).toContain("target_link_libraries(lucentnative mmkv::mmkv)");
+  });
+
   it.skipIf(!hasRuby)("writes a podspec Ruby parses", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
     const out = path.join(dir, "native");

@@ -132,6 +132,8 @@ export interface ResolvedNative {
   android: {
     /** Gradle `group:artifact` → each version asked for (Gradle picks) → who asked. */
     dependencies: Record<string, Record<string, From>>;
+    /** Gradle `group:artifact` → its prefab modules to link → who asked (decision 0131; when any package does). */
+    prefab?: Record<string, Record<string, From>>;
     /** Permission → who asked. */
     permissions: Record<string, From>;
     nativeSources: PackagePath[];
@@ -330,6 +332,31 @@ function gradlePlugins(declared: Declared[]): Record<string, Agreed<string>> {
       return [id, { value: top[0], from: asked.flatMap(([, from]) => from) }];
     }),
   );
+}
+
+/**
+ * Each artifact's prefab modules, and who asked for each (decision 0131).
+ * Throws for an artifact a package lists without depending on it, which
+ * leaves its version unsaid, or that lists no module.
+ */
+function prefab(declared: Declared[]): Record<string, Record<string, From>> {
+  const out = new Map<string, Map<string, From>>();
+
+  for (const d of declared)
+    for (const [artifact, modules] of Object.entries(d.native.android?.prefab ?? {})) {
+      const field = `${d.name}/lucent.json: android.prefab.${artifact}`;
+      if (!d.native.android?.dependencies?.[artifact])
+        throw new Error(
+          `${field}: ${artifact} isn't in android.dependencies, which gives the version to link`,
+        );
+      if (!modules.length) throw new Error(`${field}: name the prefab modules to link`);
+
+      const known = out.get(artifact) ?? new Map<string, From>();
+      for (const m of new Set(modules)) known.set(m, [...(known.get(m) ?? []), d.name]);
+      out.set(artifact, known);
+    }
+
+  return sorted([...out].map(([artifact, modules]) => [artifact, sorted(modules)]));
 }
 
 /** The first two entries that cannot both hold, in the order of the packages that declared them. */
@@ -540,6 +567,7 @@ export function resolveNative(
         >,
       ),
       ...nonEmpty("gradlePlugins", gradlePlugins(declared)),
+      ...nonEmpty("prefab", prefab(declared)),
       ...highest(
         declared,
         "minSdk",

@@ -1131,6 +1131,32 @@ describe("queries, features and the application's meta-data", () => {
   });
 });
 
+describe("prefab modules (decision 0131)", () => {
+  const kv = (modules: string[], dependencies = { "com.tencent:mmkv": "1.3.14" }) => ({
+    android: { dependencies, prefab: { "com.tencent:mmkv": modules } },
+  });
+
+  it("join each artifact's modules, from every package that asks", () => {
+    const { manifest } = resolveNative([
+      pkg("lucent-a", kv(["mmkv"])),
+      pkg("lucent-b", kv(["mmkv", "core"])),
+    ]);
+    expect(manifest.android.prefab).toEqual({
+      "com.tencent:mmkv": { core: ["lucent-b"], mmkv: ["lucent-a", "lucent-b"] },
+    });
+    expect(resolveNative([pkg("lucent-c", {})]).manifest.android).not.toHaveProperty("prefab");
+  });
+
+  it("need the artifact among the package's dependencies, and a module", () => {
+    expect(() => resolveNative([pkg("lucent-a", kv(["mmkv"], {} as never))])).toThrow(
+      "lucent-a/lucent.json: android.prefab.com.tencent:mmkv: com.tencent:mmkv isn't in android.dependencies, which gives the version to link",
+    );
+    expect(() => resolveNative([pkg("lucent-a", kv([]))])).toThrow(
+      "lucent-a/lucent.json: android.prefab.com.tencent:mmkv: name the prefab modules to link",
+    );
+  });
+});
+
 describe("Gradle plugins", () => {
   const services = (version: string) => ({
     android: {

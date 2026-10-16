@@ -251,6 +251,12 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "description": "Gradle artifacts: \"group:artifact\" → version. They become api dependencies of the native package, so lucent:android/* can import their classes. Every package's version of an artifact goes to Gradle, which picks one; a strict version (\"1.0!!\") that another package's excludes fails the build."
   },
   {
+    "field": "android.prefab",
+    "type": "{ [name]: string[] }",
+    "required": false,
+    "description": "A Gradle artifact of dependencies → the prefab modules of its AAR to link into the runtime's library. A native extension's header may include their headers."
+  },
+  {
     "field": "android.permissions",
     "type": "string[]",
     "required": false,
