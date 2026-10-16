@@ -240,6 +240,9 @@ Slow unit tests run a program's platform code without a device:
 The JNI host has no Android OS: the main thread is the host runtime's,
 and `android.os.Build` and `android.util.Log` are stand-ins
 (`test/jni-host/java`). A view's Android glue is only compiled there.
+`jvmRun` also builds native extensions' own sources beside the runtime,
+as the app's CMake does: `cxx-extension-jni.test.ts` runs the C++ and C
+fixture libraries (`tally`, `ticker`) there.
 Without Xcode, `ui/mini-swiftui.ts` builds SwiftUI bodies against
 `ui/mini-swiftui/`, a miniature SwiftUI and UIKit the host's Swift
 toolchain builds: it declares what tests use in SwiftUI's shapes, so its

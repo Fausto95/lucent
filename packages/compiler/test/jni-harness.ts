@@ -185,6 +185,8 @@ export function jvmRun(
   programMain: string = main,
   /** Whether to build the exports' Kotlin API (dev/lucent/app/…), which needs kotlinc. */
   exportsApi = false,
+  /** Native extensions' C and C++ sources, and the directories their headers are in. */
+  extension: { sources: string[]; includes: string[] } = { sources: [], includes: [] },
 ): { status: number | null; stdout: string; stderr: string } {
   const out = writeOut(r, dir);
 
@@ -232,7 +234,7 @@ export function jvmRun(
 
   fs.writeFileSync(path.join(out, "android/main.cpp"), programMain);
 
-  const flags = glueFlags(out);
+  const flags = [...glueFlags(out), ...extension.includes.map((i) => `-I${i}`)];
   const jobs = [
     {
       source: path.join(runtimeDir(), "cpp/lucent/platform/android.cpp"),
@@ -246,6 +248,8 @@ export function jvmRun(
     // The modules' initializer, which the native root starts state with.
     { source: path.join(out, "android/lucent_entries.cpp"), extra: [] },
     { source: path.join(out, "android/main.cpp"), extra: [] },
+    // Native extensions' own code, as the app's CMake builds it beside the runtime.
+    ...extension.sources.map((source) => ({ source, extra: [] })),
   ].map(({ source, extra }) => ({
     cmd: clang[0],
     args: [...clang[1], ...flags, ...extra, "-c", source],
