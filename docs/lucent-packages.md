@@ -171,7 +171,14 @@ class. Info.plist keys of the extension that start with `NSExtension` go
 in its `NSExtensionAttributes`, and its version keys are its target's
 `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`, set as the app's are.
 A principal class the OS can't make with `init` fails the build
-(LUCENT3019). Lucent doesn't add the extension's target to the app yet
+(LUCENT3019).
+
+The Expo config plugin adds each target at prebuild (`ios-extensions.js`).
+It's an app extension of the app's bundle identifier with the
+extension's name, with the app's version, team, deployment target and
+devices. Its files go in `ios/<name>/`, the app embeds it and builds it
+first, and the Podfile gets a target naming its subspec. A target that's
+there already stays as it is. A bare app doesn't get them yet
 ([T133](tasks.md#t133)).
 
 A pod requirement Lucent can't parse is left to CocoaPods

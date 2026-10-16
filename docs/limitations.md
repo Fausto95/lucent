@@ -128,10 +128,10 @@ generated from this file.
   `pod install`), an app with components builds twice on Android.
   Prebuild lists components from the iOS build, and the first Gradle
   build reads that list before it writes it.
-- App extensions can't run module code yet ([T133](tasks.md#t133)):
-  their code builds into `LucentExtensions.podspec`, but Lucent adds no
-  target to the app yet. On iOS, a launch module's `BGTaskScheduler`
-  handler can. Relaunches for background
+- App extensions aren't run on a simulator yet, and widgets have no body
+  yet ([T133](tasks.md#t133)). The Expo plugin adds an extension's
+  target, but a bare app doesn't get one. On iOS, a launch module's
+  `BGTaskScheduler` handler runs without JavaScript. Relaunches for background
   URL sessions and silent pushes aren't checked yet
   ([T132](tasks.md#t132)).
 - Launch modules start module state, so every module's top level runs at
