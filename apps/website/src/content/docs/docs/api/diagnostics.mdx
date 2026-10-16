@@ -62,7 +62,7 @@ Codes are stable, and grouped by what they are about. A warning still compiles; 
 | [`LUCENT3016`](#lucent3016) (warning) | Two exported functions whose native entry points, `lucent_<module>_<export>`, come out with the same name. |
 | [`LUCENT3017`](#lucent3017) (warning) | Two modules whose Swift names come out the same, or a module whose Swift name is one of the Swift API's own. |
 | [`LUCENT3018`](#lucent3018) | An iOS API that app extensions can't use, in a module an app extension's code reaches (lucent.json's `ios.appExtensions`). |
-| [`LUCENT3019`](#lucent3019) | An app extension's `class`, `provider` or `body` in lucent.json names a module the package doesn't have, or a principal class the OS can't make. |
+| [`LUCENT3019`](#lucent3019) | lucent.json's `ios.appExtensions` names code the package doesn't have, a class the OS can't make, or a widget body that isn't one. |
 | [`LUCENT3020`](#lucent3020) | An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component. |
 | [`LUCENT3021`](#lucent3021) | A component prop, event or ref command whose type views cannot carry, or whose name React or the host keeps. |
 | [`LUCENT3022`](#lucent3022) | A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread. |
@@ -1532,6 +1532,8 @@ export function ready(): boolean {
 
 `ios.appExtensions` names the Lucent code each extension runs, as `<module path>#<name>`: `push/rich#Rich` names `Rich` in `push/rich.lucent.ts`. A module that matches none would leave the extension with no code, so the build fails. A principal class (`class`) is one the OS makes with `init`: exported, extending an iOS class, with a constructor and a `super()` that take nothing.
 
+A widget's `body` is an exported function of an iOS JSX file that draws its entry: `(entry: E) => View`, where `E` is a record with a `date: Date`.
+
 **Fix:** name the module by its path under the package's sources, without .lucent.ts, and a class the OS can make.
 
 <Tabs>
@@ -2039,6 +2041,8 @@ export async function start(): Promise<number> {
 **SwiftUI or Compose body that cannot be compiled**
 
 A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose. Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.
+
+A widget's body is SwiftUI too, but WidgetKit draws it once per entry. So it has no callbacks, bindings or signals, and no lists (`ForEach`) for now.
 
 **Fix:** make the view in the body, and move logic into a function of the setup that the body calls.
 

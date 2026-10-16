@@ -10,6 +10,7 @@ import type { SwiftShim } from "./swift.ts";
 import type { SwiftProxy } from "./swift-proxy.ts";
 import type { ToolkitName } from "../ui/toolkits.ts";
 import type { Setup } from "./setups.ts";
+import type { Widget } from "./widgets.ts";
 import { type Actors, actorCall } from "./actors.ts";
 
 /** Integer registers a number can live in (see integers.ts). */
@@ -148,6 +149,10 @@ export class Ctx {
     Setup,
     { toolkit: ToolkitName; file: () => { name: string; text: string } }
   >();
+  /** Widgets' bodies compiled into this program (widgets.ts), by their function. */
+  readonly widgets = new Map<ts.Node, Widget>();
+  /** Each widget's Swift (swiftui.ts), written once its body is compiled. */
+  readonly widgetFiles = new Map<Widget, () => { name: string; text: string }>();
   private tmp = 0;
   readonly checker: ts.TypeChecker;
   readonly modules: LucentModule[];
