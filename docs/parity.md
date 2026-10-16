@@ -30,7 +30,7 @@ each system lets an author do, not how it does it.
 | Knowing when JS starts listening    | —                       | ✅ `OnStartObserving`            | ✅ `onObserved`                                        | —                     |
 | Module create and destroy hooks     | Constructor, `dispose`  | ✅ `OnCreate`, `OnDestroy`       | ✅ top-level code, `onDestroy`                         | —                     |
 | A module of the app itself (inline) | ✅ in the app's project | 🟡 inline modules (experimental) | 🟡 sources yes; native needs only from packages        | [T111](tasks.md#t111) |
-| Web implementation                  | —                       | ✅ `registerWebModule`           | 🟡 modules as JavaScript, `*.web.lucent.ts` twins      | [T144](tasks.md#t144) |
+| Web implementation                  | —                       | ✅ `registerWebModule`           | ✅ modules as JavaScript, `*.web.lucent.ts` twins      | —                     |
 | Generated TS for the JS side        | ✅                      | 🟡 macOS and Swift only          | ✅ always                                              | —                     |
 | Native code calling the module      | ✅ through the specs    | ✅ through the module registry   | 🟡 C entries, Swift and Kotlin APIs, run on hosts      | [T114](tasks.md#t114) |
 | Tests without a device              | —                       | ✅ Jest mocks                    | ✅ JS `lucent:core`, JS dev mode                       | —                     |

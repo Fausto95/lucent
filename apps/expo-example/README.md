@@ -8,7 +8,8 @@ runs `lucent build` during prebuild and makes sure `react-native.config.js`
 links `.lucent/native`.
 
 `App.tsx` and `src/` are generated from `scripts/example-app` by
-`node scripts/sync-examples.ts`: edit them there. Where the bare app
+`node scripts/sync-examples.ts`: edit them there. `App.web.tsx`, the web
+entry, comes from `scripts/example-app-expo`. Where the bare app
 compares nothing, the Lab's SDK screen here also runs each original package
 (`expo-haptics`, `expo-location`, `expo-secure-store`, …) next to its Lucent
 port, through the same JavaScript API.
@@ -44,3 +45,12 @@ pnpm ios               # or: pnpm android
 After changing `*.lucent.ts` files, run `pnpm lucent` (or prebuild again) and
 rebuild. Expo Go cannot load custom native code: use a development build
 (`expo run:ios` / `expo run:android`).
+
+## On the web
+
+`pnpm web` (`expo start --web`) runs the app's web entry, `App.web.tsx`,
+with React Native Web. Metro bundles each Lucent module as its JavaScript:
+the tasks demo's module runs as it is, and the crypto demo's and the
+status bar's have web twins (`*.web.lucent.ts`). CI exports it with
+`expo export --platform web` and runs it in Chromium
+(`node scripts/web-check.ts apps/expo-example`).

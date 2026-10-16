@@ -34,6 +34,7 @@
     "packages/compiler/test/e2e/cases",
     "packages/compiler/test/fixtures",
     "scripts/example-app",
-    "scripts/example-app-bare"
+    "scripts/example-app-bare",
+    "scripts/example-app-expo"
   ]
 }

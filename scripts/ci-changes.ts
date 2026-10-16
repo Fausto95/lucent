@@ -71,6 +71,8 @@ const areas = {
     "scripts/app-check.ts",
     "scripts/sync-examples.ts",
     "scripts/example-app/",
+    "scripts/example-app-expo/",
+    "scripts/web-check.ts",
   ],
   // The website's check also reads the roadmap, the changelog and the
   // READMEs (scripts/website.ts), and the examples its pages include.
@@ -136,6 +138,13 @@ const harnesses = [
     name: "App check (Expo)",
     key: "app-check-expo",
     run: "node scripts/app-check.ts apps/expo-example",
+    needs: ["packages", "expo"],
+  },
+  {
+    // The Expo example exported for the web and run in Chromium (decision 0133).
+    name: "Web build (Expo)",
+    key: "web-expo",
+    run: "pnpm exec playwright install --with-deps chromium && node scripts/web-check.ts apps/expo-example",
     needs: ["packages", "expo"],
   },
 ] satisfies { name: string; key: string; run: string; needs: Area[] }[];

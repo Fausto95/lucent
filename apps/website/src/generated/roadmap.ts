@@ -246,8 +246,8 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "iOS builds from Xcode alone, and a package's pods in Expo apps."
       },
       {
-        "status": "later",
-        "text": "A web target for shared modules."
+        "status": "done",
+        "text": "A web target for shared modules, with web twins for platform code."
       },
       {
         "status": "later",
