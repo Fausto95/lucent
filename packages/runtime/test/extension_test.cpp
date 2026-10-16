@@ -7,8 +7,11 @@
 #include <climits>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
+#include <future>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -272,6 +275,256 @@ static void cxxObjects() {
   CHECK(deleted == 1);
 }
 
+// --- callbacks (decisions 0126 and 0128) ------------------------------------
+
+/// Runs `f` as a turn of `context` and returns its result; the test thread,
+/// in no context, waits.
+template <class F>
+static auto inside(ExecutionContext& context, F f) -> decltype(f()) {
+  using R = decltype(f());
+  std::promise<R> result;
+  auto future = result.get_future();
+
+  context.post([&] {
+    if constexpr (std::is_void_v<R>) {
+      f();
+      result.set_value();
+    } else {
+      result.set_value(f());
+    }
+  });
+
+  if (future.wait_for(std::chrono::seconds(5)) != std::future_status::ready) {
+    std::fprintf(stderr, "a turn did not run within 5 s\n");
+    std::abort();
+  }
+  return future.get();
+}
+
+/// What callbacks saw, from any thread.
+struct Seen {
+  std::mutex m;
+  std::vector<std::string> entries;
+  std::vector<std::thread::id> threads;
+
+  void add(std::string e) {
+    std::lock_guard<std::mutex> g(m);
+    entries.push_back(std::move(e));
+    threads.push_back(std::this_thread::get_id());
+  }
+  std::string text() {
+    std::lock_guard<std::mutex> g(m);
+    std::string out;
+    for (const auto& e : entries) out += (out.empty() ? "" : " ") + e;
+    return out;
+  }
+};
+
+// A C library's callbacks, as its header declares them: the context last, or first.
+using Visit = void (*)(double value, void* context);
+using Keep = int (*)(void* context, const char* name, int64_t at);
+
+static void visitEach(const double* values, int n, Visit visit, void* context) {
+  for (int i = 0; i < n; i++) visit(values[i], context);
+}
+
+static int countKept(Keep keep, void* context) {
+  int n = 0;
+  n += keep(context, "a", 1) != 0;
+  n += keep(context, nullptr, -2) != 0;
+  n += keep(context, "c\xC3\xA9", INT64_MAX) != 0;
+  return n;
+}
+
+static constexpr Visit visitFn = +[](double v, void* c) { return ext::callBack<Fn<void(double)>, void>(c, v); };
+static constexpr Keep keepFn = +[](void* c, const char* name, int64_t at) {
+  return ext::callBack<Fn<bool(String, BigInt)>, int>(c, name, at);
+};
+
+/// Called during the call on its thread, a callback runs at once, in order,
+/// with what C passed copied: strings (a null one empty) and bigints.
+static void callbacksRunAtOnce() {
+  auto context = IsolatedContext::create();
+  Seen seen;
+
+  inside(*context, [&] {
+    ext::Callback<Fn<void(double)>> each("visit_each's visit", ext::Lives::Call,
+                                         Fn<void(double)>([&](double v) { seen.add(std::to_string(int(v))); }));
+    const double values[] = {1, 2, 3};
+    ext::call([&] { visitEach(values, 3, visitFn, each.context()); });
+    each.done();
+    seen.add("after");
+
+    ext::Callback<Fn<bool(String, BigInt)>> keep(
+        "count_kept's keep", ext::Lives::Call, Fn<bool(String, BigInt)>([&](String name, BigInt at) {
+          seen.add("[" + name.toUtf8() + "]" + at.toString().toUtf8());
+          return name.toUtf8() != "a";
+        }));
+    int n = ext::call([&] { return countKept(keepFn, keep.context()); });
+    keep.done();
+    CHECK(n == 2);
+  });
+
+  CHECK(seen.text() == "1 2 3 after [a]1 []-2 [c\xC3\xA9]9223372036854775807");
+  for (auto t : seen.threads) CHECK(t == seen.threads.front());
+  context->shutdown();
+}
+
+/// What a callback run at once throws, C gets zero for, and the call throws
+/// once it returns; a result out of C's range is such an error.
+static void throwsAfterTheCall() {
+  auto context = IsolatedContext::create();
+  std::vector<int> got;
+
+  std::string error = inside(*context, [&] {
+    ext::Callback<Fn<double(String, BigInt)>> keep(
+        "count_kept's keep", ext::Lives::Call, Fn<double(String, BigInt)>([&](String name, BigInt) -> double {
+          if (name.toUtf8().empty()) throwError(makeError(String::fromUtf8("no name")));
+          return 1;
+        }));
+    Keep recording = +[](void* c, const char* name, int64_t at) {
+      return ext::callBack<Fn<double(String, BigInt)>, int>(c, name, at);
+    };
+    return thrown([&] {
+      int n = ext::call([&] { return countKept(recording, keep.context()); });
+      got.push_back(n);
+      keep.done();
+    });
+  });
+
+  // The call ran to its end, the second call's zero counted out, then threw.
+  CHECK(error == "Error: no name");
+  CHECK(got.empty());
+
+  std::string range = inside(*context, [&] {
+    ext::Callback<Fn<double(String, BigInt)>> keep(
+        "count_kept's keep", ext::Lives::Call, Fn<double(String, BigInt)>([](String, BigInt) { return 1e10; }));
+    Keep recording = +[](void* c, const char* name, int64_t at) {
+      return ext::callBack<Fn<double(String, BigInt)>, int>(c, name, at);
+    };
+    return thrown([&] { ext::call([&] { return countKept(recording, keep.context()); }); });
+  });
+  CHECK(range == "RangeError: count_kept's keep's result must be an integer from -2147483648 to 2147483647, not 10000000000");
+  context->shutdown();
+}
+
+/// From another thread, a callback is posted to its context, in the order
+/// C called it; one C wants a result from is refused, and the call throws.
+static void postedFromAnotherThread() {
+  auto context = IsolatedContext::create();
+  Seen seen;
+
+  std::string refused = inside(*context, [&] {
+    ext::Callback<Fn<void(double)>> each("visit_each's visit", ext::Lives::Call,
+                                         Fn<void(double)>([&](double v) { seen.add(std::to_string(int(v))); }));
+    const double values[] = {4, 5, 6};
+    ext::call([&] { std::thread([&] { visitEach(values, 3, visitFn, each.context()); }).join(); });
+    each.done();
+    seen.add("returned");
+
+    ext::Callback<Fn<bool(String, BigInt)>> keep("count_kept's keep", ext::Lives::Call,
+                                                 Fn<bool(String, BigInt)>([](String, BigInt) { return true; }));
+    int n = -1;
+    std::string error = thrown([&] {
+      n = ext::call([&] {
+        int r = 0;
+        std::thread([&] { r = countKept(keepFn, keep.context()); }).join();
+        return r;
+      });
+      keep.done();
+    });
+    CHECK(n == 0);
+    return error;
+  });
+
+  CHECK(within([&] { return seen.text() == "returned 4 5 6"; }));
+  CHECK(refused == "Error: count_kept's keep was called from another thread for its result, which only a call on its context's thread can give");
+  context->shutdown();
+}
+
+/// A callback living for the call does nothing once it returned; one living
+/// once, after its first call; one living as long as a handle, once its
+/// destroy function returned.
+static void lifetimes() {
+  auto context = IsolatedContext::create();
+  std::atomic<int> calls{0};
+  const double one[] = {1};
+
+  inside(*context, [&] {
+    void* kept;
+    {
+      ext::Callback<Fn<void(double)>> each("visit_each's visit", ext::Lives::Call,
+                                           Fn<void(double)>([&](double) { calls++; }));
+      kept = each.context();
+      ext::call([&] { visitEach(one, 1, visitFn, kept); });
+      each.done();
+    }
+    visitEach(one, 1, visitFn, kept);
+    CHECK(calls == 1);
+
+    ext::Callback<Fn<void(double)>> once("visit_each's visit", ext::Lives::Once,
+                                         Fn<void(double)>([&](double) { calls++; }));
+    void* first = once.context();
+    ext::call([&] { visitEach(one, 1, visitFn, first); });
+    once.done();
+    ext::call([&] { visitEach(one, 1, visitFn, first); });
+    CHECK(calls == 2);
+
+    destroyed = 0;
+    Handle h = Handle::open("Gauge", new Gauge{5}, destroyGauge);
+    ext::Callback<Fn<void(double)>> tick("gauge_on_tick's tick", ext::Lives::Handle,
+                                         Fn<void(double)>([&](double) { calls++; }));
+    void* ticking = tick.context();
+    tick.until(h);
+    tick.done();
+    // A later call on the context's thread: at once.
+    ext::call([&] { visitEach(one, 1, visitFn, ticking); });
+    CHECK(calls == 3);
+    h.close();
+    CHECK(destroyed == 1);
+    ext::call([&] { visitEach(one, 1, visitFn, ticking); });
+    CHECK(calls == 3);
+  });
+
+  context->shutdown();
+}
+
+/// A C++ std::function keeps its callback while a copy lives: called during
+/// a later call on its context's thread, it runs at once and gives its
+/// result; its Lucent function is released on its context.
+static void cxxFunctions() {
+  auto context = IsolatedContext::create();
+  struct Probe {
+    std::atomic<std::thread::id>* where;
+    ~Probe() { *where = std::this_thread::get_id(); }
+  };
+  std::atomic<std::thread::id> releasedOn;
+  std::thread::id contextThread;
+  std::function<bool(int64_t)> keepIt;
+
+  inside(*context, [&] {
+    contextThread = std::this_thread::get_id();
+    auto probe = std::shared_ptr<Probe>(new Probe{&releasedOn});
+    ext::Callback<Fn<bool(BigInt)>> keep("Filter.setKeep's keep", ext::Lives::Copies,
+                                         Fn<bool(BigInt)>([probe](BigInt at) { return at.toString().toUtf8() != "0"; }));
+    keepIt = keep.function<bool, int64_t>();
+    keep.done();
+    probe.reset();
+
+    // A later call: at once, with its result.
+    CHECK(ext::cxxCall("Filter.apply", [&] { return keepIt(3) && !keepIt(0); }));
+  });
+
+  // From another thread, after the call: refused, reported, zero.
+  bool got = true;
+  std::thread([&] { got = keepIt(3); }).join();
+  CHECK(!got);
+
+  std::thread([&] { keepIt = nullptr; }).join();
+  CHECK(within([&] { return releasedOn.load() == contextThread; }));
+  context->shutdown();
+}
+
 int main() {
   closesOnce();
   lastCopyDestroys();
@@ -288,6 +541,11 @@ int main() {
   cxxExceptions();
   cxxValues();
   cxxObjects();
+  callbacksRunAtOnce();
+  throwsAfterTheCall();
+  postedFromAnotherThread();
+  lifetimes();
+  cxxFunctions();
 
   std::printf("extension: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

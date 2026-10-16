@@ -13,12 +13,22 @@
 // their constructors make, which the handle deletes. Their calls go
 // through cxxCall, which makes what C++ throws an Error; strings, vectors
 // and optionals cross as C++'s own.
+//
+// A callback (decisions 0126 and 0128) is a Lucent function a call hands C
+// or C++. It belongs to the context the call ran on. Called on a thread
+// running that context's code, it runs at once; from any other, it is
+// posted there, or refused when C wants its result. What it throws at once
+// is thrown by the extension call running on that thread (a CallFrame).
+// C reaches it through the `void *` it passes back, a token of the
+// callbacks' registry until the callback ends; C++ through a
+// std::function, each copy of which keeps it.
 #pragma once
 
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -33,10 +43,13 @@
 #include "bigint.h"
 #include "bytes.h"
 #include "execution.h"
+#include "function.h"
 #include "jserror.h"
 #include "jsstring.h"
 #include "number.h"
+#include "report.h"
 #include "resource.h"
+#include "scope.h"
 
 namespace lucent {
 
@@ -84,6 +97,10 @@ class Handle {
   /// calls using it are done. Idempotent.
   void close() const;
 
+  /// Runs `f` once the destroy function has returned: then, or now if it
+  /// has. What lives as long as the handle (a callback C keeps) ends there.
+  void whenDestroyed(std::function<void()> f) const;
+
   /// The same handle: copies share one.
   const void* identity() const { return state_.get(); }
 
@@ -95,6 +112,9 @@ class Handle {
     std::mutex mutex;
     int calls = 0;
     bool deferred = false;
+    bool destroyed = false;
+    /// Run once the destroy function has returned.
+    std::vector<std::function<void()>> afterDestroy;
 
     /// Last: destroyed first, so a backstop close still finds the fields above.
     std::shared_ptr<Resource> resource;
@@ -103,6 +123,8 @@ class Handle {
     void closing();
     /// A call is done.
     void release();
+    /// Destroys the pointer, then runs what waited for that.
+    void destroyNow();
   };
 
   void acquire() const;
@@ -201,12 +223,63 @@ BigInt bigint(I v) {
     return BigInt::fromUint64(static_cast<uint64_t>(v));
 }
 
+namespace detail {
+
+/// The extension calls running on a thread, innermost first: what a
+/// callback that ran at once during one threw, which the call throws once
+/// it returns (decision 0128).
+class CallFrame {
+ public:
+  CallFrame() : outer_(innermost()) { innermost() = this; }
+  ~CallFrame() { innermost() = outer_; }
+  CallFrame(const CallFrame&) = delete;
+  CallFrame& operator=(const CallFrame&) = delete;
+
+  /// The innermost call running on this thread; null outside any.
+  static CallFrame*& innermost();
+
+  /// Keeps what a callback threw: the first, if several did.
+  void threw(std::exception_ptr e) {
+    if (!error_) error_ = std::move(e);
+  }
+
+  /// Throws what a callback threw during the call, if one did.
+  void rethrow() {
+    if (error_) std::rethrow_exception(std::exchange(error_, nullptr));
+  }
+
+ private:
+  CallFrame* const outer_;
+  std::exception_ptr error_;
+};
+
+/// A callback that ran at once threw: the call running on this thread
+/// throws it once it returns, or, outside any, it is reported.
+void thrownAtOnce(std::exception_ptr e);
+
+template <class F>
+decltype(auto) callC(F& f) noexcept {
+  return f();
+}
+
+}  // namespace detail
+
 /// Runs a call into C. An exception escaping it (a C++ implementation that
 /// did not catch) ends the process here instead of unwinding through Lucent
-/// and JSI frames that expect none.
+/// and JSI frames that expect none. What a callback it called threw is
+/// thrown once it returns.
 template <class F>
-decltype(auto) call(F&& f) noexcept {
-  return f();
+decltype(auto) call(F&& f) {
+  detail::CallFrame frame;
+
+  if constexpr (std::is_void_v<decltype(f())>) {
+    detail::callC(f);
+    frame.rethrow();
+  } else {
+    decltype(auto) r = detail::callC(f);
+    frame.rethrow();
+    return r;
+  }
 }
 
 /// A string argument: NUL-terminated UTF-8 (TypeError if it holds NUL).
@@ -229,16 +302,33 @@ String fromCxx(std::string_view s);
 /// or, for one that is no std::exception, one saying `what` threw.
 [[noreturn]] void cxxThrew(const char* what, const char* message);
 
-/// Runs a call into C++, `what` (`Counter.add`): what it throws becomes an
-/// Error here, so no C++ exception unwinds through Lucent's frames.
+namespace detail {
 template <class F>
-decltype(auto) cxxCall(const char* what, F&& f) {
+decltype(auto) cxxTry(const char* what, F& f) {
   try {
     return f();
   } catch (const std::exception& e) {
     cxxThrew(what, e.what());
   } catch (...) {
     cxxThrew(what, nullptr);
+  }
+}
+}  // namespace detail
+
+/// Runs a call into C++, `what` (`Counter.add`): what it throws becomes an
+/// Error here, so no C++ exception unwinds through Lucent's frames. What a
+/// callback it called threw is thrown once it returns.
+template <class F>
+decltype(auto) cxxCall(const char* what, F&& f) {
+  detail::CallFrame frame;
+
+  if constexpr (std::is_void_v<decltype(f())>) {
+    detail::cxxTry(what, f);
+    frame.rethrow();
+  } else {
+    decltype(auto) r = detail::cxxTry(what, f);
+    frame.rethrow();
+    return r;
   }
 }
 
@@ -279,6 +369,237 @@ template <class T>
 void deleteObject(void* p) {
   delete static_cast<T*>(p);
 }
+
+// --- callbacks (decisions 0126 and 0128) -----------------------------------------------
+
+/// How long C may call a callback: until the call returns, until its first
+/// call, until a handle's destroy function returned, or, in C++, while a
+/// copy of its std::function is kept. Every one also ends with its module
+/// state.
+enum class Lives : uint8_t { Call, Once, Handle, Copies };
+
+/// A callback, shared by the call that hands it over and every call of it:
+/// the context it runs on, and a refusal to throw once the call returns.
+class CallbackState {
+ public:
+  /// Belongs to the calling context. `what` (a literal) names it in errors:
+  /// "tally_each's each".
+  CallbackState(const char* what, Lives lives);
+  virtual ~CallbackState() = default;
+  CallbackState(const CallbackState&) = delete;
+  CallbackState& operator=(const CallbackState&) = delete;
+
+  const char* what() const { return what_; }
+  Lives lives() const { return lives_; }
+
+  /// Whether a call made now runs at once: this thread runs its context's code.
+  bool runsHere() const { return context().isCurrent(); }
+
+  /// Runs `job` as a turn of its context, after those posted before it;
+  /// dropped once its module state ended.
+  void post(Job job);
+
+  /// What its module state ends with.
+  const std::shared_ptr<Scope>& scope() const { return scope_; }
+
+  /// A call refused (one wanting a result, from another thread): the call
+  /// throws it once it returns, if it still runs; otherwise it is reported.
+  void refuse();
+
+  /// The call it was handed to returned.
+  void returned();
+
+  /// After the call: throws a refusal made during it.
+  void rethrow();
+
+ protected:
+  ExecutionContext& context() const { return ExecutionContext::of(owner_); }
+
+ private:
+  [[noreturn]] void throwRefusal() const;
+
+  const char* const what_;
+  const Lives lives_;
+  const ContextRef owner_;
+  const std::shared_ptr<Scope> scope_;
+
+  std::mutex mutex_;
+  bool during_ = true;
+  bool refused_ = false;
+};
+
+/// What a callback keeps of an argument C or C++ passes: a string's copy
+/// (a null `const char *` is empty), any other value itself.
+template <class C>
+auto kept(C&& v) {
+  using D = std::decay_t<C>;
+
+  if constexpr (std::is_same_v<D, const char*> || std::is_same_v<D, char*>)
+    return v ? std::string(v) : std::string();
+  else if constexpr (std::is_same_v<D, std::string_view> || std::is_same_v<D, std::string>)
+    return std::string(v);
+  else
+    return static_cast<D>(v);
+}
+
+/// A kept argument as the Lucent function's parameter type `L`.
+template <class L, class K>
+L toLucent(const K& v) {
+  if constexpr (std::is_same_v<L, String>)
+    return String::fromUtf8(std::string_view(v));
+  else if constexpr (std::is_same_v<L, BigInt>)
+    return bigint(v);
+  else if constexpr (std::is_same_v<L, bool>)
+    return static_cast<bool>(v);
+  else
+    return static_cast<double>(v);
+}
+
+/// What the Lucent function returned as C's result type `C`: checked as an
+/// argument is, `what` naming it.
+template <class C, class L>
+C toC(const L& v, const char* what) {
+  if constexpr (std::is_same_v<C, bool> || std::is_same_v<L, bool>)
+    return static_cast<C>(v);
+  else if constexpr (std::is_floating_point_v<C>)
+    return real<C>(v);
+  else
+    return integer<C>(v, what);
+}
+
+template <class F>
+class CallbackOf;
+
+/// A callback of a Lucent function of type Fn<R(A...)>, released on its context.
+template <class R, class... A>
+class CallbackOf<Fn<R(A...)>> final : public CallbackState {
+ public:
+  CallbackOf(const char* what, Lives lives, Fn<R(A...)> fn) : CallbackState(what, lives), fn_(std::move(fn)) {
+    if constexpr (!std::is_void_v<R>) result_ = std::string(what) + "'s result";
+  }
+
+  ~CallbackOf() override {
+    ExecutionContext& c = context();
+    if (fn_ && !c.isCurrent()) c.post([f = std::move(fn_)] { (void)f; });
+  }
+
+  /// Calls the Lucent function with what C passed, and gives C its result.
+  template <class CR, class... K>
+  CR give(const K&... args) {
+    static_assert(sizeof...(K) == sizeof...(A), "a callback takes what its Lucent function does");
+
+    if constexpr (std::is_void_v<R>) {
+      fn_(toLucent<A>(args)...);
+      if constexpr (!std::is_void_v<CR>) return CR();
+    } else {
+      R r = fn_(toLucent<A>(args)...);
+      if constexpr (!std::is_void_v<CR>) return toC<CR>(r, result_.c_str());
+    }
+  }
+
+ private:
+  Fn<R(A...)> fn_;
+  std::string result_;
+};
+
+namespace detail {
+
+/// A call of a callback, as decision 0128 runs it.
+template <class CR, class F, class... K>
+CR dispatch(const std::shared_ptr<CallbackOf<F>>& s, K... args) {
+  if (s->runsHere()) {
+    try {
+      return s->template give<CR>(args...);
+    } catch (...) {
+      thrownAtOnce(std::current_exception());
+      return CR();
+    }
+  }
+
+  if constexpr (std::is_void_v<CR>) {
+    s->post([s, ... args = std::move(args)] {
+      try {
+        s->template give<void>(args...);
+      } catch (...) {
+        reportUncaught(std::current_exception(), "callback");
+      }
+    });
+  } else {
+    s->refuse();
+    return CR();
+  }
+}
+
+}  // namespace detail
+
+/// The `void *` C passes back to reach `state`, until it ends; with
+/// `withScope`, it ends with its module state too.
+void* registerCallback(std::shared_ptr<CallbackState> state, bool withScope);
+
+/// The callback C's `void *` reaches; null once it ended.
+std::shared_ptr<CallbackState> registeredCallback(void* context);
+
+/// Ends the callback C's `void *` reaches: later calls do nothing.
+void endCallback(void* context);
+
+/// A call C makes of a callback: `context` is the `void *` it passed back,
+/// `args` the rest of what it passed, in order. Generated code gives C a
+/// function that calls this, for the Lucent function's type `F`.
+template <class F, class CR, class... CA>
+CR callBack(void* context, CA... args) {
+  auto state = registeredCallback(context);
+  if (!state) return CR();
+  if (state->lives() == Lives::Once) endCallback(context);
+
+  return detail::dispatch<CR>(std::static_pointer_cast<CallbackOf<F>>(std::move(state)), kept(args)...);
+}
+
+/// A Lucent function a call hands C or C++, as the call holds it: made
+/// before the call, done after it.
+template <class F>
+class Callback {
+ public:
+  Callback(const char* what, Lives lives, F fn) : state_(std::make_shared<CallbackOf<F>>(what, lives, std::move(fn))) {}
+  ~Callback() { end(); }
+  Callback(const Callback&) = delete;
+  Callback& operator=(const Callback&) = delete;
+
+  /// The `void *` C passes back to it.
+  void* context() {
+    if (!context_) context_ = registerCallback(state_, state_->lives() != Lives::Call);
+    return context_;
+  }
+
+  /// It lives until `handle` is destroyed.
+  void until(const Handle& handle) {
+    handle.whenDestroyed([c = context()] { endCallback(c); });
+  }
+
+  /// The std::function C++ is given: each copy keeps the callback.
+  template <class CR, class... CA>
+  std::function<CR(CA...)> function() const {
+    return [s = state_](CA... args) -> CR { return detail::dispatch<CR>(s, kept(std::forward<CA>(args))...); };
+  }
+
+  /// After the call: ends what lives for the call, then throws a refusal
+  /// made during it.
+  void done() {
+    end();
+    state_->rethrow();
+  }
+
+ private:
+  void end() {
+    if (ended_) return;
+    ended_ = true;
+    state_->returned();
+    if (context_ && state_->lives() == Lives::Call) endCallback(context_);
+  }
+
+  const std::shared_ptr<CallbackOf<F>> state_;
+  void* context_ = nullptr;
+  bool ended_ = false;
+};
 
 }  // namespace ext
 }  // namespace lucent
