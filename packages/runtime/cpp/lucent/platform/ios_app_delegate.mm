@@ -183,6 +183,10 @@ SEL didReceiveSelector() {
 }
 
 void installNotificationDelegate() {
+#if LUCENT_APP_EXTENSION
+  // An app extension's notifications are its principal class's (decision 0124).
+  return;
+#endif
   static dispatch_once_t once;
   dispatch_once(&once, ^{
     onMain(^{
@@ -513,6 +517,10 @@ using namespace lucent::objc;
 @implementation LucentExpoSubscriber
 
 + (void)load {
+#if LUCENT_APP_EXTENSION
+  // An app extension has no app delegate (decision 0124).
+  return;
+#endif
   Class repository = NSClassFromString(@"EXExpoAppDelegateSubscriberRepository");
   SEL registering = NSSelectorFromString(@"registerSubscriber:");
   if (!repository || ![repository respondsToSelector:registering]) return;

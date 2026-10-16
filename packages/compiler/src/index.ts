@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import ts from "typescript";
 import { type Code, Codes, docsUrl, Explanations } from "./codes.ts";
 import { CompileError, type Diagnostic, formatDiagnostic, toDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
@@ -16,6 +17,7 @@ import {
   type CompileSession,
   createLucentProgram,
   findLucentFiles,
+  type LucentModule,
   type LucentProgram,
   moduleNameOf,
   platformOf,
@@ -41,7 +43,7 @@ import {
   lucentPackageOf,
   nativePackages,
 } from "./packages.ts";
-import { compileContext, runInCompile } from "./compile-context.ts";
+import { compileContext, currentCompile, runInCompile } from "./compile-context.ts";
 import { sdkUsesOf } from "./sdk/usage.ts";
 import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
 import { ts as js } from "@lucent-lang/codegen";
@@ -169,6 +171,11 @@ export { sdkDeclarations, sdkModule, sdkModules } from "./sdk/modules.ts";
 
 export interface CompileResult extends EmitResult {
   ok: boolean;
+  /**
+   * Each iOS app extension built (decision 0124), whose files are under
+   * `ios-extensions/<name>/`: the Apple frameworks its code uses.
+   */
+  appExtensions?: Record<string, { frameworks: string[] }>;
   /** The SDK symbols the code uses, sorted by key; absent when the compile failed. */
   sdkUses?: UsedSymbol[];
   /** Every file the compile read from disk, with what it found there (see currentReads). */
@@ -414,6 +421,84 @@ function appExtensionModules(
   return { modules, problems };
 }
 
+/**
+ * The files of each app extension's build (decision 0124): the program of
+ * the modules its code reaches through its imports, from those its
+ * declaration names (the compile context's), compiled for iOS. A module of
+ * a platform without an iOS file compiles its declaration as stubs, as in
+ * the app's program.
+ */
+function appExtensionBuilds(
+  lp: LucentProgram,
+  options: CompileOptions,
+): [
+  string,
+  { files: ReadonlyMap<string, string>; diagnostics: Diagnostic[]; frameworks: string[] },
+][] {
+  const roots = currentCompile()?.appExtensions ?? new Map<string, readonly string[]>();
+  const byFile = new Map<ts.SourceFile, LucentModule>();
+  for (const m of lp.modules) {
+    byFile.set(m.sourceFile, m);
+    if (m.declaration) byFile.set(m.declaration, m);
+  }
+  // The Lucent modules a module's code imports.
+  const imported = (m: LucentModule): LucentModule[] =>
+    m.sourceFile.statements.flatMap((s) => {
+      if (!ts.isImportDeclaration(s) && !ts.isExportDeclaration(s)) return [];
+      const spec = s.moduleSpecifier;
+      const target = spec && lp.checker.getSymbolAtLocation(spec)?.valueDeclaration;
+      const found = target && ts.isSourceFile(target) ? byFile.get(target) : undefined;
+      return found && found !== m ? [found] : [];
+    });
+
+  const out: [
+    string,
+    { files: ReadonlyMap<string, string>; diagnostics: Diagnostic[]; frameworks: string[] },
+  ][] = [];
+  for (const [name, names] of [...roots].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+    const reached = new Set<LucentModule>();
+    const visit = (m: LucentModule): void => {
+      if (reached.has(m)) return;
+      reached.add(m);
+      imported(m).forEach(visit);
+    };
+    for (const m of lp.modules) if (names.includes(m.name)) visit(m);
+    if (!reached.size) continue;
+
+    const modules = [...reached];
+    const stubs = modules.filter((m) => m.stub).map((m) => m.file);
+    const references = modules.flatMap((m) => (m.declaration ? [m.declaration.fileName] : []));
+    const built = compileOnce(
+      createLucentProgram(
+        modules.map((m) => m.file),
+        options.readSource,
+        "ios",
+        { references, stubs },
+      ),
+      references,
+    );
+    out.push([
+      name,
+      { files: built.files, diagnostics: built.diagnostics, frameworks: built.frameworks ?? [] },
+    ]);
+  }
+  return out;
+}
+
+/**
+ * What an app extension's build keeps (decision 0124): the modules' units,
+ * the entry points and their Swift, the shims; not the JSI units, nor
+ * views, which need React Native.
+ */
+function inAppExtension(file: string): boolean {
+  return (
+    !file.startsWith("views/") &&
+    file !== "lucent_bindings.cpp" &&
+    file !== "lucent_identity.cpp" &&
+    !/\.(js|d\.ts)$/.test(file)
+  );
+}
+
 /** The session part of a program's options: its target's program to reuse, under `key`. */
 function sessionFor(
   options: CompileOptions,
@@ -479,6 +564,15 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
       );
       result = compileOnce(lp, declarations);
       collectTypes(lp, (out.types ??= new Map()));
+      // Each iOS app extension: a second build of the code it reaches, without React Native
+      // (decision 0124).
+      if (target === "ios" && result.ok)
+        for (const [name, built] of appExtensionBuilds(lp, options)) {
+          out.diagnostics.push(...built.diagnostics);
+          for (const [file, content] of built.files)
+            if (inAppExtension(file)) out.files.set(`ios-extensions/${name}/${file}`, content);
+          if (built.files.size) (out.appExtensions ??= {})[name] = { frameworks: built.frameworks };
+        }
     }
     out.diagnostics.push(...result.diagnostics);
     (out.warnings ??= []).push(...(result.warnings ?? []));

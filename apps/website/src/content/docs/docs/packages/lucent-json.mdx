@@ -52,7 +52,7 @@ What a Lucent package's platform code needs from the app that installs it, next 
 | `ios.privacy.collectedData.<name>.linked` | `boolean` | yes |  |
 | `ios.privacy.collectedData.<name>.tracking` | `boolean` | yes |  |
 | `ios.privacy.collectedData.<name>.purposes` | `string[]` | yes |  |
-| `ios.appExtensions` | `object[]` |  | App extensions (decision 0124): targets of the app's Xcode project that run Lucent code with no JavaScript. Each is a notification service, a share extension or a widget. A name is declared once; packages that declare it differently fail the build, naming both. They're checked and merged, but their targets aren't built yet (T133). |
+| `ios.appExtensions` | `object[]` |  | App extensions (decision 0124): targets of the app's Xcode project that run Lucent code with no JavaScript. Each is a notification service, a share extension or a widget. A name is declared once; packages that declare it differently fail the build, naming both. Lucent builds their code into LucentExtensions.podspec, but doesn't add their targets to the app yet (T133). |
 | `ios.appExtensions[].kind` | `"notificationService" or "share" or "widget"` | yes |  |
 | `ios.appExtensions[].name` | `string` | yes | The target's name, and the last part of its bundle identifier: \<app's identifier\>.\<name\>. |
 | `ios.appExtensions[].class` | `string` |  | A notification service or share extension's principal class, as "\<module path\>#\<Class\>": an exported class extending the SDK class its extension point makes (UNNotificationServiceExtension, a UIViewController), whose constructor takes no parameters. |

@@ -10,6 +10,7 @@ import { androidViewFiles, autolinkingConfig } from "./ui/android.ts";
 import { moduleTypes, VIEWS_RUNTIME } from "./ui/proxy.ts";
 import {
   androidManifest,
+  appExtensionsPodspec,
   consumerRules,
   libraryBuildGradle,
   packagesCmake,
@@ -20,7 +21,7 @@ import {
   withProjectDir,
 } from "./native-build-files.ts";
 import type { NativeInputs, PackagePath } from "./package-config.ts";
-import { prebuiltRuntimeFiles } from "./prebuilt-runtime.ts";
+import { appExtensionRuntimeSources, prebuiltRuntimeFiles } from "./prebuilt-runtime.ts";
 import { inNativePackage } from "./package-files.ts";
 import { coreTypesPath } from "./program.ts";
 import { currentReads, currentRealpaths, readsKey } from "./reads.ts";
@@ -179,7 +180,12 @@ export function podSourcesDigest(nativeDir: string): string | undefined {
     if (fs.existsSync(path.join(nativeDir, top))) walk(top);
 
   const listed = sources
-    .filter((f) => !f.startsWith("cpp/generated/android/") && !f.startsWith("cpp/generated/host/"))
+    .filter(
+      (f) =>
+        !f.startsWith("cpp/generated/android/") &&
+        !f.startsWith("cpp/generated/host/") &&
+        !f.startsWith("cpp/generated/ios-extensions/"),
+    )
     .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   const digest = crypto.createHash("sha256").update(fs.readFileSync(podspecFile));
 
@@ -251,7 +257,10 @@ export function installedReactNative(root: string): string | undefined {
 }
 
 export function writeNativePackage(
-  result: EmitResult,
+  result: EmitResult & {
+    /** Each iOS app extension built, whose files are under ios-extensions/<name>/ (decision 0124). */
+    appExtensions?: Record<string, { frameworks: string[] }>;
+  },
   outDir: string,
   options: {
     /** The check the package's code passed, for the next build to tell whether it holds (upToDate). */
@@ -377,6 +386,30 @@ export function writeNativePackage(
         : "cpp/generated/lucent_entries.h",
     }),
   );
+
+  // The app extensions' builds, a subspec each (decision 0124): the runtime's sources an
+  // extension builds, from those the package has.
+  const appExtensions = Object.entries(result.appExtensions ?? {}).sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0,
+  );
+  if (appExtensions.length)
+    want.set(
+      path.join(outDir, "LucentExtensions.podspec"),
+      appExtensionsPodspec({
+        projectDir,
+        runtime: appExtensionRuntimeSources(path.join(rt, "cpp")).filter((f) =>
+          want.has(path.join(outDir, "cpp", f)),
+        ),
+        extensions: appExtensions,
+        swift: [...result.files.keys()].some(
+          (f) => f.startsWith("ios-extensions/") && f.endsWith(".swift"),
+        ),
+        deploymentTarget: highestVersion([
+          native?.ios.deploymentTarget?.value,
+          options.app?.deploymentTarget,
+        ]),
+      }),
+    );
 
   const gradle = path.join(outDir, "android/build.gradle");
   want.set(

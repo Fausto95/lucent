@@ -170,7 +170,7 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "field": "ios.appExtensions",
     "type": "object[]",
     "required": false,
-    "description": "App extensions (decision 0124): targets of the app's Xcode project that run Lucent code with no JavaScript. Each is a notification service, a share extension or a widget. A name is declared once; packages that declare it differently fail the build, naming both. They're checked and merged, but their targets aren't built yet (T133)."
+    "description": "App extensions (decision 0124): targets of the app's Xcode project that run Lucent code with no JavaScript. Each is a notification service, a share extension or a widget. A name is declared once; packages that declare it differently fail the build, naming both. Lucent builds their code into LucentExtensions.podspec, but doesn't add their targets to the app yet (T133)."
   },
   {
     "field": "ios.appExtensions[].kind",

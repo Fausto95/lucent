@@ -48,6 +48,28 @@ function walk(dir: string): string[] {
  * JSI, React Native or fbjni header.
  */
 export function prebuiltCoreSources(cppDir: string): string[] {
+  return jsiFreeSources(cppDir, []);
+}
+
+/**
+ * The runtime's sources an iOS app extension builds (decision 0124): the
+ * core's, and the iOS platform files that reach no JSI, React Native or
+ * Yoga header either. Their code an extension can't run is under
+ * `LUCENT_APP_EXTENSION`, which the extension's build defines.
+ */
+export function appExtensionRuntimeSources(cppDir: string): string[] {
+  const platform = path.join(cppDir, "lucent/platform");
+  return jsiFreeSources(
+    cppDir,
+    fs
+      .readdirSync(platform)
+      .filter((f) => /^ios[\w]*\.mm$/.test(f))
+      .map((f) => path.join(platform, f)),
+  );
+}
+
+/** The core's candidates and `more`, but those reaching an app header, relative to `cppDir`. */
+function jsiFreeSources(cppDir: string, more: string[]): string[] {
   const reaches = new Map<string, boolean>();
   const resolve = (from: string, name: string) =>
     [path.join(path.dirname(from), name), path.join(cppDir, name)].find((f) => fs.existsSync(f));
@@ -77,6 +99,7 @@ export function prebuiltCoreSources(cppDir: string): string[] {
     // URL and the URL standard's parser: an app links their objects only when its code makes a URL.
     path.join(cppDir, "lucent/url/url.cpp"),
     path.join(cppDir, "third_party/ada/lucent_ada.cpp"),
+    ...more,
   ];
   return candidates
     .filter((f) => !appHeaders(f, new Set()))
