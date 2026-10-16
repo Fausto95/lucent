@@ -559,7 +559,14 @@ export function swiftUIWidget(
   return {
     crossings,
     file: () =>
-      widgetFile(widget, crossings, view, [...shared.helpers.values()], writer.environment),
+      widgetFile(
+        widget,
+        crossings,
+        view,
+        shared.rows,
+        [...shared.helpers.values()],
+        writer.environment,
+      ),
   };
 }
 
@@ -586,6 +593,7 @@ function widgetFile(
   widget: Widget,
   crossings: Crossings,
   drawn: swift.Expr,
+  rows: readonly Row[],
   helpers: readonly HelperView[],
   environment: ReadonlyMap<string, swift.Type>,
 ): ToolkitFile {
@@ -604,6 +612,13 @@ function widgetFile(
         modifiers: [],
         name: s.name,
         type: values.type(s.type),
+      })),
+      // Each list's items, after the values.
+      ...crossings.lists.map((l): swift.Member => ({
+        k: "let",
+        modifiers: [],
+        name: l.name,
+        type: swift.array(swift.type(itemName(crossings, l))),
       })),
       {
         k: "init",
@@ -625,6 +640,33 @@ function widgetFile(
                   s.type,
                   swift.index(fields, swift.num(i)),
                   `${names.values}.${s.name}`,
+                ),
+              ),
+            ),
+          ),
+          ...crossings.lists.map((l, i) =>
+            swift.exprStmt(
+              swift.assign(
+                swift.member(swift.self, l.name),
+                swift.call(
+                  swift.member(
+                    swift.call(swift.name("lucentDecodeList"), [
+                      { value: swift.index(fields, swift.num(crossings.values.length + i)) },
+                      { value: swift.str(`${names.values}.${l.name}`) },
+                    ]),
+                    "map",
+                  ),
+                  [],
+                  swift.closure(
+                    [],
+                    [
+                      swift.exprStmt(
+                        swift.call(swift.name(itemName(crossings, l)), [
+                          { value: swift.name("$0") },
+                        ]),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -651,6 +693,8 @@ function widgetFile(
     ],
   };
   const helperViews = helpers.map((h) => helperStruct(values, h));
+  const items = crossings.lists.map((l) => widgetItem(values, crossings, l));
+  const rowViews = rows.map((r) => widgetRow(crossings, r));
 
   return {
     name: `widgets/${body.extension}.swift`,
@@ -662,8 +706,10 @@ function widgetFile(
         { k: "import", module: "WidgetKit" },
         ...SwiftValues.decoders(),
         ...values.structs,
+        ...items,
         valuesStruct,
         view,
+        ...rowViews,
         ...helperViews,
         ...widgetKitDecls(widget),
       ],
@@ -737,6 +783,8 @@ interface Scope {
   readonly values: swift.Expr;
   /** What calls the actions. */
   readonly actions: swift.Expr;
+  /** A widget's body, or a row of its list: values only, held as they are, and no actions. */
+  readonly widget?: true;
 }
 
 const ROOT: Scope = {
@@ -747,7 +795,10 @@ const ROOT: Scope = {
 const ROW: Scope = { values: swift.name("item"), actions: swift.name("actions") };
 
 /** A widget's body: its values are its entry's, and it calls no actions (Crossings refuses them). */
-const WIDGET: Scope = { values: swift.name("values"), actions: swift.name("values") };
+const WIDGET: Scope = { values: swift.name("values"), actions: swift.name("values"), widget: true };
+
+/** A row of a widget's list: its values are its item's. */
+const WIDGET_ROW: Scope = { values: swift.name("item"), actions: swift.name("item"), widget: true };
 
 /**
  * What the writers of one body share: its lists' rows, and its helper
@@ -1266,7 +1317,12 @@ class BodyWriter {
       ...(keyFn.parameters[0] ? { param: keyFn.parameters[0] } : {}),
       expression: key,
     });
-    const row = new BodyWriter(this.checker, this.crossings, ROW, this.shared);
+    const row = new BodyWriter(
+      this.checker,
+      this.crossings,
+      this.scope.widget ? WIDGET_ROW : ROW,
+      this.shared,
+    );
     const drawn = list.content.body;
     const body = ts.isBlock(drawn)
       ? row.content(returned(list.content, "a list's item shows what its function returns"))
@@ -1274,16 +1330,17 @@ class BodyWriter {
 
     this.shared.rows.push({ list, body, environment: row.environment });
 
+    // A widget's row takes its item alone: it calls nothing back.
     const each = swift.call(
       swift.name("ForEach"),
-      [{ value: swift.member(swift.name("model"), list.name) }],
+      [{ value: swift.member(this.scope.values, list.name) }],
       closure(
         ["item"],
         [
           swift.exprStmt(
             swift.call(swift.name(rowName(this.crossings!, list)), [
               { label: "item", value: swift.name("item") },
-              { label: "actions", value: swift.member(swift.name("model"), "actions") },
+              ...(this.scope.widget ? [] : [{ label: "actions", value: this.scope.actions }]),
             ]),
           ),
         ],
@@ -2940,6 +2997,80 @@ function helperStruct(values: SwiftValues, view: HelperView): swift.Decl {
         name: "body",
         type: swift.opaque(swift.type("View")),
         get: [swift.exprStmt(view.body)],
+      },
+    ],
+  };
+}
+
+/**
+ * An item of a widget's list: its key (its id, for SwiftUI's ForEach), and
+ * the values its body computes for it, read by place from its record.
+ */
+function widgetItem(values: SwiftValues, crossings: Crossings, list: ListSlot): swift.Decl {
+  const name = itemName(crossings, list);
+  const record = swift.name("record");
+
+  return {
+    k: "struct",
+    name,
+    modifiers: ["fileprivate"],
+    protocols: [swift.type("Identifiable")],
+    members: [
+      { k: "let", modifiers: [], name: "id", type: values.type(keyType(list)) },
+      ...list.values.map((v): swift.Member => ({
+        k: "let",
+        modifiers: [],
+        name: v.name,
+        type: values.type(v.type),
+      })),
+      {
+        k: "init",
+        modifiers: [],
+        params: [{ external: "_", name: "x", type: swift.type("Any") }],
+        body: [
+          swift.letStmt(
+            "record",
+            swift.call(swift.name("lucentDecodeList"), [
+              { value: swift.name("x") },
+              { value: swift.str(name) },
+            ]),
+          ),
+          swift.exprStmt(
+            swift.assign(
+              swift.member(swift.self, "id"),
+              values.decode(keyType(list), swift.index(record, swift.num(0)), `${name}.id`),
+            ),
+          ),
+          ...list.values.map((v, i) =>
+            swift.exprStmt(
+              swift.assign(
+                swift.member(swift.self, v.name),
+                values.decode(v.type, swift.index(record, swift.num(i + 1)), `${name}.${v.name}`),
+              ),
+            ),
+          ),
+        ],
+      },
+    ],
+  };
+}
+
+/** A row of a widget's list: what its item shows. */
+function widgetRow(crossings: Crossings, row: Row): swift.Decl {
+  return {
+    k: "struct",
+    name: rowName(crossings, row.list),
+    modifiers: ["fileprivate"],
+    protocols: [swift.type("View")],
+    members: [
+      { k: "let", modifiers: [], name: "item", type: swift.type(itemName(crossings, row.list)) },
+      ...environmentProperties(row.environment),
+      {
+        k: "property",
+        modifiers: [],
+        name: "body",
+        type: swift.opaque(swift.type("View")),
+        get: row.body,
       },
     ],
   };

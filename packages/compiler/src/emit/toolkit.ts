@@ -266,7 +266,8 @@ function host(em: FnEmitter, setup: Setup, bodyNode: Body, where: ts.Expression)
 
 /**
  * A widget's body (widgets.ts): each value computed once, in the order the
- * view reads them, and encoded, the array of them its function returns.
+ * view reads them, and encoded, then each list's records, the array of
+ * them its function returns.
  */
 function widgetJsx(em: FnEmitter, widget: Widget, node: ts.Expression, toolkit: ToolkitName): E {
   const { body } = widget;
@@ -316,12 +317,74 @@ function widgetJsx(em: FnEmitter, widget: Widget, node: ts.Expression, toolkit: 
 
     return cpp.id(name);
   });
+  // Each list: for each item, its key and its values, a record (`[key, value…]`).
+  const lists = crossings.lists.map((list, i) => {
+    const name = `lucent_l${i}`;
+    const source = em.thunk(list.source);
+    const array = returned(source);
+
+    if (array.k !== "array") throw new Error("a list's source is not an array");
+
+    const item: Thunk["params"] = [{ names: list.names, type: array.e }];
+    const key = em.thunk(list.key, { params: item, type: scalarType(list.keyType) });
+    const values = list.values.map((v) =>
+      em.thunk(v.source, {
+        params: item,
+        site: slotSite(v),
+        given: givens(em.checker, v.source, v.use),
+      }),
+    );
+    const of = (f: string) => cpp.call(cpp.id(f), [cpp.id(ITEM)]);
+    const record = cpp.lambda(
+      ["&"],
+      [cpp.param(cpp.reference(cpp.constType(em.reg.cppType(array.e))), ITEM)],
+      [
+        cpp.varDecl(cpp.auto, "lucent_key", of(`${name}_key_of`)),
+        ...values.flatMap((v, j) => [
+          cpp.varDecl(cpp.auto, `lucent_v${j}_value`, of(`${name}_v${j}_of`)),
+          cpp.varDecl(
+            cpp.type("id"),
+            `lucent_v${j}`,
+            encoded(
+              em.ctx,
+              "lucent::swiftui",
+              list.values[j]!.type,
+              returned(v),
+              cpp.id(`lucent_v${j}_value`),
+            ),
+          ),
+        ]),
+        cpp.ret(
+          cpp.call("lucent::swiftui::record", [
+            cpp.initList([
+              cpp.call("lucent::swiftui::value", [cpp.id("lucent_key")]),
+              ...values.map((_, j) => cpp.id(`lucent_v${j}`)),
+            ]),
+          ]),
+        ),
+      ],
+    );
+
+    statements.push(
+      cpp.varDecl(cpp.auto, `${name}_source_of`, source.c),
+      cpp.varDecl(cpp.auto, `${name}_key_of`, key.c),
+      ...values.map((v, j) => cpp.varDecl(cpp.auto, `${name}_v${j}_of`, v.c)),
+      cpp.varDecl(cpp.auto, `${name}_source`, cpp.call(cpp.id(`${name}_source_of`))),
+      cpp.varDecl(
+        cpp.type("id"),
+        name,
+        cpp.call("lucent::swiftui::array", [cpp.id(`${name}_source`), record]),
+      ),
+    );
+
+    return cpp.id(name);
+  });
 
   return {
     c: cpp.statementExpr(
       statements,
       cpp.call("lucent::objc::wrap", [
-        cpp.call("lucent::swiftui::record", [cpp.initList(fields)]),
+        cpp.call("lucent::swiftui::record", [cpp.initList([...fields, ...lists])]),
         cpp.str(`the widget ${body.extension}'s values`),
       ]),
     ),

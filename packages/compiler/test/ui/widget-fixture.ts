@@ -2,7 +2,7 @@
  * lucent-weather: a package whose widget (decision 0124), `Weather`, has a
  * provider class, `forecasts#Forecasts`, and a SwiftUI body,
  * `weather#Forecast`, which draws an entry's city, temperature and sky
- * (with a helper view) and its note when it has one. Compiled for iOS
+ * (with a helper view), its note when it has one, and its days, a list. Compiled for iOS
  * against the miniature SwiftUI (mini-swiftui.ts), whose Swift, and the
  * widget's with its glue's header, type-checks.
  */
@@ -15,7 +15,16 @@ import type { MiniSwiftUI } from "./mini-swiftui.ts";
 
 export const DECLARATION = `import type { View } from "lucent:swiftui";
 
-export type Entry = { date: Date; city: string; degrees: number; rain: boolean; note: string | null };
+export type Day = { day: string; high: number };
+
+export type Entry = {
+  date: Date;
+  city: string;
+  degrees: number;
+  rain: boolean;
+  note: string | null;
+  days: Day[];
+};
 
 export declare function Forecast(entry: Entry): View;
 `;
@@ -25,7 +34,17 @@ export const PROVIDER = `import type { Entry } from "./weather.lucent";
 export type Forecasts_Timeline = { entries: Entry[]; reloadAfter?: Date };
 
 function today(degrees: number): Entry {
-  return { date: new Date(degrees * 3600000), city: "Lisbon", degrees, rain: false, note: null };
+  return {
+    date: new Date(degrees * 3600000),
+    city: "Lisbon",
+    degrees,
+    rain: false,
+    note: null,
+    days: [
+      { day: "Mon", high: degrees + 1 },
+      { day: "Tue", high: degrees + 2 },
+    ],
+  };
 }
 
 export class Forecasts {
@@ -43,7 +62,7 @@ export class Forecasts {
 }
 `;
 
-export const BODY = `import { Color, Font, HStack, Text, VStack } from "lucent:swiftui";
+export const BODY = `import { Color, Font, ForEach, HStack, Text, VStack } from "lucent:swiftui";
 import type { Entry } from "./weather.lucent";
 
 function Line(props: { label: string; on: boolean }) {
@@ -61,6 +80,9 @@ export function Forecast(entry: Entry) {
         <Line label={sky} on={entry.rain} />
       </HStack>
       {entry.note !== null ? <Text>{entry.note ?? ""}</Text> : <Text>no note</Text>}
+      <ForEach data={entry.days} id={(d) => d.day}>
+        {(d) => <Line label={\`\${d.day}: \${d.high}°\`} on={d.high > entry.degrees} />}
+      </ForEach>
     </VStack>
   );
 }
