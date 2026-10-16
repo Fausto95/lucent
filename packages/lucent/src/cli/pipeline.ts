@@ -28,6 +28,7 @@ import {
   writeNativePackage,
 } from "@lucent-lang/compiler";
 import { type SdkUsage, sdkModuleArtifacts } from "@lucent-lang/bindgen";
+import { type LibraryHeaders, libraryHeaders } from "./library-headers.ts";
 import { isExpoApp, missingDelegateForwards } from "./init/app-delegate.ts";
 import {
   backgroundPrefetch,
@@ -234,26 +235,6 @@ export async function buildProject(
     ms: Date.now() - tResolve,
   });
   if (options.signal?.aborted) return superseded("check");
-
-  // Native extensions: each package's declaration checked against its header.
-  let extensions: ExtensionBinding[] = [];
-  if (native.extensions.length) {
-    const t = Date.now();
-    const inputs = native.extensions.map((e) => ({ key: `ext/${e.name}`, hash: e.hash }));
-
-    try {
-      extensions = bindExtensions(native.extensions);
-    } catch (e) {
-      graph.record("extract:extensions", "extract", "failed", {
-        inputs,
-        detail: (e as Error).message,
-        ms: Date.now() - t,
-      });
-      return outcome({ fatal: (e as Error).message });
-    }
-
-    graph.record("extract:extensions", "extract", "ok", { inputs, ms: Date.now() - t });
-  }
 
   const sdk = projectSdk(root, native);
   const outDir = path.resolve(root, options.out ?? ".lucent/native");
@@ -483,6 +464,72 @@ export async function buildProject(
     });
 
     return outcome({ ok: true, modules: moduleSummary(files, []) });
+  }
+
+  // The headers of the libraries packages link (decision 0131): prefab modules', once Gradle has
+  // resolved the classpath, and the pods' and vendored frameworks'.
+  let libraries: LibraryHeaders | undefined;
+  try {
+    libraries =
+      native.extensions.length || native.manifest.android.prefab
+        ? libraryHeaders(root, native, sdk.android?.classpath)
+        : undefined;
+  } catch (e) {
+    graph.record("extract:extensions", "extract", "failed", { detail: (e as Error).message });
+    return outcome({ fatal: (e as Error).message });
+  }
+
+  // An extension may include its prefab modules' headers, which only Gradle's classpath has: with
+  // Android left to the Gradle build and no iOS build to read the pods' instead, nothing is
+  // checked here, as when iOS waits for its pods.
+  const prefabReason = "the extensions' prefab headers come with the Gradle build's classpath";
+  if (
+    build &&
+    native.extensions.length &&
+    libraries?.prefabPending &&
+    deferAndroid &&
+    platforms?.every((p) => p === "host")
+  ) {
+    graph.record("check", "check", "skipped", { detail: prefabReason });
+    writeNativePackage({ files: new Map(), proxies: new Map(), diagnostics: [] }, outDir, {
+      root,
+      native,
+      androidDeferred: deferAndroid,
+    });
+    steps.finish({
+      name: "check",
+      label: "Checked no module",
+      status: "skipped",
+      detail: prefabReason,
+    });
+
+    return outcome({ ok: true, modules: moduleSummary(files, []) });
+  }
+
+  // Native extensions: each package's declaration checked against its header, read with those.
+  let extensions: ExtensionBinding[] = [];
+  if (native.extensions.length) {
+    const t = Date.now();
+    const inputs = native.extensions.map((e) => ({ key: `ext/${e.name}`, hash: e.hash }));
+
+    try {
+      extensions = bindExtensions(
+        native.extensions.map((e) => ({
+          ...e,
+          includePaths: [...e.includePaths, ...(libraries?.includePaths ?? [])],
+          frameworkPaths: libraries?.frameworkPaths ?? [],
+        })),
+      );
+    } catch (e) {
+      graph.record("extract:extensions", "extract", "failed", {
+        inputs,
+        detail: (e as Error).message,
+        ms: Date.now() - t,
+      });
+      return outcome({ fatal: (e as Error).message });
+    }
+
+    graph.record("extract:extensions", "extract", "ok", { inputs, ms: Date.now() - t });
   }
 
   for (const { platform, reason } of skipped)
@@ -719,6 +766,7 @@ export async function buildProject(
 
   const tWrite = Date.now();
   const w = writeNativePackage(result, outDir, {
+    ...(libraries?.prefabNames.size ? { prefabNames: libraries.prefabNames } : {}),
     root,
     check,
     native,

@@ -170,11 +170,12 @@ export function bindExtensions(inputs: ExtensionInput[]): ExtensionBinding[] {
 }
 
 function readHeader(input: ExtensionInput): Read {
-  const key = `${input.header}\0${input.includePaths.join("\0")}\0${input.hash}`;
+  const frameworkPaths = input.frameworkPaths ?? [];
+  const key = `${input.header}\0${input.includePaths.join("\0")}\0${frameworkPaths.join("\0")}\0${input.hash}`;
   const cached = headers.get(key);
   if (cached) return cached;
 
-  const opts = { includePaths: input.includePaths };
+  const opts = { includePaths: input.includePaths, frameworkPaths };
   const read =
     input.declaration.language === "c++"
       ? readCxx(input, opts)
@@ -191,7 +192,10 @@ function readHeader(input: ExtensionInput): Read {
  * A C++ header (decision 0125): its classes, and its C functions and
  * structs as a C header's, every function C-linked since C++ read it so.
  */
-function readCxx(input: ExtensionInput, opts: { includePaths: string[] }): Read {
+function readCxx(
+  input: ExtensionInput,
+  opts: { includePaths: string[]; frameworkPaths: string[] },
+): Read {
   let classes: CxxHeader;
   try {
     classes = extractCxxHeader(input.header, opts);

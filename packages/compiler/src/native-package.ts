@@ -269,6 +269,8 @@ export function writeNativePackage(
     native?: NativeInputs;
     /** Android's code is built later, by the app's Gradle build (see deferredLibraryGradle). */
     androidDeferred?: boolean;
+    /** Gradle `group:artifact` → its prefab package's name, from its AAR (decision 0131). */
+    prefabNames?: ReadonlyMap<string, string>;
     /** The app's Xcode project: its deployment target, and the Swift packages it links. */
     app?: {
       deploymentTarget?: string;
@@ -443,7 +445,7 @@ export function writeNativePackage(
         ),
   );
 
-  const cmake = packagesCmake(options.native);
+  const cmake = packagesCmake(options.native, options.prefabNames);
   if (cmake) want.set(path.join(outDir, "android/packages.cmake"), cmake);
 
   // Whether LucentInitializer loads the app's code to create launch modules: the template's no.

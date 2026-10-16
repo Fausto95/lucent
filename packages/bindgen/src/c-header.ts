@@ -60,6 +60,8 @@ export interface CHeader {
 export interface CHeaderOptions {
   /** Directories searched for what the header includes (-I). */
   includePaths?: string[];
+  /** Directories searched for the frameworks it includes from, `<Framework/Header.h>` (-F). */
+  frameworkPaths?: string[];
   /** The clang to run (default: findClang()). */
   clang?: string;
 }
@@ -175,6 +177,7 @@ export function dumpAst(
     "-Xclang",
     "-ast-dump=json",
     ...(opts.includePaths ?? []).flatMap((i) => ["-I", i]),
+    ...(opts.frameworkPaths ?? []).flatMap((f) => ["-F", f]),
     header,
   ];
 

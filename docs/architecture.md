@@ -263,8 +263,10 @@ A C++ header's classes are handles too, called inside `ext::cxxCall`
 Callbacks, signals and buffers' bytes cross as decisions 0126 and 0128
 to 0130 say.
 
-> **Planned:** prefab modules and pods' headers ([T142](tasks.md#t142),
-> [0131](decisions/0131-an-extensions-libraries-come-from-prefab-and-pods.md)).
+Prefab modules and pods link, and their headers reach the extension's
+header, as
+[0131](decisions/0131-an-extensions-libraries-come-from-prefab-and-pods.md)
+decides.
 
 ### Build records
 

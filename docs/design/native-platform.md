@@ -643,8 +643,8 @@ A C++ header's classes are handles, with C++ exceptions caught before they
 reach Lucent (0125), and functions take callbacks, signals and buffers'
 bytes (0126, 0128 to 0130).
 
-**Planned:** prefab modules and pods' headers on an extension's include
-path ([T142](../tasks.md#t142), 0131). A package's own Kotlin and Java typed in Lucent
+Prefab modules and pods link, with their headers on an extension's
+include path (0131). A package's own Kotlin and Java typed in Lucent
 ([T143](../tasks.md#t143)); its Swift sources already are, as
 `lucent:ios/LucentNative`.
 
