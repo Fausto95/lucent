@@ -100,6 +100,25 @@ export function Screen(props: Props) {
     expect(diagnostics(result)).toContainEqual(expect.stringMatching(RACE));
   });
 
+  it("check what a helper view destructuring its props computes", () => {
+    const { result } = build(
+      component(`function Line({ label }: { label: string }) {
+  return <BasicText text={\`\${label}: \${shown()}\`} />;
+}
+
+export function Screen(props: Props) {
+  return (
+    <Column>
+      <Line label={props.title} />
+    </Column>
+  );
+}`),
+      "android",
+    );
+
+    expect(diagnostics(result)).toContainEqual(expect.stringMatching(RACE));
+  });
+
   it("accept module state the main thread alone uses, and leave the toolkit's code out", () => {
     const { result } = build(
       {

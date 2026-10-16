@@ -279,7 +279,7 @@ export const limitations: { title: string; items: string[] }[] = [
       "Android mounts each commit, unless the app turns on `enableAccumulatedUpdatesInRawPropsAndroid`.",
       "A `Flex` inside a stack view sized by Auto Layout has no intrinsic size.",
       "Absolute children of a padded component follow React Native's padding-box rule relative to the slot. A fixed-size slot inside a component sized by its children is bounded at three reports.",
-      "A helper view takes its props as one object, read as `props.name`, and shows no list of its own yet ([T123](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t123)).",
+      "A helper view shows no list of its own yet ([T123](https://github.com/Fausto95/lucent/blob/main/docs/tasks.md#t123)).",
       "SwiftUI: a static value named like a method (`Animation.easeInOut`) is left out, so write the call. Only closed ranges (`a...b`) are mapped, content conditions must be `boolean`, and `Int(x)` traps on NaN or infinity.",
       "SwiftUI: a two-value `onChange` closure doesn't type-check, because TypeScript tries the one-value overload first.",
       "SwiftUI: a member newer than the app's oldest iOS is LUCENT3024, since a body checks no availability.",

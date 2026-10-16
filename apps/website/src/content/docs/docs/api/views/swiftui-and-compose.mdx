@@ -273,13 +273,13 @@ The body and its setup meet in four ways, the same on both toolkits. The body ho
 
 A helper is a function of the same file, not exported, that returns the toolkit's JSX. The body uses it as an element, `<TaskRow title={t.title} />`, or calls it in content, `{TaskRow({ title: t.title })}`. Lucent writes each helper once per component, as a Swift `View` or a Kotlin `@Composable` function.
 
-- It takes one props object, read as `props.name`: plain data, and callbacks that take numbers, booleans and strings and return nothing.
+- It takes one props object, read as `props.name` or destructured, `({ title, done })`: plain data, and callbacks that take numbers, booleans and strings and return nothing.
 - It may take its toolkit's values too, such as a `Color`, a `Font` or a `Modifier`. Its user writes the value, and `??` defaults an optional one: `props.modifier ?? Modifier`.
 - It may take a bound signal, `on: Bound<boolean>`, which its user binds with `bind(signal)` or passes on from its own props. Its views show it and change it: `<Toggle isOn={props.on}>`.
 - It may take children, `children: Content` (Compose's `Shown`), which its user's element holds. It shows them where it reads `{props.children}`.
 - It reads nothing of setup's but its props. It may use other helpers, but not itself.
 - A SwiftUI helper returns its JSX as its only statement. A Compose helper may have composition statements before it.
-- A helper fails with LUCENT3024 when it destructures its props or takes several parameters. So does a list of its own, or a signal it binds itself.
+- A helper fails with LUCENT3024 when it takes several parameters, or destructures with a default, `...` or a nested pattern. So does a list of its own, or a signal it binds itself.
 
 ## Diagnostics
 

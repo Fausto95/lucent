@@ -445,8 +445,9 @@ is a Swift `Binding`, or a Kotlin value and its change callback (`on`,
 views show and change it. Children (`children: Content`, Compose's `Shown`) are
 a content closure of its view, `@ViewBuilder let content` or `content:
 @Composable () -> Unit`, which its user's element holds and `{props.children}`
-shows. One that destructures its props or shows a list of its own is LUCENT3024
-([T123](../tasks.md#t123)).
+shows. Its props may be destructured, `({ title, done: isDone })`, each name
+reading the prop it names. A default, `...`, a nested pattern or a list of its
+own is LUCENT3024 ([T123](../tasks.md#t123)).
 
 ## Props
 
@@ -1009,7 +1010,7 @@ The view gate closes these gaps ([parity.md](../parity.md#views)):
 | Gap                                                                                           | Task                     |
 | --------------------------------------------------------------------------------------------- | ------------------------ |
 | An `AVPlayerViewController` spike, run on the simulator                                       | [T122](../tasks.md#t122) |
-| Helpers with destructured props and lists of their own in SwiftUI and Compose bodies          | [T123](../tasks.md#t123) |
+| Helpers with lists of their own in SwiftUI and Compose bodies                                 | [T123](../tasks.md#t123) |
 | A component's view in module code, run on the simulator and the emulator                      | [T124](../tasks.md#t124) |
 | Views made after setup on Android keep the hosting view's themed context, run on the emulator | [T125](../tasks.md#t125) |
 

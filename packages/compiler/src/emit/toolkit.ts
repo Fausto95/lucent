@@ -315,8 +315,8 @@ function givens(
 ): NonNullable<Thunk["given"]> {
   if (!use) return [];
 
-  return propReads(checker, node, use.helper).flatMap((read) => {
-    const arg = use.args.get(read.name.text);
+  return propReads(checker, node, use.helper).flatMap(({ node: read, name }) => {
+    const arg = use.args.get(name);
 
     return arg ? [...givens(checker, arg, use.outer), { read, value: arg }] : [{ read }];
   });
