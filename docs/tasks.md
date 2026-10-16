@@ -60,7 +60,7 @@ what became of each one that is still linked or was still open.
 | **Distribution**         |                                                            |                                                         |
 | [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190, #191, #194, #195, #200, #204 merged) |
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                       |
-| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #361): decided (0125, 0126)        |
+| [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #362): decided (0125, 0126)        |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | ready                                                   |
 | [T144](#t144)            | A web target for shared modules                            | ready (decision 0077)                                   |
 | [T145](#t145)            | The package distribution matrix                            | ready                                                   |
@@ -1561,8 +1561,8 @@ manual step, and Xcode builds without Metro running.
 **Goal:** A package wraps a C++ library, as a Nitro C++ Hybrid Object
 does, through typed extensions.
 
-- **Status:** in progress (#357 to #361): decided (0125, 0126), C++
-  headers' classes bound and called.
+- **Status:** in progress (#357 to #362): decided (0125, 0126), C++
+  headers' classes bound and called, callbacks' types read.
 - **Area:** compiler, bindings, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V2, V3, V4, V7.
@@ -1582,7 +1582,8 @@ does, through typed extensions.
       unwinds through Lucent (0125, #360).
 - [ ] Extension functions take callbacks (refused today in
       `extensions/bind.ts`), called on a stated context: decided in 0126
-      (#361).
+      (#361); bindgen reads a function pointer's and a `std::function`'s
+      signature (#362).
 - [ ] Extension calls can be cancelled: an `AbortSignal` reaches the
       function as a flag it reads.
 - [ ] Bytes parameters (`bytes: read|write`) borrow a `NativeBuffer`'s or

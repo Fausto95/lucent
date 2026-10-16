@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -42,6 +43,10 @@ class Counter {
   template <class T>
   T as() const;
   void* raw();
+  void each(const std::function<void(double, const std::string&)>& visit) const;
+  int countIf(std::function<bool(int64_t)> keep);
+  void onTick(std::function<void()> tick);
+  void legacy(void (*visit)(int, void*), void* context);
   Counter& operator=(const Counter&) = delete;
 
  private:

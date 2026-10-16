@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { cLinkage, type CType, extractCHeader, formatCType, parseCType } from "../src/c-header.ts";
-import { uint64Name } from "./c-types.ts";
+import { int64Name, uint64Name } from "./c-types.ts";
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/c");
 const clang = spawnSync(process.env.LUCENT_CLANG ?? "clang", ["--version"]).status === 0;
@@ -25,7 +25,24 @@ describe("C type spellings", () => {
     expect(parseCType("unsigned long int")).toEqual(int("unsigned long", false, 64));
     expect(parseCType("struct Gauge *_Nonnull")).toEqual(ptr(record("Gauge")));
     expect(parseCType("char **")).toEqual(ptr(ptr(int("char", true, 8))));
-    expect(parseCType("void (*)(int, void *)")).toEqual({ k: "function" });
+    expect(parseCType("void (*)(int, void *)")).toEqual({
+      k: "function",
+      result: { k: "void" },
+      params: [int("int", true, 32), ptr({ k: "void" })],
+      variadic: false,
+    });
+    expect(parseCType("const char *(* _Nullable)(void)")).toEqual({
+      k: "function",
+      result: ptr(int("char", true, 8), true),
+      params: [],
+      variadic: false,
+    });
+    expect(parseCType("void (*)(void (*)(int), ...)")).toMatchObject({
+      params: [{ k: "function", params: [int("int", true, 32)] }],
+      variadic: true,
+    });
+    // A pointer to an array, or to a function returning one: no type Lucent reads.
+    expect(parseCType("int (*)[4]")).toEqual({ k: "unknown", spelling: "int (*)[4]" });
     expect(parseCType("_Bool")).toEqual({ k: "bool" });
   });
 
@@ -41,6 +58,10 @@ describe("C type spellings", () => {
 
   it("spells a type as C does, for messages", () => {
     expect(formatCType(ptr(int("unsigned char", false, 8), true))).toBe("const unsigned char *");
+    expect(formatCType(parseCType("int (*)(void *, double, ...)"))).toBe(
+      "int (*)(void *, double, ...)",
+    );
+    expect(formatCType(parseCType("void (*)()"))).toBe("void (*)(void)");
   });
 });
 
@@ -67,6 +88,7 @@ describe.skipIf(!clang)("C headers", () => {
       "gauge_sum",
       "gauge_offset",
       "gauge_open",
+      "gauge_filter",
     ]);
     expect(fn("gauge_create")).toEqual({
       name: "gauge_create",
@@ -96,7 +118,19 @@ describe.skipIf(!clang)("C headers", () => {
     expect(fn("gauge_ready").result).toEqual({ k: "bool" });
     expect(fn("gauge_mode").result).toMatchObject({ k: "enum" });
     expect(fn("gauge_range").result).toEqual(record("GaugeRange"));
-    expect(fn("gauge_each").params[1]!.type).toEqual({ k: "function" });
+    expect(fn("gauge_each").params[1]!.type).toEqual({
+      k: "function",
+      result: { k: "void" },
+      params: [{ k: "float", name: "double" }, ptr({ k: "void" })],
+      variadic: false,
+    });
+    // Through its typedef, the signature it names.
+    expect(fn("gauge_filter").params[1]!.type).toEqual({
+      k: "function",
+      result: { k: "bool" },
+      params: [ptr({ k: "void" }), ptr(int("char", true, 8), true), int(int64Name(), true, 64)],
+      variadic: false,
+    });
     expect(fn("gauge_sum").variadic).toBe(true);
     expect(fn("gauge_offset").params.map((p) => p.type)).toEqual([
       int("signed char", true, 8),
