@@ -1,0 +1,10 @@
+{
+  "name": "lucent-tally",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Lucent package with a native extension over a C++ library's classes, used by the tests",
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src"
+  }
+}

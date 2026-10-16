@@ -17,6 +17,7 @@ import path from "node:path";
 import {
   type CFunction,
   type CHeaderOptions,
+  type CRecord,
   type CType,
   dumpAst,
   followFiles,
@@ -74,6 +75,8 @@ export interface CxxClass {
   methods: CxxMethod[];
   /** Why it isn't bound at all (a template, a base), when it isn't. */
   refused?: string;
+  /** Whether a value of it can be moved into a new one (a result by value is). */
+  movable: boolean;
   /** Its members left out, `name: reason`. */
   skipped: string[];
 }
@@ -90,6 +93,8 @@ export interface CxxHeader {
   enums: CxxEnum[];
   /** Its functions with C linkage, read as a C header's are. */
   functions: CFunction[];
+  /** The structs C functions name, declared or defined at the top level: opaque handles, errors. */
+  records: CRecord[];
   /** What else it declares that isn't bound, `name: reason`. */
   skipped: string[];
 }
@@ -160,6 +165,7 @@ export function readCxxAst(unit: CxxNode, header: string): CxxHeader {
   const classes: { node: CxxNode; qualified: string; refused?: string }[] = [];
   const enums: CxxEnum[] = [];
   const functions: CxxNode[] = [];
+  const records = new Map<string, { node: CxxNode; aliases: string[] }>();
   const skipped: string[] = [];
 
   let file: string | undefined;
@@ -185,6 +191,20 @@ export function readCxxAst(unit: CxxNode, header: string): CxxHeader {
       }
 
       follow(node.inner);
+
+      // A struct at the top level, wherever it is declared, and its definition: C's records.
+      if (node.kind === "CXXRecordDecl" && node.name && scope.length === 0) {
+        const known = records.get(node.name);
+        if (!known || node.completeDefinition)
+          records.set(node.name, { node, aliases: known?.aliases ?? [] });
+      }
+      if (node.kind === "TypedefDecl" && node.name && scope.length === 0) {
+        const target = /^(?:struct |class )?(\w+)$/.exec(
+          node.type?.desugaredQualType ?? node.type?.qualType ?? "",
+        )?.[1];
+        if (target && target !== node.name) records.get(target)?.aliases.push(node.name);
+      }
+
       if (!mine || !node.name) continue;
 
       if (node.kind === "CXXRecordDecl" && node.completeDefinition && node.tagUsed !== "union")
@@ -236,6 +256,17 @@ export function readCxxAst(unit: CxxNode, header: string): CxxHeader {
       result: parseCType(resultSpelling(f.type?.qualType ?? "")) as CType,
       variadic: !!f.variadic,
     })),
+    records: [...records].map(([name, { node, aliases }]) => ({
+      name,
+      complete: !!node.completeDefinition,
+      fields: (node.inner ?? [])
+        .filter((c) => c.kind === "FieldDecl")
+        .map((c) => ({
+          name: c.name ?? "",
+          type: parseCType(c.type?.desugaredQualType ?? c.type?.qualType ?? ""),
+        })),
+      aliases,
+    })),
     skipped,
   };
 }
@@ -266,6 +297,7 @@ function classOf(
     constructors: [] as CxxConstructor[],
     methods: [] as CxxMethod[],
     skipped: [] as string[],
+    movable: movable(node),
   };
 
   if (node.bases?.length) return { ...base, refused: "it has a base class" };
@@ -317,6 +349,25 @@ function classOf(
   }
 
   return base;
+}
+
+/**
+ * Whether a value of the class can be moved (or copied) into a new one:
+ * not when it deletes its move constructor, or deletes its copy
+ * constructor and declares no move constructor.
+ */
+function movable(node: CxxNode): boolean {
+  const name = node.name!;
+  const ctors = (node.inner ?? []).filter((m) => m.kind === "CXXConstructorDecl");
+  const takes = (m: CxxNode, re: RegExp) => re.test(m.type?.qualType ?? "");
+  const move = new RegExp(`^void \\((?:\\w+::)*${name} &&\\)$`);
+  const copy = new RegExp(`^void \\(const (?:\\w+::)*${name} &\\)$`);
+  const moves = ctors.filter((m) => takes(m, move));
+  const copies = ctors.filter((m) => takes(m, copy));
+
+  if (moves.some((m) => m.explicitlyDeleted)) return false;
+  if (moves.length) return true;
+  return !copies.some((m) => m.explicitlyDeleted);
 }
 
 /** A C++ spelling, parsed: `const std::vector<int> &`. */
