@@ -311,7 +311,7 @@ class Solver implements Solved {
 
       const owner: OwnerId = cb.main
         ? "main"
-        : cb.delivery === "queued"
+        : cb.delivery === "queued" || cb.delivery === "either"
           ? "legacy-module"
           : "unknown";
       const text = `is passed to ${code(use.display)}, which calls it back`;

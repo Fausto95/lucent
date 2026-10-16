@@ -38,7 +38,7 @@ int32_t orbit_filter_live(void);
 /* The length of a label, in bytes: a string argument. */
 int32_t orbit_filter_label(const char* name);
 
-/* Not bound: a callback Lucent cannot pass yet. */
+/* Not bound: lucent.json declares no callback for visit, so it is left out. */
 void orbit_filter_each(OrbitFilter* filter, void (*visit)(uint8_t value, void* context),
                        void* context);
 

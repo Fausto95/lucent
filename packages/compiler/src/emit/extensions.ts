@@ -10,7 +10,12 @@
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
-import type { FunctionBinding, HandleBinding, ParamBinding } from "../extensions/bind.ts";
+import type {
+  CallbackValue,
+  FunctionBinding,
+  HandleBinding,
+  ParamBinding,
+} from "../extensions/bind.ts";
 import { findClass, findExtension, findFunction, findHandle } from "../extensions/registry.ts";
 import { cxxMethodCall, cxxNew, cxxStaticCall } from "./cxx-extensions.ts";
 import { extensionModuleOf } from "../program.ts";
@@ -129,11 +134,33 @@ function lucentType(p: ParamBinding, extension: string): LType | undefined {
       return T.bytes;
     case "string":
       return T.string;
+    case "callback":
+      return {
+        k: "fn",
+        params: p.params.map(callbackType),
+        ret: p.result.kind === "void" ? T.void : callbackType(p.result),
+      };
     case "length":
     case "error":
+    case "context":
       return undefined;
   }
 }
+
+function callbackType(v: CallbackValue): LType {
+  switch (v.kind) {
+    case "number":
+      return T.number;
+    case "bigint":
+      return T.bigint;
+    case "boolean":
+      return T.boolean;
+    case "string":
+      return T.string;
+  }
+}
+
+const LIVES = { call: "Call", once: "Once" } as const;
 
 /**
  * A call of `f`: `receiver` is the handle a method is called on, `args`
@@ -182,6 +209,29 @@ function call(
   if (receiver) hold(visible[0]!.i, receiver.c);
   passed.forEach((x, k) => hold(x.i, given[k]!));
 
+  // Each callback holds its Lucent function for the call, before C is given anything
+  // (decisions 0126 and 0128).
+  const guards = new Map<number, cpp.Expr>();
+  f.params.forEach((p, i) => {
+    if (p.kind !== "callback") return;
+
+    const name = em.ctx.fresh("callback");
+    const fn = em.reg.cppType(lucentType(p, extension)!);
+    const lives = typeof p.lives === "string" ? LIVES[p.lives] : "Handle";
+    stmts.push(
+      cpp.varDecl(
+        cpp.auto,
+        name,
+        cpp.construct(cpp.type("lucent::ext::Callback", fn), [
+          cpp.str(`${f.name}'s ${p.name}`),
+          cpp.id(`lucent::ext::Lives::${lives}`),
+          temp.get(i)!,
+        ]),
+      ),
+    );
+    guards.set(i, cpp.id(name));
+  });
+
   const error = f.params.find((p) => p.kind === "error");
   const e = cpp.id(em.ctx.fresh("error"));
   if (error)
@@ -192,6 +242,27 @@ function call(
   // Converted before the call, in order: a conversion's error (a closed handle, a number out of
   // range) is Lucent's to throw. Inside the call, an exception escaping C ends the process.
   const cArgs = f.params.map((p, i): cpp.Expr => {
+    // The function C calls, of its parameter's own type, and the `void *` it passes back.
+    if (p.kind === "callback")
+      return cpp.call(
+        cpp.templateId("lucent::ext::thunk", [
+          em.reg.cppType(lucentType(p, extension)!),
+          cpp.num(p.contextAt),
+        ]),
+        [
+          cpp.call(cpp.templateId("lucent::ext::paramOf", [cpp.num(i)]), [
+            cpp.addressOf(cpp.id(`::${f.name}`)),
+          ]),
+        ],
+      );
+    if (p.kind === "context") {
+      const name = em.ctx.fresh("c");
+      stmts.push(
+        cpp.varDecl(cpp.auto, name, cpp.call(cpp.dot(guards.get(p.callback)!, "context"))),
+      );
+      return cpp.id(name);
+    }
+
     const c = conversion(p, temp.get(i)!, temp, f, i);
     if (!c) return cpp.addressOf(e);
 
@@ -201,15 +272,29 @@ function call(
     return c.arg(cpp.id(name));
   });
 
+  // A callback living as long as a handle ends once it is destroyed.
+  f.params.forEach((p, i) => {
+    if (p.kind === "callback" && typeof p.lives === "object")
+      stmts.push(
+        cpp.exprStmt(cpp.call(cpp.dot(guards.get(i)!, "until"), [temp.get(p.lives.handle)!])),
+      );
+  });
+
   const called = cpp.call(`::${f.name}`, cArgs);
   const returns = f.result.kind !== "void" || f.failsWhen !== undefined;
+  // With callbacks, what one threw waits until the error struct is released.
+  const thrown = guards.size ? cpp.id(em.ctx.fresh("thrown")) : undefined;
+  if (thrown) stmts.push(cpp.varDecl(cpp.type("std::exception_ptr"), printed(thrown)));
   const invoke = cpp.call("lucent::ext::call", [
+    ...(thrown ? [thrown] : []),
     cpp.lambda(["&"], [], [returns ? cpp.ret(called) : cpp.exprStmt(called)]),
   ]);
 
   const r = cpp.id(em.ctx.fresh("result"));
   stmts.push(returns ? cpp.varDecl(cpp.auto, printed(r), invoke) : cpp.exprStmt(invoke));
-  stmts.push(...afterCall(em, f, r, error, e));
+  const rethrow = thrown ? [cpp.exprStmt(cpp.call("lucent::ext::rethrow", [thrown]))] : [];
+  stmts.push(...afterCall(em, f, r, error, e, rethrow));
+  for (const guard of guards.values()) stmts.push(cpp.exprStmt(cpp.call(cpp.dot(guard, "done"))));
 
   return { c: cpp.statementExpr(stmts, value(f, r, extension)), t: resultType(f, extension) };
 }
@@ -272,6 +357,8 @@ function conversion(
         arg: (c) => cpp.call(cpp.dot(c, "c_str")),
       };
     case "error":
+    case "callback":
+    case "context":
       return undefined;
   }
 }
@@ -287,6 +374,7 @@ function afterCall(
   r: cpp.Expr,
   error: (ParamBinding & { kind: "error" }) | undefined,
   e: cpp.Expr,
+  rethrow: cpp.Stmt[],
 ): cpp.Stmt[] {
   const test = failedTest(f, r);
   const name = cpp.str(f.name);
@@ -294,7 +382,7 @@ function afterCall(
     ? [cpp.exprStmt(cpp.call(`::${error.error.release}`, [cpp.addressOf(e)]))]
     : [];
 
-  if (!test) return release;
+  if (!test) return [...release, ...rethrow];
 
   // No error struct: the result is the code, when it is a number.
   if (!error) {
@@ -302,6 +390,7 @@ function afterCall(
     const code = numeric ? [cpp.staticCast(cpp.type("long long"), r)] : [];
 
     return [
+      ...rethrow,
       cpp.ifStmt(test, [cpp.exprStmt(cpp.call("lucent::ext::fail", [name, cpp.nullptr, ...code]))]),
     ];
   }
@@ -326,6 +415,7 @@ function afterCall(
         : []),
     ]),
     ...release,
+    ...rethrow,
     cpp.ifStmt(failed, [
       cpp.exprStmt(
         cpp.call("lucent::ext::fail", [

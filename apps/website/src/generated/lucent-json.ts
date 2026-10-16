@@ -632,7 +632,7 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "field": "extensions.<name>.functions.<name>.params",
     "type": "{ [name]: object }",
     "required": false,
-    "description": "C parameter name → what the pointer is. Numbers, booleans and handles need nothing; nothing escapes the call."
+    "description": "C parameter name → what the pointer is. Numbers, booleans and handles need nothing; only a callback outlives the call."
   },
   {
     "field": "extensions.<name>.functions.<name>.params.<name>.bytes",
@@ -657,6 +657,24 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "type": "string",
     "required": true,
     "description": "A struct declared in errors."
+  },
+  {
+    "field": "extensions.<name>.functions.<name>.params.<name>.callback",
+    "type": "object",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "extensions.<name>.functions.<name>.params.<name>.callback.context",
+    "type": "string",
+    "required": true,
+    "description": "The function's void * parameter, which C passes back as the callback's one void * parameter."
+  },
+  {
+    "field": "extensions.<name>.functions.<name>.params.<name>.callback.lives",
+    "type": "string",
+    "required": false,
+    "description": "How long C may call it: call (the default), until the function returns. once, until its first call. A handle parameter's name, until that handle is destroyed."
   },
   {
     "field": "extensions.<name>.functions.<name>.failsWhen",

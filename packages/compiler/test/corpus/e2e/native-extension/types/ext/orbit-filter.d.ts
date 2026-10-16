@@ -21,4 +21,4 @@ export declare function orbit_filter_live(): number;
 export declare function orbit_filter_label(name: string): number;
 
 // Not bound:
-//   orbit_filter_each: parameter visit is a function pointer; extensions cannot take callbacks yet
+//   orbit_filter_each: parameter visit is a function pointer: declare it in params as a callback, with its context

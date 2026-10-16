@@ -525,6 +525,39 @@ static void cxxFunctions() {
   context->shutdown();
 }
 
+/// The function generated code gives C is of C's own parameter type,
+/// wherever its `void *` is; what a callback threw can wait for the caller.
+static void thunks() {
+  auto context = IsolatedContext::create();
+  Seen seen;
+
+  std::string error = inside(*context, [&] {
+    ext::Callback<Fn<void(double)>> each("visit_each's visit", ext::Lives::Call,
+                                         Fn<void(double)>([&](double v) { seen.add(std::to_string(int(v))); }));
+    const double values[] = {7, 8};
+    Visit visit = ext::thunk<Fn<void(double)>, 1>(ext::paramOf<2>(&visitEach));
+    ext::call([&] { visitEach(values, 2, visit, each.context()); });
+    each.done();
+
+    ext::Callback<Fn<bool(String, BigInt)>> keep(
+        "count_kept's keep", ext::Lives::Call, Fn<bool(String, BigInt)>([&](String name, BigInt) -> bool {
+          if (name.toUtf8() == "a") throwError(makeError(String::fromUtf8("not a")));
+          return true;
+        }));
+    Keep kept = ext::thunk<Fn<bool(String, BigInt)>, 0>(ext::paramOf<0>(&countKept));
+    std::exception_ptr thrown;
+    int n = ext::call(thrown, [&] { return countKept(kept, keep.context()); });
+    CHECK(n == 2);
+    CHECK(thrown != nullptr);
+    seen.add("released");
+    return ::thrown([&] { ext::rethrow(thrown); });
+  });
+
+  CHECK(seen.text() == "7 8 released");
+  CHECK(error == "Error: not a");
+  context->shutdown();
+}
+
 int main() {
   closesOnce();
   lastCopyDestroys();
@@ -546,6 +579,7 @@ int main() {
   postedFromAnotherThread();
   lifetimes();
   cxxFunctions();
+  thunks();
 
   std::printf("extension: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

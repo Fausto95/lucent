@@ -23,11 +23,14 @@ A native extension binds a C or C++ header a package ships. [Wrap a C library](/
 | `extensions.<name>.handles.<name>.methods` | `{ [name]: string }` |  | Method name → the function it calls, with the handle as its first argument. |
 | `extensions.<name>.handles.<name>.affinity` | `"any" or "main"` |  | The thread: any, one call at a time (the default), or the main thread, where Lucent code uses it inside main(() =\> …). |
 | `extensions.<name>.functions` | `{ [name]: object }` |  | C function name → what its parameters and result mean. |
-| `extensions.<name>.functions.<name>.params` | `{ [name]: object }` |  | C parameter name → what the pointer is. Numbers, booleans and handles need nothing; nothing escapes the call. |
+| `extensions.<name>.functions.<name>.params` | `{ [name]: object }` |  | C parameter name → what the pointer is. Numbers, booleans and handles need nothing; only a callback outlives the call. |
 | `extensions.<name>.functions.<name>.params.<name>.bytes` | `"read" or "write"` | yes |  |
 | `extensions.<name>.functions.<name>.params.<name>.length` | `string` | yes | The integer parameter holding the byte count: Lucent passes the array's length. |
 | `extensions.<name>.functions.<name>.params.<name>.string` | `"utf8"` | yes |  |
 | `extensions.<name>.functions.<name>.params.<name>.error` | `string` | yes | A struct declared in errors. |
+| `extensions.<name>.functions.<name>.params.<name>.callback` | `object` | yes |  |
+| `extensions.<name>.functions.<name>.params.<name>.callback.context` | `string` | yes | The function's void \* parameter, which C passes back as the callback's one void \* parameter. |
+| `extensions.<name>.functions.<name>.params.<name>.callback.lives` | `string` |  | How long C may call it: call (the default), until the function returns. once, until its first call. A handle parameter's name, until that handle is destroyed. |
 | `extensions.<name>.functions.<name>.failsWhen` | `"null" or "negative" or "nonzero" or "zero" or "false"` |  | How the result says the call failed, which throws an Error with the error struct's message and code. With nonzero or false the result is a status, and the Lucent function returns nothing. |
 | `extensions.<name>.functions.<name>.affinity` | `"any" or "main"` |  | The thread: any, one call at a time (the default), or the main thread, where Lucent code uses it inside main(() =\> …). |
 | `extensions.<name>.functions.<name>.blocking` | `boolean` |  | It may block (I/O, locks, long work): calling it inside main(() =\> …) is a warning. |
@@ -50,7 +53,19 @@ A native extension binds a C or C++ header a package ships. [Wrap a C library](/
 - `lucent build` reads it with clang: `$LUCENT_CLANG`, else `clang` on the `PATH`, else Xcode's, else the newest Android NDK's.
 - A name or shape the declaration uses that the header doesn't have fails the build, naming the field.
 - A function whose parameters are only numbers and booleans is bound without a declaration. One that takes a handle must be named, in `functions` or as a method.
-- A callback, a variadic function or a struct passed by value can't be bound. The generated declarations list each one at the end, with the reason.
+- A function pointer is bound only as a declared callback. A variadic function or a struct passed by value can't be bound. The generated declarations list each one at the end, with the reason.
+
+## Callbacks
+
+A function pointer parameter is a callback when `params` declares it one: `{ "callback": { "context": "ctx" } }`. Lucent code passes a function for it, and nothing for its context.
+
+- `context` names the function's `void *` parameter. C passes it back as the callback's one `void *` parameter, wherever that is.
+- A callback takes numbers, bigints, booleans and `const char *` strings, copied (a null one is empty). It returns nothing, a number, a bigint or a boolean.
+- `lives` says how long C may call it. `"call"`, the default, is until the function returns, and `"once"` until its first call. A handle parameter's name is until that handle's destroy function has returned.
+- A call after a callback stopped living does nothing, and C gets zero.
+- A callback runs on the context its call ran on. Called on a thread running that context's code, during the call or a later one, it runs at once, as a JavaScript callback does.
+- Called from any other thread, it is posted to that context and runs in the order C called it. One that returns a value is refused there instead: C gets zero, and the call throws.
+- What a callback throws doesn't unwind through C: C gets zero, and the extension call running on that thread throws it once C returns. Posted, it is reported as an uncaught error.
 
 ## C++ headers
 

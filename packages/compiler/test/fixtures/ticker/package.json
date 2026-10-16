@@ -1,0 +1,10 @@
+{
+  "name": "lucent-ticker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Lucent package with a native extension whose C functions take callbacks, used by the tests",
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src"
+  }
+}
