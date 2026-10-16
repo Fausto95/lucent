@@ -412,6 +412,51 @@ Ref<T> nativeOwned(T* o) {
   return Ref<T>(std::make_shared<NativeRef>(wrap(x, "")), o);
 }
 
+// --- classes the OS makes (decision 0124) ----------------------------------------------
+//
+// An exported class extending an iOS class has an Objective-C class the OS
+// can make by name (an extension's principal class). Its init, when the OS
+// calls it, makes the Lucent instance, whose super(…) adopts the object the
+// OS made instead of making one.
+
+/// The object the OS made, while its class's init makes its Lucent instance on this thread.
+struct OsAdoption {
+  id object;
+  Class cls;
+  bool adopted = false;
+};
+inline thread_local OsAdoption* osAdoption = nullptr;
+
+/// How many super(…) calls of OS-made classes are making their object on this thread.
+inline thread_local int makingOsObject = 0;
+
+/// What super(…) of OS-made subclass `cls` stands for: the object the OS
+/// made, while its init makes the Lucent instance on this thread, else the
+/// one `make()` makes, whose init then makes no Lucent instance.
+template <class F>
+id superObject(Class cls, F make) {
+  if (OsAdoption* a = osAdoption; a && !a->adopted && a->cls == cls) {
+    a->adopted = true;
+    return a->object;
+  }
+
+  struct Making {
+    Making() { ++makingOsObject; }
+    ~Making() { --makingOsObject; }
+  } making;
+  return make();
+}
+
+/// Whether an OS-made class's init was called by the OS (or native code),
+/// not by a Lucent super(…).
+inline bool madeByOs() { return makingOsObject == 0; }
+
+/// Makes the Lucent instance of `object`, which the OS made: `make()` runs
+/// the Lucent constructor, whose super(…) adopts `object`, and `keep` (its
+/// hold on module state) lives as long as `object` does. False, logged, if
+/// the constructor threw or made the object elsewhere.
+bool adoptOsObject(id object, Class cls, std::shared_ptr<void> keep, const std::function<void()>& make, const char* what);
+
 /// A C++ callable as a heap block of type `Block` (the platform may keep it).
 template <class Block, class F>
 Block block(F f) {

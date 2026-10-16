@@ -203,7 +203,7 @@ export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
     }
     for (const extra of impl.values()) {
       const decl = extra.valueDeclaration ?? extra.declarations?.[0];
-      // A class the OS makes (decision 0097) is the platform's alone: JavaScript never sees it.
+      // A class the OS makes (decisions 0097, 0124) is the platform's alone: JavaScript never sees it.
       if (decl && osClassOf(checker, decl, platformOf(m.file))) continue;
       // So is a function that takes or gives a platform object: native code calls it (0117).
       if (decl && nativeOnlyFunction(checker, decl)) continue;
@@ -338,19 +338,22 @@ function classConformance(
   return out;
 }
 
-/** Whether `decl` is a class extending one of `platform`'s SDK classes, which the OS makes. */
+/**
+ * Whether `decl` is a class extending one of `platform`'s SDK classes,
+ * which the OS makes (decisions 0097 and 0124).
+ */
 function osClassOf(
   checker: ts.TypeChecker,
   decl: ts.Declaration,
   platform: Platform | undefined,
 ): boolean {
-  if (platform !== "android" || !ts.isClassDeclaration(decl)) return false;
+  if ((platform !== "android" && platform !== "ios") || !ts.isClassDeclaration(decl)) return false;
   const base = decl.heritageClauses?.find((h) => h.token === ts.SyntaxKind.ExtendsKeyword)?.types[0]
     ?.expression;
   let sym = base && checker.getSymbolAtLocation(base);
   if (sym && sym.flags & ts.SymbolFlags.Alias) sym = checker.getAliasedSymbol(sym);
   const sf = sym?.declarations?.[0]?.getSourceFile();
-  return !!sf && sdkModuleOf(sf)?.platform === "android";
+  return !!sf && sdkModuleOf(sf)?.platform === platform;
 }
 
 /**

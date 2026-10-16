@@ -962,9 +962,10 @@ An extension is its own process, with its own native root and module
 state, so it never shares module variables with the app.
 
 `lucent.json`'s `ios.appExtensions` declares the targets, in a package's
-file or the app's. A notification service or share extension names an
-exported Lucent class extending its SDK base, which gets an Objective-C
-class the OS makes by name (`LucentApp_<module>_<Class>`). A widget names
+file or the app's (#346). A notification service or share extension names
+an exported Lucent class extending its SDK base, which gets an
+Objective-C class the OS makes by name (`LucentApp_<module>_<Class>`,
+#347). A widget names
 a provider class mirroring `TimelineProvider` and a SwiftUI JSX body of
 its entry, and Lucent writes WidgetKit's Swift. Each extension builds the
 modules its code reaches into a subspec of `LucentExtensions`, with the

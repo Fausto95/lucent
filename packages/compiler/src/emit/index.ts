@@ -210,8 +210,9 @@ export function emitProgram(
   for (const info of ctx.reg.classes.values()) ctx.guard(() => ctx.reg.resolveBase(info));
   ctx.guard(() => ctx.reg.resolveImplements());
   ctx.reg.propagateErrors();
-  // The Java names of the classes the OS makes, which must not clash (decision 0097).
-  if (ctx.platform === "android") settleOsNames(ctx, [...ctx.reg.classes.values()]);
+  // The names of the classes the OS makes, which must not clash (decisions 0097 and 0124).
+  if (ctx.platform === "android" || ctx.platform === "ios")
+    settleOsNames(ctx, [...ctx.reg.classes.values()]);
   for (const m of lp.modules) {
     for (const s of m.sourceFile.statements) {
       if (here(s)) ctx.guard(() => collect(ctx, m, s, exportsOf.get(m)!, imports.get(m)!, byFile));
