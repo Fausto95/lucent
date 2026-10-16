@@ -73,6 +73,10 @@ import {
   type HelperCallback,
   helperArgs,
   helperAt,
+  childrenProp,
+  type HelperBinding,
+  helperBindingProp,
+  helperChildren,
   type HelperUse,
   toolkitValueProp,
   type ViewHelper,
@@ -778,8 +782,11 @@ class BodyWriter {
 
     if (helper && ts.isCallExpression(e)) return this.used(e, helper);
 
-    // A toolkit value the helper is given (T123): its property.
-    const given = this.frame ? toolkitValueProp(this.checker, e, this.frame.helper) : undefined;
+    // A toolkit value the helper is given (T123): its property; a bound prop, its Binding.
+    const given = this.frame
+      ? (toolkitValueProp(this.checker, e, this.frame.helper) ??
+        helperBindingProp(this.checker, e, this.frame.helper))
+      : undefined;
 
     if (given) return swift.name(given.name);
 
@@ -912,7 +919,10 @@ class BodyWriter {
 
     const args = helperArgs(node, helper);
     const callbacks = new Set(helper.callbacks.map((c) => c.name));
-    const toolkitValues = new Set(helper.toolkitValues.map((v) => v.name));
+    const toolkitValues = new Set([
+      ...helper.toolkitValues.map((v) => v.name),
+      ...helper.bindings.map((b) => b.name),
+    ]);
 
     for (const [name, arg] of args)
       if (
@@ -927,28 +937,63 @@ class BodyWriter {
 
     const view = this.helperView(helper);
     const use: HelperUse = { helper, args, site: node };
+    // Its children, written where its user draws: the content it shows.
+    const content = helper.children
+      ? closure([], ts.isCallExpression(node) ? [] : this.children(helperChildren(node)))
+      : undefined;
 
-    return swift.call(swift.name(view.name), [
-      ...view.values.map((v) => ({
-        label: v.name,
-        value: this.slot(v.source, chainUse(v.via, use)),
-      })),
-      ...helper.callbacks.map((c) => {
-        const arg = args.get(c.name);
-        const arity = c.params.length;
+    return swift.call(
+      swift.name(view.name),
+      [
+        ...view.values.map((v) => ({
+          label: v.name,
+          value: this.slot(v.source, chainUse(v.via, use)),
+        })),
+        ...helper.callbacks.map((c) => {
+          const arg = args.get(c.name);
+          const arity = c.params.length;
 
-        return {
-          label: c.name,
-          value: arg ? this.callback(arg, arity) : closure(padded([], arity), []),
-        };
-      }),
-      // A toolkit value, written where its user draws (T123).
-      ...helper.toolkitValues.map((v) => {
-        const arg = args.get(v.name);
+          return {
+            label: c.name,
+            value: arg ? this.callback(arg, arity) : closure(padded([], arity), []),
+          };
+        }),
+        // A toolkit value, written where its user draws (T123).
+        ...helper.toolkitValues.map((v) => {
+          const arg = args.get(v.name);
 
-        return { label: v.name, value: arg ? this.value(arg) : swift.nil };
-      }),
-    ]);
+          return { label: v.name, value: arg ? this.value(arg) : swift.nil };
+        }),
+        // A bound prop: the Binding its user makes, or one it was given.
+        ...helper.bindings.map((b) => ({
+          label: b.name,
+          value: this.helperBinding(helper, b, args.get(b.name), where),
+        })),
+      ],
+      content,
+    );
+  }
+
+  /** What a helper's bound prop is given: `bind(signal)` where the body is, or its user's own bound prop. */
+  private helperBinding(
+    helper: ViewHelper,
+    b: HelperBinding,
+    arg: ts.Expression | undefined,
+    where: ts.Node,
+  ): swift.Expr {
+    const given = arg && skipParentheses(arg);
+    const passed =
+      given && this.frame ? helperBindingProp(this.checker, given, this.frame.helper) : undefined;
+
+    if (passed) return swift.name(passed.name);
+
+    if (given && !this.frame && ts.isCallExpression(given) && isBind(this.checker, given))
+      return this.binding(given);
+
+    bodyFail(
+      given ?? where,
+      `\`${helper.name}\`'s \`${b.name}\` is bound: give it \`bind(signal)\`, or a bound prop of its user's`,
+    );
   }
 
   /** A helper view, written once per body. */
@@ -1622,6 +1667,10 @@ class BodyWriter {
     const e = skipParentheses(item);
 
     if (isNothing(e)) return [];
+
+    // A helper's children (T123): the content its user gives it.
+    if (this.frame && childrenProp(this.checker, e, this.frame.helper))
+      return [swift.exprStmt(swift.call(swift.name("content"), []))];
 
     if (ts.isConditionalExpression(e)) {
       const orElse = this.item(e.whenFalse);
@@ -2702,6 +2751,7 @@ function helperStruct(values: SwiftValues, view: HelperView): swift.Decl {
   return {
     k: "struct",
     name: view.name,
+    ...(view.helper.children ? { typeParams: ["Content: View"] } : {}),
     modifiers: ["fileprivate"],
     protocols: [swift.type("View")],
     members: [
@@ -2731,6 +2781,24 @@ function helperStruct(values: SwiftValues, view: HelperView): swift.Decl {
           type: v.optional ? swift.optional(type) : type,
         };
       }),
+      // In the order its user gives them: values, callbacks, toolkit values, bindings.
+      ...view.helper.bindings.map((b): swift.Member => ({
+        k: "let",
+        modifiers: [],
+        name: b.name,
+        type: swift.type("Binding", VALUE_TYPES[b.type].swift),
+      })),
+      // Its children: the content its user gives it, a builder closure.
+      ...(view.helper.children
+        ? [
+            {
+              k: "let" as const,
+              modifiers: ["@ViewBuilder"],
+              name: "content",
+              type: swift.fn([], swift.type("Content")),
+            },
+          ]
+        : []),
       ...environmentProperties(view.environment),
       {
         k: "property",

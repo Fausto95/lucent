@@ -113,6 +113,8 @@ public struct Button<Label: View>: View {
 
 extension Toggle where Label == Text {
   public init(_ titleKey: LocalizedStringKey, isOn: Binding<Bool>) {}
+  @_disfavoredOverload
+  public init<S: StringProtocol>(_ title: S, isOn: Binding<Bool>) {}
 }
 
 extension Button where Label == Text {

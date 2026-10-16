@@ -72,6 +72,10 @@ import {
   type HelperCallback,
   helperArgs,
   helperAt,
+  childrenProp,
+  type HelperBinding,
+  helperBindingProp,
+  helperChildren,
   type HelperToolkitValue,
   type HelperUse,
   toolkitValueProp,
@@ -218,10 +222,26 @@ function helperFun(values: KotlinValues, h: HelperFunction): kt.Decl {
 
         return kt.param(v.name, v.optional ? kt.nullable(type) : type);
       }),
+      // A bound prop: its value, and the callback of its changes.
+      ...h.helper.bindings.flatMap((b) => {
+        const type = kt.type(KOTLIN_TYPES[b.type]);
+
+        return [kt.param(b.name, type), kt.param(changedName(b), kt.fn([type], kt.type("Unit")))];
+      }),
+      // Its children: the content its user gives it, its last parameter (a trailing lambda).
+      ...(h.helper.children
+        ? [kt.param(CONTENT, kt.fn([], kt.type("Unit"), { composable: true }))]
+        : []),
     ],
     body: h.body,
   };
 }
+
+/** A helper's children: its composable parameter's name. */
+const CONTENT = "content";
+
+/** The parameter of a helper's bound prop's changes: `onChanged` for `on`. */
+const changedName = (b: HelperBinding) => `${b.name}Changed`;
 
 /** The Kotlin class of a helper's toolkit value, as lucent:compose declares it. */
 function composeClass(v: HelperToolkitValue): { import: string; path: readonly string[] } {
@@ -879,6 +899,10 @@ class BodyWriter {
       return [{ k: "if", test: this.condition(x.left, where), body: this.content(x.right, where) }];
 
     if (x.kind === ts.SyntaxKind.NullKeyword || x.kind === ts.SyntaxKind.FalseKeyword) return [];
+
+    // A helper's children (T123): the content its user gives it.
+    if (this.frame && childrenProp(this.checker, x, this.frame.helper))
+      return [kt.exprStmt(kt.call(kt.name(CONTENT), []))];
 
     if (ts.isCallExpression(x) && this.elementBinding(x)) this.refuseCalled(x);
 
@@ -1589,6 +1613,24 @@ class BodyWriter {
 
       const arg = g.arg;
 
+      // A helper's bound prop (T123): the value it is given, and the callback of its changes.
+      const boundProp = this.frame
+        ? helperBindingProp(this.checker, skipParentheses(arg), this.frame.helper)
+        : undefined;
+
+      if (boundProp) {
+        const change = param.kotlin?.changedBy;
+
+        if (!change) fail(arg, Codes.ToolkitBody, `${label}'s ${param.name} takes no bound signal`);
+
+        bound.add(change);
+        args.push(
+          { name: param.name, value: kt.name(boundProp.name) },
+          { name: change, value: kt.name(changedName(boundProp)) },
+        );
+        continue;
+      }
+
       // A bound signal: the value, and the callback of its changes setting the signal.
       if (ts.isCallExpression(arg) && isBind(this.checker, arg)) {
         const change = param.kotlin?.changedBy;
@@ -1931,7 +1973,10 @@ class BodyWriter {
 
     const args = helperArgs(node, helper);
     const callbacks = new Set(helper.callbacks.map((c) => c.name));
-    const toolkitValues = new Set(helper.toolkitValues.map((v) => v.name));
+    const toolkitValues = new Set([
+      ...helper.toolkitValues.map((v) => v.name),
+      ...helper.bindings.map((b) => b.name),
+    ]);
 
     for (const [name, arg] of args)
       if (
@@ -1959,22 +2004,61 @@ class BodyWriter {
         : this.expr(e, { composable: false, suspending: false }).e;
     };
 
-    return kt.call(kt.name(fn.name), [
-      ...fn.values.map((v) => ({
-        name: v.name,
-        value: this.valueSlot(v.source, chainUse(v.via, use)).e,
-      })),
-      ...helper.callbacks.map((c) => ({ name: c.name, value: callback(c) })),
-      // A toolkit value, written where its user composes (T123).
-      ...helper.toolkitValues.map((v) => {
-        const arg = args.get(v.name);
-
-        return {
+    return kt.call(
+      kt.name(fn.name),
+      [
+        ...fn.values.map((v) => ({
           name: v.name,
-          value: arg ? this.expr(arg, { composable: true, suspending: false }).e : kt.nullLit,
-        };
-      }),
-    ]);
+          value: this.valueSlot(v.source, chainUse(v.via, use)).e,
+        })),
+        ...helper.callbacks.map((c) => ({ name: c.name, value: callback(c) })),
+        // A toolkit value, written where its user composes (T123).
+        ...helper.toolkitValues.map((v) => {
+          const arg = args.get(v.name);
+
+          return {
+            name: v.name,
+            value: arg ? this.expr(arg, { composable: true, suspending: false }).e : kt.nullLit,
+          };
+        }),
+        // A bound prop: the value and change of `bind(signal)`, or of its user's own bound prop.
+        ...helper.bindings.flatMap((b) => {
+          const [value, change] = this.helperBinding(helper, b, args.get(b.name), where);
+
+          return [
+            { name: b.name, value },
+            { name: changedName(b), value: change },
+          ];
+        }),
+      ],
+      helper.children ? kt.lambda([], this.children(helperChildren(node), COMPOSITION)) : undefined,
+    );
+  }
+
+  /** What a helper's bound prop is given: `bind(signal)` where the body is, or its user's own bound prop. */
+  private helperBinding(
+    helper: ViewHelper,
+    b: HelperBinding,
+    arg: ts.Expression | undefined,
+    where: ts.Node,
+  ): [kt.Expr, kt.Expr] {
+    const given = arg && skipParentheses(arg);
+    const passed =
+      given && this.frame ? helperBindingProp(this.checker, given, this.frame.helper) : undefined;
+
+    if (passed) return [kt.name(passed.name), kt.name(changedName(passed))];
+
+    if (given && !this.frame && ts.isCallExpression(given) && isBind(this.checker, given)) {
+      const [value, change] = this.bound(given, "value", "change");
+
+      return [value!.value, change!.value];
+    }
+
+    fail(
+      given ?? where,
+      Codes.ToolkitBody,
+      `\`${helper.name}\`'s \`${b.name}\` is bound: give it \`bind(signal)\`, or a bound prop of its user's`,
+    );
   }
 
   /** A helper view's composable, written once per body. */

@@ -789,8 +789,9 @@ function fixedDecls(toolkit: Toolkit & { source: NonNullable<Toolkit["source"]> 
     {
       k: "typeAlias",
       name: CONTENT,
-      // Views, or nothing where a condition leaves one out (`{shown && <Text>a</Text>}`).
-      type: ts.union([shown, ts.readonlyArray(shown)]),
+      // Views, or nothing where a condition leaves one out (`{shown && <Text>a</Text>}`), in
+      // lists of any depth: a helper's children (`{props.children}`) among other views.
+      type: ts.union([shown, ts.readonlyArray(ts.ref(CONTENT))]),
     },
     {
       k: "namespace",

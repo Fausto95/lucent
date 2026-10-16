@@ -294,9 +294,10 @@ describe("a toolkit's declarations, from its source module", () => {
 
     expect(text).toContain("export declare class UIHostingController {");
     expect(text).not.toContain("swiftUI(");
-    // Views, or nothing where a condition leaves one out (`{shown && <Text>a</Text>}`).
+    // Views, or nothing where a condition leaves one out (`{shown && <Text>a</Text>}`), in lists
+    // of any depth (a helper's children among other views).
     expect(text).toContain(
-      "export declare type Content = View | false | null | undefined | readonly (View | false | null | undefined)[];",
+      "export declare type Content = View | false | null | undefined | readonly Content[];",
     );
     // An element is a SwiftUI view or (T48) a UIKit view's, as the component returns it.
     expect(text).toContain("export declare namespace JSX {\n  type Element = View & ios_UIView;");

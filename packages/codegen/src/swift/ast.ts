@@ -148,6 +148,8 @@ export type Decl =
   | {
       k: "struct";
       name: string;
+      /** Generic parameters as written, constraints included (`Content: View`). */
+      typeParams?: string[];
       modifiers: string[];
       /** The protocols it conforms to. */
       protocols?: Type[];
