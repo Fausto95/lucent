@@ -19,7 +19,7 @@ import type {
 import { findClass, findExtension, findFunction, findHandle } from "../extensions/registry.ts";
 import { cxxMethodCall, cxxNew, cxxStaticCall } from "./cxx-extensions.ts";
 import { extensionModuleOf } from "../program.ts";
-import { type LType, T } from "../types.ts";
+import { type LType, T, unionOf } from "../types.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
 import { DISPOSE } from "./classes.ts";
@@ -131,7 +131,7 @@ function lucentType(p: ParamBinding, extension: string): LType | undefined {
     case "handle":
       return { k: "handle", extension, name: p.handle };
     case "bytes":
-      return T.bytes;
+      return BYTES;
     case "string":
       return T.string;
     case "callback":
@@ -151,6 +151,15 @@ function lucentType(p: ParamBinding, extension: string): LType | undefined {
 
 /** A call's AbortSignal, which Lucent code may leave out (decision 0129). */
 export const SIGNAL: LType = { k: "opt", inner: T.abortSignal, absent: "undefined" };
+
+/** What a bytes parameter takes (decision 0130). */
+const BYTES: LType = unionOf([T.bytes, T.arrayBuffer, T.buffer]);
+
+/** A bytes argument as it is, when it is one of BYTES' members: no variant to make. */
+function bytesArgType(em: FnEmitter, arg: ts.Expression | undefined): LType {
+  const t = arg ? em.lt(arg) : undefined;
+  return t && (t.k === "bytes" || t.k === "arrayBuffer" || t.k === "buffer") ? t : BYTES;
+}
 
 function callbackType(v: CallbackValue): LType {
   switch (v.kind) {
@@ -199,7 +208,7 @@ function call(
   const passed = receiver ? visible.slice(1) : visible;
   const given = em.args(
     args,
-    passed.map((x) => x.t),
+    passed.map((x, k) => (x.p.kind === "bytes" ? bytesArgType(em, args[k]) : x.t)),
     node,
   );
 
@@ -246,8 +255,28 @@ function call(
 
   // Converted before the call, in order: a conversion's error (a closed handle, a number out of
   // range) is Lucent's to throw. Inside the call, an exception escaping C ends the process.
+  // Each bytes argument's own bytes, borrowed for the call, before the lengths that measure them.
+  const bytes = new Map<number, cpp.Expr>();
+  f.params.forEach((p, i) => {
+    if (p.kind !== "bytes") return;
+    const name = em.ctx.fresh("bytes");
+    stmts.push(
+      cpp.varDecl(
+        cpp.auto,
+        name,
+        cpp.construct(cpp.type("lucent::ext::BytesArg"), [
+          temp.get(i)!,
+          cpp.bool(p.access === "write"),
+        ]),
+      ),
+    );
+    bytes.set(i, cpp.id(name));
+  });
+
   let signal: cpp.Expr | undefined;
   const cArgs = f.params.map((p, i): cpp.Expr => {
+    if (p.kind === "bytes")
+      return cpp.cast("reinterpret", cpp.type(p.c), cpp.call(cpp.dot(bytes.get(i)!, "data")));
     // The function C calls, of its parameter's own type, and the `void *` it passes back.
     if (p.kind === "callback")
       return cpp.call(
@@ -282,7 +311,7 @@ function call(
       return cpp.call(cpp.dot(signal, "c"));
     }
 
-    const c = conversion(p, temp.get(i)!, temp, f, i);
+    const c = conversion(p, temp.get(i)!, bytes, f, i);
     if (!c) return cpp.addressOf(e);
 
     const name = em.ctx.fresh("c");
@@ -332,7 +361,7 @@ const printed = (id: cpp.Expr) => cpp.printExpr(id);
 function conversion(
   p: ParamBinding,
   v: cpp.Expr,
-  temp: Map<number, cpp.Expr>,
+  bytes: Map<number, cpp.Expr>,
   f: FunctionBinding,
   i: number,
 ): { init: cpp.Expr; arg: (c: cpp.Expr) => cpp.Expr } | undefined {
@@ -361,15 +390,10 @@ function conversion(
         init: cpp.call(cpp.dot(v, "use"), [], [cpp.type(`::${p.handle}`)]),
         arg: (c) => cpp.call(cpp.dot(c, "get")),
       };
-    case "bytes":
-      return {
-        init: cpp.call("lucent::ext::data", [v]),
-        arg: (c) => cpp.cast("reinterpret", cpp.type(p.c), c),
-      };
     case "length":
       return {
         init: cpp.call(cpp.templateId("lucent::ext::length", [cpp.type(p.c)]), [
-          cpp.call(cpp.dot(temp.get(p.of)!, "size")),
+          cpp.call(cpp.dot(bytes.get(p.of)!, "size")),
           cpp.str(f.params[p.of]!.name),
         ]),
         arg: same,
@@ -383,6 +407,7 @@ function conversion(
     case "callback":
     case "context":
     case "signal":
+    case "bytes":
       return undefined;
   }
 }

@@ -654,6 +654,51 @@ static void signalFlags() {
   context->shutdown();
 }
 
+// --- bytes (decision 0130) ----------------------------------------------------
+
+/// A bytes argument is its own bytes, never copied: a Uint8Array's, an
+/// ArrayBuffer's, or a NativeBuffer's under a borrow for the call, which
+/// refuses what withRead and withWrite refuse.
+static void bytesArguments() {
+  Bytes three(3.0);
+  three.data()[1] = 7;
+  {
+    ext::BytesArg a(three, false);
+    CHECK(a.data() == three.data() && a.size() == 3);
+  }
+
+  ArrayBuffer raw = ArrayBuffer::copy(three.data(), 3);
+  {
+    ext::BytesArg a(raw, true);
+    CHECK(a.data() == raw.data() && a.size() == 3);
+    a.data()[0] = 9;
+  }
+  CHECK(raw.data()[0] == 9);
+
+  NativeBuffer buffer = NativeBufferObject::allocate(4);
+  {
+    ext::BytesArg read(buffer, false);
+    ext::BytesArg alsoRead(buffer, false);
+    CHECK(read.size() == 4 && read.data() == alsoRead.data());
+    CHECK(thrown([&] { ext::BytesArg write(buffer, true); }).rfind("InvalidStateError: ", 0) == 0);
+  }
+  {
+    std::variant<Bytes, ArrayBuffer, NativeBuffer> v = buffer;
+    ext::BytesArg write(v, true);
+    write.data()[3] = 5;
+    CHECK(thrown([&] { ext::BytesArg read(buffer, false); }).rfind("InvalidStateError: ", 0) == 0);
+  }
+  CHECK(buffer->withRead([](std::span<const uint8_t> s) { return s[3]; }) == 5);
+
+  buffer->close();
+  CHECK(thrown([&] { ext::BytesArg read(buffer, false); }).rfind("InvalidStateError: ", 0) == 0);
+
+  // None: never a null pointer.
+  Bytes empty;
+  ext::BytesArg none(empty, false);
+  CHECK(none.data() != nullptr && none.size() == 0);
+}
+
 int main() {
   closesOnce();
   lastCopyDestroys();
@@ -677,6 +722,7 @@ int main() {
   cxxFunctions();
   thunks();
   signalFlags();
+  bytesArguments();
 
   std::printf("extension: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

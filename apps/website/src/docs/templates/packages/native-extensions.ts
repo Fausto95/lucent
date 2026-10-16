@@ -38,6 +38,7 @@ export const blocks: Block[] = [
       "Each handle becomes a class of `lucent:ext/<name>`: `create` is its constructor, and `methods` are its methods.",
       "`close()` and `[Symbol.dispose]()` destroy a handle once, and so does its last reference going. A use after that throws an `InvalidStateError`.",
       "Integers wider than 32 bits (`long`, `size_t`, `int64_t` and their unsigned forms) are bigints. Other integers are numbers, checked on the way in as WebIDL's `[EnforceRange]` does.",
+      "A `bytes` parameter takes a `Uint8Array`, an `ArrayBuffer` or a `NativeBuffer`, and C gets its own bytes, uncopied. A `NativeBuffer` is borrowed for the call, to read or to write, and a borrow that conflicts throws an `InvalidStateError`.",
       "A handle can't cross to JavaScript ([LUCENT2006](/docs/api/diagnostics/#lucent2006)): a Lucent class keeps it and publishes what JavaScript needs.",
       "The declarations editors read are written to `.lucent/native/types/ext/<name>.d.ts`.",
     ],

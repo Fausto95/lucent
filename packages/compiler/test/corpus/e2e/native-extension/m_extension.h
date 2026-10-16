@@ -2,6 +2,8 @@
 #pragma once
 #include "lucent_app.h"
 
+#pragma push_macro("borrowed")
+#undef borrowed
 #pragma push_macro("closeTwice")
 #undef closeTwice
 #pragma push_macro("labelBytes")
@@ -22,6 +24,7 @@ double labelBytes(lucent::String p0_);
 lucent::String shortOutput();
 lucent::String scoped();
 double closeTwice();
+lucent::String borrowed();
 void init();
 
 }  // namespace m_extension
@@ -33,3 +36,4 @@ void init();
 #pragma pop_macro("live")
 #pragma pop_macro("labelBytes")
 #pragma pop_macro("closeTwice")
+#pragma pop_macro("borrowed")

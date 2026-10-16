@@ -208,6 +208,15 @@ public enum Extension {
     return lucentResult
   }
 
+  public static func borrowed() throws -> Swift.String {
+    var lucentError = lucent_error()
+    var lucentResult = lucent_string()
+    guard lucent_extension_borrowed(&lucentError, &lucentResult) else {
+      throw LucentError(lucentError)
+    }
+    return LucentOut.string(lucentResult)
+  }
+
   public final class Filter: LucentNative.LucentInstance, @unchecked Swift.Sendable {
     init(lucent_extension_Filter lucentObject: Swift.OpaquePointer) {
       super.init(lucentObject: lucentObject)

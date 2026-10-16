@@ -2,6 +2,20 @@
 // native-extension case compares the C++ filter against it.
 let live = 0;
 
+/** What a bytes parameter takes (decision 0130): a NativeBuffer is borrowed, the rest used in place. */
+type Bytes = Uint8Array | ArrayBuffer | Borrowable;
+
+interface Borrowable {
+  withRead<R>(read: (bytes: Uint8Array) => R): R;
+  withWrite<R>(write: (bytes: Uint8Array) => R): R;
+}
+
+function lend<R>(b: Bytes, write: boolean, f: (bytes: Uint8Array) => R): R {
+  if (b instanceof Uint8Array) return f(b);
+  if (b instanceof ArrayBuffer) return f(new Uint8Array(b));
+  return write ? b.withWrite(f) : b.withRead(f);
+}
+
 function failure(message: string, code: string): Error {
   return Object.assign(new Error(message), { code });
 }
@@ -18,15 +32,20 @@ export class OrbitFilter {
     live++;
   }
 
-  apply(input: Uint8Array, output: Uint8Array): number {
+  apply(input: Bytes, output: Bytes): number {
     this.#check();
-    if (output.length < input.length) throw failure("output is shorter than input", "2");
+    // As the call borrows them: the input to read, then the output to write.
+    return lend(input, false, (inBytes) =>
+      lend(output, true, (outBytes) => {
+        if (outBytes.length < inBytes.length) throw failure("output is shorter than input", "2");
 
-    for (let i = 0; i < input.length; i++)
-      output[i] = Math.min(255, Math.floor(input[i]! * this.#strength + 0.5));
+        for (let i = 0; i < inBytes.length; i++)
+          outBytes[i] = Math.min(255, Math.floor(inBytes[i]! * this.#strength + 0.5));
 
-    this.#processed += BigInt(input.length);
-    return input.length;
+        this.#processed += BigInt(inBytes.length);
+        return inBytes.length;
+      }),
+    );
   }
 
   processed(): bigint {

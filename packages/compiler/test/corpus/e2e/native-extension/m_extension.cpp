@@ -6,16 +6,26 @@
 #undef after
 #pragma push_macro("apply")
 #undef apply
+#pragma push_macro("back")
+#undef back
 #pragma push_macro("before")
 #undef before
+#pragma push_macro("borrowed")
+#undef borrowed
 #pragma push_macro("close")
 #undef close
 #pragma push_macro("closeTwice")
 #undef closeTwice
+#pragma push_macro("closed")
+#undef closed
 #pragma push_macro("e")
 #undef e
 #pragma push_macro("f")
 #undef f
+#pragma push_macro("input")
+#undef input
+#pragma push_macro("into")
+#undef into
 #pragma push_macro("kept")
 #undef kept
 #pragma push_macro("labelBytes")
@@ -28,6 +38,10 @@
 #undef output
 #pragma push_macro("processed")
 #undef processed
+#pragma push_macro("refused")
+#undef refused
+#pragma push_macro("scaled")
+#undef scaled
 #pragma push_macro("scoped")
 #undef scoped
 #pragma push_macro("shortOutput")
@@ -81,13 +95,13 @@ lucent::Bytes C_Filter::apply(lucent::Bytes p0_) {
     auto x_9_ = p0_;
     auto x_10_ = output;
     ::OrbitError error_11_{};
-    auto c_12_ = x_8_.use<::OrbitFilter>();
-    auto c_13_ = lucent::ext::data(x_9_);
-    auto c_14_ = lucent::ext::length<unsigned long>(x_9_.size(), "input");
-    auto c_15_ = lucent::ext::data(x_10_);
-    auto c_16_ = lucent::ext::length<unsigned long>(x_10_.size(), "output");
+    auto bytes_12_ = lucent::ext::BytesArg(x_9_, false);
+    auto bytes_13_ = lucent::ext::BytesArg(x_10_, true);
+    auto c_14_ = x_8_.use<::OrbitFilter>();
+    auto c_15_ = lucent::ext::length<unsigned long>(bytes_12_.size(), "input");
+    auto c_16_ = lucent::ext::length<unsigned long>(bytes_13_.size(), "output");
     auto result_17_ = lucent::ext::call([&]() {
-      return ::orbit_filter_apply(c_12_.get(), reinterpret_cast<const unsigned char *>(c_13_), c_14_, reinterpret_cast<unsigned char *>(c_15_), c_16_, &error_11_);
+      return ::orbit_filter_apply(c_14_.get(), reinterpret_cast<const unsigned char *>(bytes_12_.data()), c_15_, reinterpret_cast<unsigned char *>(bytes_13_.data()), c_16_, &error_11_);
     });
     bool failed_18_ = result_17_ < 0;
     std::string message_19_;
@@ -182,13 +196,13 @@ lucent::String m_extension::shortOutput() {
           auto x_39_ = v4_;
           auto x_40_ = v6_;
           ::OrbitError error_41_{};
-          auto c_42_ = x_38_.use<::OrbitFilter>();
-          auto c_43_ = lucent::ext::data(x_39_);
-          auto c_44_ = lucent::ext::length<unsigned long>(x_39_.size(), "input");
-          auto c_45_ = lucent::ext::data(x_40_);
-          auto c_46_ = lucent::ext::length<unsigned long>(x_40_.size(), "output");
+          auto bytes_42_ = lucent::ext::BytesArg(x_39_, false);
+          auto bytes_43_ = lucent::ext::BytesArg(x_40_, true);
+          auto c_44_ = x_38_.use<::OrbitFilter>();
+          auto c_45_ = lucent::ext::length<unsigned long>(bytes_42_.size(), "input");
+          auto c_46_ = lucent::ext::length<unsigned long>(bytes_43_.size(), "output");
           auto result_47_ = lucent::ext::call([&]() {
-            return ::orbit_filter_apply(c_42_.get(), reinterpret_cast<const unsigned char *>(c_43_), c_44_, reinterpret_cast<unsigned char *>(c_45_), c_46_, &error_41_);
+            return ::orbit_filter_apply(c_44_.get(), reinterpret_cast<const unsigned char *>(bytes_42_.data()), c_45_, reinterpret_cast<unsigned char *>(bytes_43_.data()), c_46_, &error_41_);
           });
           bool failed_48_ = result_47_ < 0;
           std::string message_49_;
@@ -226,13 +240,13 @@ lucent::String m_extension::shortOutput() {
           auto x_52_ = v16_;
           auto x_53_ = v18_;
           ::OrbitError error_54_{};
-          auto c_55_ = x_51_.use<::OrbitFilter>();
-          auto c_56_ = lucent::ext::data(x_52_);
-          auto c_57_ = lucent::ext::length<unsigned long>(x_52_.size(), "input");
-          auto c_58_ = lucent::ext::data(x_53_);
-          auto c_59_ = lucent::ext::length<unsigned long>(x_53_.size(), "output");
+          auto bytes_55_ = lucent::ext::BytesArg(x_52_, false);
+          auto bytes_56_ = lucent::ext::BytesArg(x_53_, true);
+          auto c_57_ = x_51_.use<::OrbitFilter>();
+          auto c_58_ = lucent::ext::length<unsigned long>(bytes_55_.size(), "input");
+          auto c_59_ = lucent::ext::length<unsigned long>(bytes_56_.size(), "output");
           auto result_60_ = lucent::ext::call([&]() {
-            return ::orbit_filter_apply(c_55_.get(), reinterpret_cast<const unsigned char *>(c_56_), c_57_, reinterpret_cast<unsigned char *>(c_58_), c_59_, &error_54_);
+            return ::orbit_filter_apply(c_57_.get(), reinterpret_cast<const unsigned char *>(bytes_55_.data()), c_58_, reinterpret_cast<unsigned char *>(bytes_56_.data()), c_59_, &error_54_);
           });
           bool failed_61_ = result_60_ < 0;
           std::string message_62_;
@@ -317,13 +331,13 @@ lucent::String m_extension::scoped() {
             auto x_74_ = v10_;
             auto x_75_ = v12_;
             ::OrbitError error_76_{};
-            auto c_77_ = x_73_.use<::OrbitFilter>();
-            auto c_78_ = lucent::ext::data(x_74_);
-            auto c_79_ = lucent::ext::length<unsigned long>(x_74_.size(), "input");
-            auto c_80_ = lucent::ext::data(x_75_);
-            auto c_81_ = lucent::ext::length<unsigned long>(x_75_.size(), "output");
+            auto bytes_77_ = lucent::ext::BytesArg(x_74_, false);
+            auto bytes_78_ = lucent::ext::BytesArg(x_75_, true);
+            auto c_79_ = x_73_.use<::OrbitFilter>();
+            auto c_80_ = lucent::ext::length<unsigned long>(bytes_77_.size(), "input");
+            auto c_81_ = lucent::ext::length<unsigned long>(bytes_78_.size(), "output");
             auto result_82_ = lucent::ext::call([&]() {
-              return ::orbit_filter_apply(c_77_.get(), reinterpret_cast<const unsigned char *>(c_78_), c_79_, reinterpret_cast<unsigned char *>(c_80_), c_81_, &error_76_);
+              return ::orbit_filter_apply(c_79_.get(), reinterpret_cast<const unsigned char *>(bytes_77_.data()), c_80_, reinterpret_cast<unsigned char *>(bytes_78_.data()), c_81_, &error_76_);
             });
             bool failed_83_ = result_82_ < 0;
             std::string message_84_;
@@ -435,6 +449,191 @@ double m_extension::closeTwice() {
   return v7_ - before;
 }
 
+lucent::String m_extension::borrowed() {
+  lucent::checkStack();
+  lucent::Handle f = ({
+    auto x_103_ = 2.0;
+    ::OrbitError error_104_{};
+    auto c_105_ = lucent::ext::real<double>(x_103_);
+    auto result_106_ = lucent::ext::call([&]() {
+      return ::orbit_filter_create(c_105_, &error_104_);
+    });
+    bool failed_107_ = !result_106_;
+    std::string message_108_;
+    long long code_109_ = 0;
+    if (failed_107_) {
+      message_108_ = error_104_.message ? error_104_.message : "";
+      code_109_ = static_cast<long long>(error_104_.code);
+    }
+    if (failed_107_) {
+      lucent::ext::fail("orbit_filter_create", message_108_.c_str(), code_109_);
+    }
+    lucent::Handle::open("OrbitFilter", result_106_, [](void* p_) {
+      ::orbit_filter_destroy(static_cast<::OrbitFilter*>(p_));
+    });
+  });
+  lucent::Array<double> v5_ = lucent::Array<double>{1.0, 2.0, 3.0};
+  lucent::Bytes v6_ = lucent::Bytes::fromArray(v5_);
+  lucent::NativeBuffer input = lucent::NativeBufferObject::fromBytes(v6_);
+  lucent::ArrayBuffer output = lucent::ArrayBuffer(3.0);
+  double written = ({
+    auto x_110_ = f;
+    auto x_111_ = input;
+    auto x_112_ = output;
+    ::OrbitError error_113_{};
+    auto bytes_114_ = lucent::ext::BytesArg(x_111_, false);
+    auto bytes_115_ = lucent::ext::BytesArg(x_112_, true);
+    auto c_116_ = x_110_.use<::OrbitFilter>();
+    auto c_117_ = lucent::ext::length<unsigned long>(bytes_114_.size(), "input");
+    auto c_118_ = lucent::ext::length<unsigned long>(bytes_115_.size(), "output");
+    auto result_119_ = lucent::ext::call([&]() {
+      return ::orbit_filter_apply(c_116_.get(), reinterpret_cast<const unsigned char *>(bytes_114_.data()), c_117_, reinterpret_cast<unsigned char *>(bytes_115_.data()), c_118_, &error_113_);
+    });
+    bool failed_120_ = result_119_ < 0;
+    std::string message_121_;
+    long long code_122_ = 0;
+    if (failed_120_) {
+      message_121_ = error_113_.message ? error_113_.message : "";
+      code_122_ = static_cast<long long>(error_113_.code);
+    }
+    if (failed_120_) {
+      lucent::ext::fail("orbit_filter_apply", message_121_.c_str(), code_122_);
+    }
+    lucent::ext::number(result_119_);
+  });
+  lucent::Bytes v15_ = lucent::Bytes::over(output, lucent::undefined, lucent::undefined);
+  lucent::Array<double> v16_ = v15_.toArray();
+  lucent::String scaled = v16_.join(LUCENT_STR(","));
+  lucent::NativeBuffer into = lucent::NativeBufferObject::allocate(2.0);
+  lucent::Array<double> v24_ = lucent::Array<double>{5.0, 6.0};
+  lucent::Bytes v25_ = lucent::Bytes::fromArray(v24_);
+  (void)({
+    auto x_123_ = f;
+    auto x_124_ = v25_;
+    auto x_125_ = into;
+    ::OrbitError error_126_{};
+    auto bytes_127_ = lucent::ext::BytesArg(x_124_, false);
+    auto bytes_128_ = lucent::ext::BytesArg(x_125_, true);
+    auto c_129_ = x_123_.use<::OrbitFilter>();
+    auto c_130_ = lucent::ext::length<unsigned long>(bytes_127_.size(), "input");
+    auto c_131_ = lucent::ext::length<unsigned long>(bytes_128_.size(), "output");
+    auto result_132_ = lucent::ext::call([&]() {
+      return ::orbit_filter_apply(c_129_.get(), reinterpret_cast<const unsigned char *>(bytes_127_.data()), c_130_, reinterpret_cast<unsigned char *>(bytes_128_.data()), c_131_, &error_126_);
+    });
+    bool failed_133_ = result_132_ < 0;
+    std::string message_134_;
+    long long code_135_ = 0;
+    if (failed_133_) {
+      message_134_ = error_126_.message ? error_126_.message : "";
+      code_135_ = static_cast<long long>(error_126_.code);
+    }
+    if (failed_133_) {
+      lucent::ext::fail("orbit_filter_apply", message_134_.c_str(), code_135_);
+    }
+    lucent::ext::number(result_132_);
+  });
+  lucent::Fn<lucent::String(lucent::ByteSpan)> v29_ = lucent::Fn<lucent::String(lucent::ByteSpan)>([](lucent::ByteSpan p0_) mutable -> lucent::String {
+    lucent::checkStack();
+    lucent::Opt<double> v2_ = p0_.get(0.0);
+    lucent::String v3_ = lucent::toJsString(v2_);
+    lucent::Opt<double> v6_ = p0_.get(1.0);
+    lucent::String v7_ = lucent::toJsString(v6_);
+    return lucent::concat(v3_, LUCENT_STR(","), v7_);
+  });
+  lucent::String back = lucent::withRead(into, v29_);
+  lucent::Box<lucent::String> refused{};
+  *refused = lucent::String();
+  lucent::Fn<void(lucent::MutableByteSpan)> v36_ = lucent::Fn<void(lucent::MutableByteSpan)>(lucent::closure("extension.lucent.ts:104", "f,input,output,refused", [](std::decay_t<decltype(f)>& f, std::decay_t<decltype(input)>& input, std::decay_t<decltype(output)>& output, std::decay_t<decltype(refused)>& refused, lucent::MutableByteSpan p0_) -> void {
+    lucent::checkStack();
+    {
+      std::exception_ptr ex5_;
+      try {
+        (void)({
+          auto x_136_ = f;
+          auto x_137_ = input;
+          auto x_138_ = output;
+          ::OrbitError error_139_{};
+          auto bytes_140_ = lucent::ext::BytesArg(x_137_, false);
+          auto bytes_141_ = lucent::ext::BytesArg(x_138_, true);
+          auto c_142_ = x_136_.use<::OrbitFilter>();
+          auto c_143_ = lucent::ext::length<unsigned long>(bytes_140_.size(), "input");
+          auto c_144_ = lucent::ext::length<unsigned long>(bytes_141_.size(), "output");
+          auto result_145_ = lucent::ext::call([&]() {
+            return ::orbit_filter_apply(c_142_.get(), reinterpret_cast<const unsigned char *>(bytes_140_.data()), c_143_, reinterpret_cast<unsigned char *>(bytes_141_.data()), c_144_, &error_139_);
+          });
+          bool failed_146_ = result_145_ < 0;
+          std::string message_147_;
+          long long code_148_ = 0;
+          if (failed_146_) {
+            message_147_ = error_139_.message ? error_139_.message : "";
+            code_148_ = static_cast<long long>(error_139_.code);
+          }
+          if (failed_146_) {
+            lucent::ext::fail("orbit_filter_apply", message_147_.c_str(), code_148_);
+          }
+          lucent::ext::number(result_145_);
+        });
+      } catch (const lucent::GeneratorReturn&) {
+        throw;
+      } catch (...) {
+        ex5_ = std::current_exception();
+      }
+      if (ex5_) {
+        lucent::Error v5_ = lucent::currentError(ex5_);
+        lucent::Error e = std::move(v5_);
+        *refused = e->name;
+      }
+    }
+  }, f, input, output, refused));
+  lucent::withWrite(input, v36_);
+  (void)(void)input->close();
+  (void)(void)into->close();
+  lucent::String closed = lucent::String();
+  {
+    std::exception_ptr ex47_;
+    try {
+      (void)({
+        auto x_149_ = f;
+        auto x_150_ = input;
+        auto x_151_ = output;
+        ::OrbitError error_152_{};
+        auto bytes_153_ = lucent::ext::BytesArg(x_150_, false);
+        auto bytes_154_ = lucent::ext::BytesArg(x_151_, true);
+        auto c_155_ = x_149_.use<::OrbitFilter>();
+        auto c_156_ = lucent::ext::length<unsigned long>(bytes_153_.size(), "input");
+        auto c_157_ = lucent::ext::length<unsigned long>(bytes_154_.size(), "output");
+        auto result_158_ = lucent::ext::call([&]() {
+          return ::orbit_filter_apply(c_155_.get(), reinterpret_cast<const unsigned char *>(bytes_153_.data()), c_156_, reinterpret_cast<unsigned char *>(bytes_154_.data()), c_157_, &error_152_);
+        });
+        bool failed_159_ = result_158_ < 0;
+        std::string message_160_;
+        long long code_161_ = 0;
+        if (failed_159_) {
+          message_160_ = error_152_.message ? error_152_.message : "";
+          code_161_ = static_cast<long long>(error_152_.code);
+        }
+        if (failed_159_) {
+          lucent::ext::fail("orbit_filter_apply", message_160_.c_str(), code_161_);
+        }
+        lucent::ext::number(result_158_);
+      });
+    } catch (const lucent::GeneratorReturn&) {
+      throw;
+    } catch (...) {
+      ex47_ = std::current_exception();
+    }
+    if (ex47_) {
+      lucent::Error v47_ = lucent::currentError(ex47_);
+      lucent::Error e = std::move(v47_);
+      closed = e->name;
+    }
+  }
+  f.close();
+  lucent::String v53_ = lucent::toJsString(written);
+  lucent::String v59_ = *refused;
+  return lucent::concat(v53_, LUCENT_STR(" "), scaled, LUCENT_STR(" "), back, LUCENT_STR(" "), v59_, LUCENT_STR(" "), closed);
+}
+
 void m_extension::init() {
 }
 
@@ -443,16 +642,23 @@ void m_extension::init() {
 #pragma pop_macro("written")
 #pragma pop_macro("shortOutput")
 #pragma pop_macro("scoped")
+#pragma pop_macro("scaled")
+#pragma pop_macro("refused")
 #pragma pop_macro("processed")
 #pragma pop_macro("output")
 #pragma pop_macro("name")
 #pragma pop_macro("live")
 #pragma pop_macro("labelBytes")
 #pragma pop_macro("kept")
+#pragma pop_macro("into")
+#pragma pop_macro("input")
 #pragma pop_macro("f")
 #pragma pop_macro("e")
+#pragma pop_macro("closed")
 #pragma pop_macro("closeTwice")
 #pragma pop_macro("close")
+#pragma pop_macro("borrowed")
 #pragma pop_macro("before")
+#pragma pop_macro("back")
 #pragma pop_macro("apply")
 #pragma pop_macro("after")

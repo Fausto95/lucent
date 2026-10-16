@@ -6,6 +6,8 @@
 
 #pragma push_macro("apply")
 #undef apply
+#pragma push_macro("borrowed")
+#undef borrowed
 #pragma push_macro("close")
 #undef close
 #pragma push_macro("closeTwice")
@@ -46,7 +48,7 @@ inline jsi::Value Convert<lucent::Ref<lucent_app::C_Filter>>::toJs(jsi::Runtime&
 void proto_C_Filter(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   defineFunction(rt, proto, "apply", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Filter.apply", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 16), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Filter.apply", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 17), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Filter>>::fromJs(rt, thisVal, Path{"Filter.apply", "this"});
       auto a0 = Convert<lucent::Bytes>::fromJs(rt, arg(args, count, 0), Path{"Filter.apply", "argument 'input'"});
       return Convert<lucent::Bytes>::toJs(rt, host, self->apply(std::move(a0)));
@@ -54,14 +56,14 @@ void proto_C_Filter(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
   });
   defineFunction(rt, proto, "processed", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Filter.processed", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 23), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Filter.processed", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 24), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Filter>>::fromJs(rt, thisVal, Path{"Filter.processed", "this"});
       return Convert<lucent::BigInt>::toJs(rt, host, self->processed());
     });
   });
   defineFunction(rt, proto, "close", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Filter.close", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 27), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Filter.close", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 28), [&]() -> jsi::Value {
       auto self = Convert<lucent::Ref<lucent_app::C_Filter>>::fromJs(rt, thisVal, Path{"Filter.close", "this"});
       self->close();
       return jsi::Value::undefined();
@@ -82,38 +84,44 @@ using namespace lucent::js;
 void install_m_extension(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
   defineFunction(rt, exports, "live", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("live", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 33), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("live", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 34), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_extension::live());
     });
   });
   defineFunction(rt, exports, "labelBytes", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("labelBytes", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 38), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("labelBytes", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 39), [&]() -> jsi::Value {
       auto a0 = Convert<lucent::String>::fromJs(rt, arg(args, count, 0), Path{"labelBytes", "argument 'name'"});
       return Convert<double>::toJs(rt, host, lucent_app::m_extension::labelBytes(std::move(a0)));
     });
   });
   defineFunction(rt, exports, "shortOutput", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("shortOutput", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 43), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("shortOutput", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 44), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::shortOutput());
     });
   });
   defineFunction(rt, exports, "scoped", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("scoped", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 57), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("scoped", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 58), [&]() -> jsi::Value {
       return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::scoped());
     });
   });
   defineFunction(rt, exports, "closeTwice", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("closeTwice", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 78), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("closeTwice", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 79), [&]() -> jsi::Value {
       return Convert<double>::toJs(rt, host, lucent_app::m_extension::closeTwice());
+    });
+  });
+  defineFunction(rt, exports, "borrowed", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("borrowed", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 90), [&]() -> jsi::Value {
+      return Convert<lucent::String>::toJs(rt, host, lucent_app::m_extension::borrowed());
     });
   });
   defineClass(rt, host, exports, "Filter", "extension.Filter", proto_C_Filter, 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
     Host& host = Host::from(rt, installed);
-    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Filter", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 9), [&]() -> jsi::Value {
+    return callSync(rt, host, lucent_app::actor_0(), LUCENT_TRACE_SITE_AT("Filter", "packages/compiler/test/e2e/cases/native-extension/extension.lucent.ts", 10), [&]() -> jsi::Value {
       auto a0 = Convert<double>::fromJs(rt, arg(args, count, 0), Path{"Filter", "argument 'strength'"});
       return Convert<lucent::Ref<lucent_app::C_Filter>>::toJs(rt, host, lucent_app::C_Filter::create(std::move(a0)));
     });
@@ -144,4 +152,5 @@ void resetModuleState() {
 #pragma pop_macro("labelBytes")
 #pragma pop_macro("closeTwice")
 #pragma pop_macro("close")
+#pragma pop_macro("borrowed")
 #pragma pop_macro("apply")

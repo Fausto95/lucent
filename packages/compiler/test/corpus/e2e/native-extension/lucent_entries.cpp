@@ -20,6 +20,8 @@ extern "C" void lucent_launch(void) {}
 
 #pragma push_macro("apply")
 #undef apply
+#pragma push_macro("borrowed")
+#undef borrowed
 #pragma push_macro("close")
 #undef close
 #pragma push_macro("closeTwice")
@@ -72,6 +74,13 @@ extern "C" bool lucent_extension_closeTwice(lucent_error* error, double* result)
   });
 }
 
+extern "C" bool lucent_extension_borrowed(lucent_error* error, lucent_string* result) {
+  return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
+    auto value = lucent_app::m_extension::borrowed();
+    if (result) *result = lucent::entries::out(kept, value);
+  });
+}
+
 extern "C" bool lucent_extension_Filter_new(double arg0, lucent_error* error, lucent_object* result) {
   return lucent::entries::call(&lucent_app::initModules, lucent_app::actor_0(), error, [&](lucent::entries::Kept& kept) {
     auto value = lucent_app::C_Filter::create(lucent::entries::in(arg0));
@@ -111,6 +120,7 @@ extern "C" bool lucent_extension_Filter_close(lucent_object self, lucent_error* 
 #pragma pop_macro("kept")
 #pragma pop_macro("closeTwice")
 #pragma pop_macro("close")
+#pragma pop_macro("borrowed")
 #pragma pop_macro("apply")
 
 // The Swift API's (decision 0116): the wrapper an instance an entry gives is of.
@@ -207,6 +217,22 @@ extern "C" JNIEXPORT jdouble JNICALL Java_dev_lucent_app_extension_ExportsNative
   }
 }
 
+extern "C" JNIEXPORT jstring JNICALL Java_dev_lucent_app_extension_ExportsNatives_borrowed(JNIEnv* env, jclass) {
+  lucent::jni::EntryArgs in(env);
+  try {
+    lucent_error error{};
+    lucent_string result{};
+    if (!lucent_extension_borrowed(&error, &result)) {
+      lucent::jni::throwEntryError(env, error);
+      return {};
+    }
+    return lucent::jni::javaOf(env, result);
+  } catch (...) {
+    lucent::jni::throwCaught(env, std::current_exception());
+    return {};
+  }
+}
+
 extern "C" JNIEXPORT jlong JNICALL Java_dev_lucent_app_extension_Filter_entry_1new(JNIEnv* env, jclass, jdouble arg0) {
   lucent::jni::EntryArgs in(env);
   try {
@@ -277,8 +303,9 @@ extern "C" void lucent_entries_register_natives(JNIEnv* env) {
         {const_cast<char*>("shortOutput"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_shortOutput)},
         {const_cast<char*>("scoped"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_scoped)},
         {const_cast<char*>("closeTwice"), const_cast<char*>("()D"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_closeTwice)},
+        {const_cast<char*>("borrowed"), const_cast<char*>("()Ljava/lang/String;"), reinterpret_cast<void*>(&Java_dev_lucent_app_extension_ExportsNatives_borrowed)},
     };
-    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/extension/ExportsNatives"), methods, 5);
+    env->RegisterNatives(lucent::jni::findClass("dev/lucent/app/extension/ExportsNatives"), methods, 6);
     lucent::jni::check(env);
   }
   {

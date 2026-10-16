@@ -8,4 +8,5 @@ exports.labelBytes = m.labelBytes;
 exports.shortOutput = m.shortOutput;
 exports.scoped = m.scoped;
 exports.closeTwice = m.closeTwice;
+exports.borrowed = m.borrowed;
 exports.Filter = lucentClass(m.Filter);
