@@ -938,9 +938,10 @@ registered its handler, and runs the handler with a stand-in task.
 
 ### App extensions and widgets
 
-**Planned** ([T133](../tasks.md#t133)). A package's Lucent code runs in an
-app extension: a widget with a SwiftUI body, a notification service
-extension, a share extension.
+**Planned** ([T133](../tasks.md#t133),
+[0124](../decisions/0124-an-app-extension-is-a-target-built-from-the-code-it-reaches.md)).
+A package's Lucent code runs in an app extension: a widget with a SwiftUI
+body, a notification service extension, a share extension.
 
 - **Target.** A second native build of the same program, without React
   Native. It links the JSI-free runtime core and the modules the extension
@@ -960,10 +961,16 @@ extension, a share extension.
 An extension is its own process, with its own native root and module
 state, so it never shares module variables with the app.
 
-**Open:** how `lucent.json` declares a target, and whether a package or the
-app owns it. Which modules the build includes: the import closure of the
-principal class is the natural rule. A memory budget for the runtime,
-since widget extensions run under tight limits.
+`lucent.json`'s `ios.appExtensions` declares the targets, in a package's
+file or the app's. A notification service or share extension names an
+exported Lucent class extending its SDK base, which gets an Objective-C
+class the OS makes by name (`LucentApp_<module>_<Class>`). A widget names
+a provider class mirroring `TimelineProvider` and a SwiftUI JSX body of
+its entry, and Lucent writes WidgetKit's Swift. Each extension builds the
+modules its code reaches into a subspec of `LucentExtensions`, with the
+runtime compiled under `LUCENT_APP_EXTENSION`. `ios.appGroups` gives the
+app and its extensions their shared groups, and the fixtures hold the
+runtime to 5 MB over the same extension in Swift.
 
 ### Worklet runtimes
 
@@ -1032,9 +1039,11 @@ Each becomes a decision record before its task's work starts:
 5. Checking background identifiers by rule: decided,
    [0096](../decisions/0096-ios-background-tasks-are-package-code-a-launch-module-registers.md).
 6. Extension targets, their module set, their memory budget, and the
-   runtime's own extension-unsafe calls.
+   runtime's own extension-unsafe calls: decided,
+   [0124](../decisions/0124-an-app-extension-is-a-target-built-from-the-code-it-reaches.md).
 7. Installing on worklet runtimes, which runtime owns an entry's work, and
-   instances across runtimes.
+   instances across runtimes: decided,
+   [0123](../decisions/0123-a-runtime-that-calls-lucent-gets-a-host-there.md).
 8. Whether to offer JavaScript background tasks.
 9. Generating App Intents and Live Activity types.
 
