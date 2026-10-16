@@ -92,18 +92,38 @@ export function filesOf(files: string[]): string[] {
   });
 }
 
+/** The artifact the Lucent packages' Kotlin and Java are, compiled (jvm-sources.ts), in provenance and keys. */
+export const JVM_SOURCES_ARTIFACT = "sources:android.nativeSources";
+
+/**
+ * The cache directory their jars are kept in: `<cache>/jvm-sources/<key>/sources-<hash>.jar`,
+ * named after the sources' contents.
+ */
+export const JVM_SOURCES_DIR = "jvm-sources";
+
+/** The file name of the jar of sources whose contents hash to `hash`. */
+export const jvmSourcesJarName = (hash: string) => `sources-${hash}.jar`;
+
 /**
  * What a jar or AAR is, from where the build put it: an Android SDK
  * platform (`platforms/android-35/android.jar`), a Gradle dependency (its
  * Maven coordinates, from Gradle's `files-2.1/<group>/<name>/<version>/`
- * cache), or else an archive known by its file name.
+ * cache), the jar of the Lucent packages' Kotlin and Java, or else an
+ * archive known by its file name.
  */
 export function jarArtifact(file: string): Pick<SchemaProvenance, "artifact" | "kind"> & {
   target?: string;
+  /** The sources' contents' hash, for the packages' own jar: its classes vary with the compiler. */
+  contentHash?: string;
 } {
   const parts = file.split(/[\\/]/);
   const name = parts.at(-1)!;
   const kind = name.endsWith(".aar") ? "aar" : "jar";
+
+  // The jar of the Lucent packages' Kotlin and Java (jvm-sources.ts), in the cache.
+  const sources = /^sources-(\w+)\.jar$/.exec(name);
+  if (parts.at(-3) === JVM_SOURCES_DIR && sources)
+    return { artifact: JVM_SOURCES_ARTIFACT, kind: "sources", contentHash: sources[1]! };
 
   const platform = parts.at(-2);
   if (name === "android.jar" && parts.at(-3) === "platforms" && platform?.startsWith("android-"))

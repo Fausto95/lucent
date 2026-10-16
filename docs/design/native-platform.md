@@ -644,9 +644,9 @@ reach Lucent (0125), and functions take callbacks, signals and buffers'
 bytes (0126, 0128 to 0130).
 
 Prefab modules and pods link, with their headers on an extension's
-include path (0131). A package's own Kotlin and Java typed in Lucent
-([T143](../tasks.md#t143)); its Swift sources already are, as
-`lucent:ios/LucentNative`.
+include path (0131). A package's own Swift is typed as
+`lucent:ios/LucentNative`, and its Kotlin and Java as the Java packages
+they declare, compiled on first import (0132).
 
 ## Views in brief
 

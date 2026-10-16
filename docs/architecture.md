@@ -806,6 +806,5 @@ Objective-C++ message sends or JNI calls, with shims where needed.
 calls and threads.
 
 > **Planned:** SDK shapes Lucent still refuses ([T112](tasks.md#t112)),
-> the app's own `lucent.json` ([T111](tasks.md#t111)), typed Kotlin and
-> Java package sources ([T143](tasks.md#t143)), and a web target
+> the app's own `lucent.json` ([T111](tasks.md#t111)), and a web target
 > ([T144](tasks.md#t144)).

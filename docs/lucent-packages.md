@@ -314,7 +314,7 @@ content. A failure there is LUCENT3004 with swiftc's errors.
 | ------------------------------------------ | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Swift in `ios.nativeSources`               | The pod, as module `LucentNative`                           | `lucent:ios/LucentNative`: its `public` declarations                       |
 | Objective-C, C, C++ in `ios.nativeSources` | The pod                                                     | Not bound, except headers declared as an extension                         |
-| Kotlin, Java in `android.nativeSources`    | The library (Kotlin applies `org.jetbrains.kotlin.android`) | Not typed ([T143](tasks.md#t143))                                          |
+| Kotlin, Java in `android.nativeSources`    | The library (Kotlin applies `org.jetbrains.kotlin.android`) | `lucent:android/<java package>` of their `package` lines, compiled first   |
 | C, C++ in `android.nativeSources`          | The runtime's CMake target                                  | Not bound, except headers declared as an extension                         |
 | `ios.vendoredFrameworks`                   | Linked and embedded by the pod                              | `lucent:ios/<Module>`; an `.xcframework` by its simulator slice            |
 | `android.libraries`                        | `api` dependencies of the library                           | `lucent:android/<java package>`, such as `lucent:android/dev.orbit.shapes` |
@@ -322,7 +322,10 @@ content. A failure there is LUCENT3004 with swiftc's errors.
 Lucent makes the `LucentNative` module from every package's Swift
 (`swiftc -emit-module`, against the app's pods) on first import, once per
 content. The Swift shims calling it are compiled into the same module.
-Write Swift there to wrap an API Lucent can't bind. Prebuilt frameworks
+Write Swift there to wrap an API Lucent can't bind. Kotlin and Java are
+compiled into one jar on first import, against `android.jar` and the
+app's classpath, and each Java package they declare binds from it
+(decision 0132). Prebuilt frameworks
 and libraries are bound from the files themselves, cached on their
 content (`projectSdk` in `project-sdk.ts`).
 

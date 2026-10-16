@@ -29,6 +29,7 @@ import {
   extractorVersion,
   type IosModuleSource,
   iosProvenance,
+  JVM_SOURCES_ARTIFACT,
   type LockedPod,
   lockedPods,
 } from "./provenance.ts";
@@ -42,6 +43,7 @@ import {
   planSwiftModules,
   type SwiftModuleContext,
 } from "./swift-modules.ts";
+import { buildJvmSources, type JvmSourcesPlan, planJvmSources } from "./jvm-sources.ts";
 import { cSwiftNames } from "./c-swift-names.ts";
 import { buildSourceSchema } from "./swift-source.ts";
 import type { SymbolGraph } from "./symbols.ts";
@@ -103,6 +105,12 @@ export interface SdkOptions {
      * lists them again once it has.
      */
     libraries?: string[];
+    /**
+     * The Kotlin and Java files of the app's Lucent packages'
+     * android.nativeSources: the Java packages they declare, compiled into
+     * a jar the first time one is imported (decision 0132).
+     */
+    sources?: string[];
   };
   ios?: {
     /** Directories with module maps, for modules outside the SDK. */
@@ -185,6 +193,8 @@ interface Resolved {
     annotations?: string;
     dependencies: number;
     classpath?: string;
+    /** The packages' Kotlin and Java, compiled on first use. */
+    sources?: JvmSourcesPlan;
   };
   /** modules: module name → its headers (undefined: an SDK framework, <M>/<M>.h). */
   ios?: {
@@ -356,7 +366,9 @@ function locateAndroid(opts: SdkOptions): Resolved | { missing: string } {
   // Packages' libraries first: Gradle's copies of them on the classpath are the same artifacts.
   const classpath = opts.android?.classpath;
   const cp = classpath
-    ? (readCached(classpath) as { jars?: string[]; aars?: string[] })
+    ? (readCached(classpath) as
+        | { jars?: string[]; aars?: string[]; kotlinCompiler?: string[] }
+        | undefined)
     : undefined;
   const found = [
     ...(opts.android?.libraries ?? []),
@@ -373,6 +385,38 @@ function locateAndroid(opts: SdkOptions): Resolved | { missing: string } {
   const sdk = artifacts.find((a) => a.kind === "sdk");
   const label = sdk?.targetTriple ?? "jars";
 
+  // The packages' Kotlin and Java: an artifact declaring their packages, its jar compiled on first use.
+  const files = opts.android?.sources ?? [];
+  const sources = files.length
+    ? planJvmSources(
+        files,
+        artifacts.map((a) => a.declarationInputs[0]!),
+        {
+          ...(opts.cacheDir ? { cacheDir: opts.cacheDir } : {}),
+          classpathKey: hash(artifacts.map(identity)),
+          ...(cp?.kotlinCompiler ? { compilerClasspath: cp.kotlinCompiler } : {}),
+        },
+      )
+    : undefined;
+  const own: NativeArtifact[] = sources
+    ? [
+        {
+          id: JVM_SOURCES_ARTIFACT,
+          target: "android",
+          kind: "sources",
+          // The sources' contents: the same artifact on any machine, as locks compare it.
+          contentHash: sources.contentHash,
+          targetTriple: sdk?.targetTriple ?? "android",
+          dependencies: [],
+          modules: sources.packages,
+          declarationInputs: [sources.jar],
+          includePaths: [],
+          compilerArguments: [],
+          origin: { package: JVM_SOURCES_ARTIFACT, version: "", buildFile: files[0]! },
+        },
+      ]
+    : [];
+
   return resolved({
     scope: path.join(
       root,
@@ -380,13 +424,14 @@ function locateAndroid(opts: SdkOptions): Resolved | { missing: string } {
       `${label}-${hash([...extractorKey(), sdk ? identity(sdk) : ""])}`,
     ),
     memo,
-    artifacts,
+    artifacts: [...artifacts, ...own],
     android: {
       jars: artifacts.map((a) => a.declarationInputs[0]!),
       apiVersions: platform?.apiVersions,
       annotations: platform?.annotations,
       dependencies,
       classpath,
+      ...(sources ? { sources } : {}),
     },
   });
 }
@@ -432,7 +477,18 @@ function androidNotFound(r: Resolved, module: string): { missing: string; fix: s
 }
 
 function extractAndroidModule(r: Resolved, module: string): Extracted {
-  const { jars, apiVersions, annotations } = r.android!;
+  const { apiVersions, annotations, sources } = r.android!;
+  let jars = r.android!.jars;
+  // A package the packages' Kotlin and Java declare: read from their jar, built first.
+  if (sources?.packages.includes(module)) {
+    const why = buildJvmSources(sources);
+    if (why)
+      return {
+        missing: `lucent:android/${module} is declared by the Lucent packages' Kotlin and Java (android.nativeSources), which don't compile here: ${why}`,
+        fix: "fix the sources (they compile against android.jar and the app's resolved classpath), then build again",
+      };
+    jars = [...jars, sources.jar];
+  }
   const index = jarIndex(jars, apiVersions);
   if (!index.packages.has(module)) return androidNotFound(r, module);
 
@@ -1450,7 +1506,12 @@ export function sdkModules(
     return set.length ? set : r;
   }
   if (platform === "android")
-    return [...jarIndex(r.android!.jars, r.android!.apiVersions).packages].sort();
+    return [
+      ...new Set([
+        ...jarIndex(r.android!.jars, r.android!.apiVersions).packages,
+        ...(r.android!.sources?.packages ?? []),
+      ]),
+    ].sort();
   return [...r.ios!.modules.keys()].sort();
 }
 
@@ -1503,6 +1564,21 @@ export function namesOfSchema(schema: SdkModuleSchema): NamesIndex {
     else types[t.name] = { kind: "struct", native: t.native, fields: t.fields };
   }
   return { module: schema.module, refs: {}, aliases: {}, types };
+}
+
+/**
+ * The jar of the packages' Kotlin and Java (decision 0132), built if need be: undefined
+ * without any, else the jar or why it could not be built (tests and tools).
+ */
+export function androidSourcesJar(
+  opts: SdkOptions = {},
+): { jar: string } | { missing: string } | undefined {
+  const r = locate("android", opts);
+  const sources = "missing" in r ? undefined : r.android!.sources;
+  if (!sources) return undefined;
+
+  const why = buildJvmSources(sources);
+  return why ? { missing: why } : { jar: sources.jar };
 }
 
 /** The jars Android bindings come from (tests and tools). */

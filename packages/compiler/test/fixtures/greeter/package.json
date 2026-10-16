@@ -1,0 +1,10 @@
+{
+  "name": "lucent-greeter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Lucent package whose Android side is its own Kotlin and Java, used by the tests",
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src"
+  }
+}

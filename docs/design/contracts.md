@@ -305,10 +305,15 @@ them:
 - Coverage stages are `discovered`, `representable`, `generated` and
   `exercised`; one without evidence is `null`.
 
-### Planned
+### Packages' Kotlin and Java
 
-- [T143](../tasks.md#t143) binds a package's Kotlin and Java sources as
-  `lucent:android/<package>`, from a jar keyed on their content.
+| Rule      | Contract                                                                                                                                                                          |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Input     | `SdkOptions.android.sources`: the `.kt` and `.java` files of the packages' `android.nativeSources` (`NativeInputs.jvmSources`, `jvmFilesUnder`).                                  |
+| Artifact  | One, `sources:android.nativeSources`, kind `sources`, declaring the Java packages of their `package` lines (`packageOf`). Its hash is their contents', the same on any machine.   |
+| Jar       | Built on the first schema of one of its packages (`buildJvmSources`), keyed by the sources, the classpath's artifacts and the compilers. `androidSourcesJar` builds and finds it. |
+| Compilers | Kotlin: `$KOTLINC`, else the classpath file's `kotlinCompiler` run as `K2JVMCompiler`, else `kotlinc` on the `PATH`. Java: `javac` of `$JAVA_HOME`, else the `PATH`.              |
+| Failure   | Each of its packages is missing, naming `android.nativeSources` and the compiler's error lines (five at most); not compiled again in that process.                                |
 
 ## C-IR: semantic IR and program facts
 

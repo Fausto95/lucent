@@ -1,7 +1,8 @@
 // Registers lucentClasspath in the app project it is applied to: writes the
-// app's resolved compile classpath (AARs and jars), its minSdk and its
-// compileSdk to .lucent/android-classpath.json, so lucent:android/<package> can bind any
-// library the app links (AndroidX, Play services, Firebase…).
+// app's resolved compile classpath (AARs and jars), its minSdk, its
+// compileSdk and its Kotlin compiler's classpath to .lucent/android-classpath.json,
+// so lucent:android/<package> can bind any library the app links (AndroidX,
+// Play services, Firebase…) and its Lucent packages' own Kotlin.
 // Applied by lucent.gradle (the app's Gradle task) and by
 // lucent-classpath.init.gradle (when lucent build asks Gradle). In an app
 // with lucent.gradle, lucent build's run applies it twice: once registers.
@@ -38,6 +39,11 @@ pluginManager.withPlugin("com.android.application") {
     }
     def aars = viewOf("aar")
     def jars = viewOf("jar")
+    // The Kotlin compiler the app builds with (Kotlin's Gradle plugin resolves it): Lucent
+    // compiles its packages' Kotlin with it, to bind what the sources declare (decision 0132).
+    def kotlinCompiler = configurations.findByName("kotlinCompilerClasspath")?.incoming?.artifactView {
+      lenient(true)
+    }?.files ?: files()
     // The app's SDK levels: the oldest Android it runs on (APIs newer than it need a check), and
     // the platform it compiles against (what Lucent binds). AGP 7+ names them minSdk and
     // compileSdk; older versions minSdkVersion and compileSdkVersion ("android-34").
@@ -54,11 +60,13 @@ pluginManager.withPlugin("com.android.application") {
     def minSdk = sdkLevel { android.defaultConfig.hasProperty("minSdk") ? android.defaultConfig.minSdk : android.defaultConfig.minSdkVersion?.apiLevel }
     def compileSdk = sdkLevel { android.hasProperty("compileSdk") && android.compileSdk != null ? android.compileSdk : android.compileSdkVersion }
     tasks.register("lucentClasspath") {
-      inputs.files(aars, jars)
+      inputs.files(aars, jars, kotlinCompiler)
       outputs.file(out)
       doLast {
         out.parentFile.mkdirs()
         def record = [aars: aars.files*.absolutePath.sort(), jars: jars.files*.absolutePath.sort()]
+        def compiler = kotlinCompiler.files*.absolutePath
+        if (compiler) record.kotlinCompiler = compiler
         if (minSdk != null) record.minSdk = minSdk
         if (compileSdk != null) record.compileSdk = compileSdk
         out.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(record))

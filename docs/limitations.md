@@ -172,9 +172,9 @@ generated from this file.
   sets, which C must poll ([T142](tasks.md#t142)). A C++ header's class
   templates, classes with a base, abstract classes and public data members
   aren't bound. Neither are its C++ functions outside a class.
-- A package's Kotlin and Java sources are compiled but not typed in
-  Lucent. Its Swift sources are, as `lucent:ios/LucentNative`
-  ([T143](tasks.md#t143)).
+- Lucent compiles a package's Kotlin and Java without the app's `R` class
+  or Kotlin compiler plugins (Compose, serialization). Sources that need
+  them don't bind.
 - Tracing records allocations for native buffers only, and its buffer uses
   one mutex: fine for debugging, not for continuous production use.
 - Swift calling a module's exports gets a record as a `Dictionary`, which

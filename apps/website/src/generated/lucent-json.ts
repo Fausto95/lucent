@@ -266,7 +266,7 @@ export const lucentJsonFields: { field: string; type: string; required: boolean;
     "field": "android.nativeSources",
     "type": "string[]",
     "required": false,
-    "description": "Java and Kotlin source roots of the native package's Android library, such as \"native/android\". Their C and C++ files (.c, .cc, .cpp) are compiled with the runtime. A directory holding C or C++ files is also a header search path. Kotlin sources apply the Kotlin Android plugin."
+    "description": "Java and Kotlin source roots of the native package's Android library, such as \"native/android\". Their C and C++ files (.c, .cc, .cpp) are compiled with the runtime. A directory holding C or C++ files is also a header search path. Kotlin sources apply the Kotlin Android plugin. Lucent code imports what the Kotlin and Java declare as lucent:android/<java package>, compiled on first import."
   },
   {
     "field": "android.resources",
