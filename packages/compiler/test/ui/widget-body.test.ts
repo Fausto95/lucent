@@ -40,6 +40,11 @@ describe.skipIf(!mini)("a widget's body", () => {
     expect(swift).toContain("Text(values.");
     // The helper view's values are computed where the body uses it.
     expect(swift).toMatch(/fileprivate struct \w*Line\w*: View/);
+    // Its list: each item a record of its key and values, which its row reads.
+    expect(swift).toContain("fileprivate struct ForecastItem0: Identifiable {");
+    expect(swift).toMatch(/let \w+: \[ForecastItem0\]/);
+    expect(swift).toMatch(/ForEach\(values\.\w+\) \{ item in ForecastRow0\(item: item\) \}/);
+    expect(swift).toContain("fileprivate struct ForecastRow0: View {");
     expect(widgetSwiftErrors(mini!, built)).toBe("");
 
     const unit = [...files].find(
@@ -53,6 +58,11 @@ describe.skipIf(!mini)("a widget's body", () => {
     // Each value computed once, in order, encoded into the array its function returns.
     expect(cpp).toMatch(/lucent::NativeRef \w+::Forecast_widget\(/);
     expect(cpp).toContain("lucent::swiftui::record({lucent_v0, lucent_v1,");
+    expect(cpp).toMatch(/id lucent_l0 = lucent::swiftui::array\(lucent_l0_source, /);
+    expect(cpp).toContain(
+      "lucent::swiftui::record({lucent::swiftui::value(lucent_key), lucent_v0, lucent_v1})",
+    );
+    expect(cpp).toMatch(/lucent_v5, lucent_l0\}\)/);
     expect(cpp).toContain(`lucent::objc::wrap(`);
     expect(cpp).not.toContain("lucent::ui::effect");
     // Declared in its module's header, for the widget's glue to call.
@@ -103,12 +113,12 @@ export declare function Badge(props: { city: string }): View;
     ).toEqual([]);
   });
 
-  it("refuses a callback, a binding, a signal and a list", () => {
+  it("refuses a callback, a binding and a signal, in a list's row too", () => {
     const refused = (body: string) =>
       errors(
         build(
           mini!.set,
-          `import { Button, ForEach, Text, Toggle, VStack } from "lucent:swiftui";
+          `import { ForEach, Text, Toggle } from "lucent:swiftui";
 import { bind, signal } from "lucent:ui";
 import type { Entry } from "./weather.lucent";
 
@@ -138,15 +148,16 @@ ${body}
       ],
     ]);
     expect(
-      refused(`  return (
-    <ForEach data={[entry.city]} id={(c) => c}>
-      {(c) => <Text>{c}</Text>}
+      refused(`  const pick = (day: string) => {};
+  return (
+    <ForEach data={entry.days} id={(d) => d.day}>
+      {(d) => <Text onTapGesture={() => pick(d.day)}>{d.day}</Text>}
     </ForEach>
   );`),
     ).toEqual([
       [
         "LUCENT3024",
-        "the widget Weather's body shows no list (`ForEach`), for now: show each of the entry's items in a view of its own",
+        "the widget Weather's body calls nothing back (`pick`): WidgetKit draws a widget once per entry, from what its body computes from the entry, and runs none of its code after",
       ],
     ]);
   });

@@ -625,12 +625,6 @@ export class Crossings {
   ): ListSlot {
     const title = TOOLKITS[this.toolkit].title;
 
-    if (this.setup.widget)
-      bodyFail(
-        site,
-        `the widget ${this.setup.widget}'s body shows no list (\`ForEach\`), for now: show each of the entry's items in a view of its own`,
-      );
-
     if (this.listOf(site))
       bodyFail(site, `a ${title} list's item shows no list of its own, for now`);
 
