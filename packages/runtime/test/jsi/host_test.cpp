@@ -2232,6 +2232,195 @@ static void idsAreFoundFromAnyThread() {
   CHECK(found == 50 * 64);
 }
 
+// --- attached runtimes (decision 0123) -------------------------------------------
+
+/// The C++ function behind `expression`, a function `js`'s runtime holds.
+static jsi::HostFunctionType hostFunction(JsThread& js, const std::string& expression) {
+  return js.run([&](jsi::Runtime& rt) {
+    jsi::Function f =
+        rt.evaluateJavaScript(std::make_shared<jsi::StringBuffer>(expression), "test.js").asObject(rt).asFunction(rt);
+    return f.getHostFunction(rt);
+  });
+}
+
+/// `f` made again in `rt` as the global `name`: as a worklet library
+/// carries a host function into its runtime.
+static void define(jsi::Runtime& rt, const std::string& name, jsi::HostFunctionType f) {
+  rt.global().setProperty(rt, name.c_str(), jsi::Function::createFromHostFunction(rt, jsi::PropNameID::forUtf8(rt, name), 1, std::move(f)));
+}
+
+/// `expression`, a function `from`'s runtime holds, made again in `to`'s as the global `name`.
+static void carry(JsThread& from, const std::string& expression, JsThread& to, const std::string& name) {
+  jsi::HostFunctionType f = hostFunction(from, expression);
+  to.run([&](jsi::Runtime& rt) { define(rt, name, f); });
+}
+
+/// Runs `f` on the main thread; the caller waits for it.
+template <class F>
+static auto onMain(F f) -> std::invoke_result_t<F&> {
+  using R = std::invoke_result_t<F&>;
+  auto done = std::make_shared<std::promise<R>>();
+  std::future<R> result = done->get_future();
+
+  postToMain([f = std::move(f), done]() mutable {
+    try {
+      if constexpr (std::is_void_v<R>) {
+        f();
+        done->set_value();
+      } else {
+        done->set_value(f());
+      }
+    } catch (...) {
+      done->set_exception(std::current_exception());
+    }
+  });
+
+  return result.get();
+}
+
+/// What `source` evaluates to in `rt`, as a string.
+static std::string evalString(jsi::Runtime& rt, const std::string& source) {
+  return rt.evaluateJavaScript(std::make_shared<jsi::StringBuffer>(source), "test.js").toString(rt).utf8(rt);
+}
+
+/// A function Lucent installed, called in a runtime it was carried into (a
+/// worklet's), runs there through a host attached at its first call: one
+/// per runtime, whose work is its own, which is never the default runtime,
+/// and whose runtime's end spares the installed one.
+static void carriedFunctionsCallThroughAnAttachedHost() {
+  JsThread a, b;
+  auto hostA = install(a);
+  int initialized = m_t::initialized;
+  int destroyed = m_t::destroyed;
+
+  carry(a, "mods.t.value", b, "value");
+  carry(a, "mods.t.scopeRuntime", b, "scopeRuntime");
+  CHECK(current(b) == nullptr);
+
+  CHECK(b.number("value(3)") == 6);
+  Host* attached = current(b);
+  CHECK(attached && attached != hostA.get());
+  CHECK(attached && attached->attached() && !attached->scheduled() && attached->alive());
+  CHECK(!hostA->attached() && hostA->scheduled());
+
+  // One host for the runtime, whichever function it calls.
+  CHECK(b.number("scopeRuntime()") == static_cast<double>(attached->id()));
+  CHECK(current(b) == attached);
+  CHECK(a.number("mods.t.scopeRuntime()") == static_cast<double>(hostA->id()));
+
+  // The default runtime stays the installed one, and module state is as it was.
+  CHECK(currentRuntime() == hostA->id());
+  CHECK(moduleScope() == hostA->scope());
+  CHECK(m_t::initialized == initialized);
+
+  b.destroyRuntime();
+  CHECK(hostA->alive() && hostA->scope()->state() == Scope::State::Active);
+  CHECK(a.number("mods.t.value(4)") == 8);
+  CHECK(m_t::destroyed == destroyed);
+}
+
+/// An async export called from an attached runtime settles through the
+/// scheduler its creator gives it (Host::attach): until then, it rejects
+/// at once. A runtime of React Native's keeps its host and poster.
+static void attachedRuntimesSettleThroughTheirScheduler() {
+  JsThread a, b;
+  auto hostA = install(a);
+  carry(a, "mods.t.measuredLater", b, "measuredLater");
+
+  const std::string call =
+      "globalThis.outcome = 'pending'; measuredLater(4).then(function (v) { outcome = 'value ' + v; }, "
+      "function (e) { outcome = e.name + ': ' + e.message; });";
+  b.eval(call);
+  CHECK(b.string("outcome").rfind("NotSupportedError: ", 0) == 0);
+
+  Host* given = b.run([&](jsi::Runtime& rt) { return Host::attach(rt, b.poster()).get(); });
+  CHECK(given == current(b) && given->attached() && given->scheduled());
+
+  b.eval(call);
+  CHECK(within(2000, [&] { return b.string("outcome") == "value 8"; }));
+
+  // Attaching makes the host when no call has yet.
+  JsThread c;
+  Host* made = c.run([&](jsi::Runtime& rt) { return Host::attach(rt, c.poster()).get(); });
+  CHECK(made == current(c) && made->attached() && made->scheduled());
+  carry(a, "mods.t.measuredLater", c, "measuredLater");
+  c.eval(call);
+  CHECK(within(2000, [&] { return c.string("outcome") == "value 8"; }));
+
+  CHECK(a.run([&](jsi::Runtime& rt) { return Host::attach(rt, nullptr).get(); }) == hostA.get());
+  CHECK(!hostA->attached() && hostA->scheduled());
+  a.eval("globalThis.answer = 0; mods.t.measuredLater(5).then(function (v) { answer = v; });");
+  CHECK(within(2000, [&] { return a.number("answer") == 10; }));
+}
+
+/// A reload ends module state while a worklet runtime lives, which holds
+/// none: its calls throw until the next runtime's install starts it again.
+static void aReloadEndsModuleStateAWorkletRuntimeUses() {
+  JsThread a, b;
+  install(a);
+  carry(a, "mods.t.value", b, "value");
+  CHECK(b.number("value(1)") == 2);
+
+  int initialized = m_t::initialized;
+  int destroyed = m_t::destroyed;
+
+  a.destroyRuntime();
+  CHECK(within(2000, [&] { return m_t::destroyed == destroyed + 1; }));
+  CHECK(b.string("(function () { try { value(1); return 'returned'; } catch (e) { return e.name; } })()") ==
+        "AbortError");
+
+  // The next runtime React Native makes.
+  JsThread next;
+  install(next);
+  CHECK(m_t::initialized == initialized + 1);
+  CHECK(b.number("value(2)") == 4);
+}
+
+/// The UI runtime calls on the main thread, which enters as main-thread
+/// entries do: while a JavaScript callback waits for the main thread, a
+/// synchronous call from the UI runtime borrows the module's actor the
+/// callback lends, never waiting behind it.
+static void aUiRuntimeCallEntersAsTheMainThreadDoes() {
+  JsThread js;
+  install(js);
+  jsi::HostFunctionType value = hostFunction(js, "mods.t.value");
+
+  std::unique_ptr<jsi::Runtime> ui = onMain([] {
+    return std::unique_ptr<jsi::Runtime>(
+        facebook::hermes::makeHermesRuntime(::hermes::vm::RuntimeConfig::Builder().withMicrotaskQueue(true).build()));
+  });
+  onMain([&] { define(*ui, "value", value); });
+
+  std::string answer;
+  js.run([&](jsi::Runtime& rt) {
+    auto wait = [&](jsi::Runtime&, const jsi::Value&, const jsi::Value*, size_t) -> jsi::Value {
+      std::promise<void> done;
+      auto answered = done.get_future();
+
+      postToMain([&] {
+        answer = evalString(*ui, "String(value(5))");
+        done.set_value();
+      });
+
+      if (answered.wait_for(std::chrono::seconds(5)) != std::future_status::ready) {
+        std::fprintf(stderr, "deadlock: the UI runtime's call did not run within 5 s\n");
+        std::fflush(stderr);
+        std::_Exit(2);
+      }
+
+      return jsi::Value::undefined();
+    };
+    rt.global().setProperty(rt, "waitForMain",
+                            jsi::Function::createFromHostFunction(rt, jsi::PropNameID::forAscii(rt, "waitForMain"), 0, wait));
+  });
+
+  js.eval("mods.t.callBack(() => waitForMain())");
+  CHECK(answer == "10");
+  CHECK(onMain([&] { return Host::get(*ui).attached(); }));
+
+  onMain([&] { ui.reset(); });
+}
+
 int main() {
   runtimesHaveTheirOwnHosts();
   newHostsReplaceOldOnes();
@@ -2280,6 +2469,10 @@ int main() {
   idsOfATornDownRuntimeNameNothing();
   entriesOfGoneInstancesAreSwept();
   idsAreFoundFromAnyThread();
+  carriedFunctionsCallThroughAnAttachedHost();
+  attachedRuntimesSettleThroughTheirScheduler();
+  aReloadEndsModuleStateAWorkletRuntimeUses();
+  aUiRuntimeCallEntersAsTheMainThreadDoes();
 
   std::printf("host: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

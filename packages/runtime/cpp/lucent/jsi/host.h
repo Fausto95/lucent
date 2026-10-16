@@ -117,11 +117,28 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
   static std::shared_ptr<Host> create(jsi::Runtime& rt, JsPoster poster);
   static Host& get(jsi::Runtime& rt);
   /// The host for a call to a function `installed` defined: that host while
-  /// it lives, without get()'s lookup (a thread_local, which Android builds
-  /// for minSdk < 29 emulate with pthread_getspecific), else get()'s.
+  /// it lives and `rt` is its runtime, without get()'s lookup (a
+  /// thread_local, which Android builds for minSdk < 29 emulate with
+  /// pthread_getspecific). Called in another runtime, which a library made
+  /// it again in (a worklet's), the host attached there (attachedTo); once
+  /// `installed` is torn down, get()'s.
   static Host& from(jsi::Runtime& rt, const std::shared_ptr<Host>& installed) {
-    return installed->alive() ? *installed : get(rt);
+    if (installed->alive()) [[likely]]
+      return &installed->rt_ == &rt ? *installed : attachedTo(rt);
+
+    return get(rt);
   }
+  /// `rt`'s host, attaching one (decision 0123) to a runtime that has
+  /// none: a runtime Lucent's functions were carried into. Call on `rt`'s
+  /// thread.
+  static Host& attachedTo(jsi::Runtime& rt);
+  /// `rt`'s host (live or torn down), or null: get()'s lookup.
+  static Host* find(jsi::Runtime& rt);
+  /// Gives the host attached to `rt` the scheduler of its tasks, attaching
+  /// one if `rt` has none: what the runtime's creator, or a package's
+  /// adapter, calls on its thread (decision 0123). A runtime with a host
+  /// of its own (React Native's) keeps it and its poster.
+  static std::shared_ptr<Host> attach(jsi::Runtime& rt, JsPoster poster);
   ~Host();
 
   /// Nonzero, and no other host has had it: what scopes and tokens of
@@ -131,6 +148,26 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
   jsi::Runtime& runtime() { return rt_; }
   bool onJsThread() const { return std::this_thread::get_id() == jsThread_; }
   bool alive() const { return alive_.load(); }
+
+  /// Attached to a runtime Lucent was carried into (decision 0123): never
+  /// the default runtime, and no runtime that starts or ends module state.
+  bool attached() const { return attached_; }
+  /// Whether tasks can be posted to its runtime: an attached host's only
+  /// once its creator gave it a scheduler.
+  bool scheduled() const;
+  /// An attached runtime is a JavaScript runtime, but not one the default
+  /// runtime and module state go by (RuntimeWork).
+  bool javascript() const override { return !attached_; }
+
+  /// The error a call from an attached runtime throws while no module
+  /// state generation lasts (as after a reload, decision 0093), or none.
+  std::optional<Error> unusable() const;
+  /// Throws unusable()'s error, if any, as a JS exception in `rt`.
+  void throwIfUnusable(jsi::Runtime& rt);
+  /// Whether a call from this host's runtime enters its actor as the main
+  /// thread does: an attached runtime's on the main thread (the UI
+  /// runtime's), never with a ticket (decision 0123).
+  bool entersFromMain() const { return attached_ && onMainThread(); }
 
   /// The root of the work done for this runtime on the shared actor, under
   /// its root scope: disposed when the host is torn down, cancelling its
@@ -268,7 +305,10 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
   /// On the global object: tears the host down when the runtime does.
   class Anchor;
 
-  Host(jsi::Runtime& rt, JsPoster poster);
+  Host(jsi::Runtime& rt, JsPoster poster, bool attached = false);
+
+  /// The host attached to `rt`, made with `poster` (none: no scheduler yet).
+  static std::shared_ptr<Host> makeAttached(jsi::Runtime& rt, JsPoster poster);
 
   /// invalidate(), but JS runs only if `runtimeUsable`: not while the
   /// runtime is being destroyed.
@@ -287,6 +327,9 @@ class Host : public std::enable_shared_from_this<Host>, public RuntimeWork {
 
   const RuntimeId id_;
   jsi::Runtime& rt_;
+  const bool attached_;
+  /// What posts to the JS thread: set once for an attached host by attach().
+  mutable std::mutex posterMutex_;
   JsPoster poster_;
   std::thread::id jsThread_;
   std::atomic<bool> alive_{true};

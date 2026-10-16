@@ -967,24 +967,30 @@ since widget extensions run under tight limits.
 
 ### Worklet runtimes
 
-**Planned** ([T134](../tasks.md#t134),
+**In progress** ([T134](../tasks.md#t134),
 [0123](../decisions/0123-a-runtime-that-calls-lucent-gets-a-host-there.md)).
 Worklets call Lucent modules, as Nitro objects and Expo modules do on
-`react-native-worklets` runtimes.
+`react-native-worklets` runtimes. Attached hosts are in (#343); the
+instance rules and a worklet run on devices remain.
 
 - **Installing.** A Lucent function a worklet library makes again in its
   runtime calls through that runtime's host, an _attached_ host made at
-  its first call and torn down with the runtime. `Host::attach(rt,
-poster)` lets the runtime's creator give it a scheduler. Core names no
+  its first call (`Host::from`, then `attachedTo`) and torn down with the
+  runtime. `Host::attach(rt, poster)` lets the runtime's creator give it
+  a scheduler, making the host if no call has yet. Core names no
   library.
 - **Whose work.** An attached runtime is never the default runtime, and
-  never starts or holds a module state generation.
+  never starts or holds a module state generation: its host is no
+  JavaScript runtime to `RuntimeWork`, and its teardown ends no module
+  state. While no generation lasts, its calls throw the `AbortError` a
+  gone runtime's do (`Host::unusable`).
 - **Calls.** A synchronous export runs on the calling thread under its
   actor; on the main thread (the UI runtime) it enters as main-thread
-  entries do. Async results and later callbacks go through the runtime's
-  scheduler: without one, an async call rejects with a
-  `NotSupportedError`, and a later callback fails as one with no runtime
-  does.
+  entries do (`Host::entersFromMain`), borrowing an actor a callback lends. Async
+  results and later callbacks go through the runtime's scheduler:
+  without one, a promise for that runtime rejects at once with a
+  `NotSupportedError` (`unscheduledPromise`), and a later callback fails
+  as one with no runtime does.
 - **Instances.** Each runtime has its own object for an instance, which
   a call there returns; another runtime's object throws a `TypeError`.
 
