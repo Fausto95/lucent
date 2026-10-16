@@ -1,7 +1,7 @@
 # 0126. An extension's callback runs where its call ran, for as long as its declaration says
 
 - **Date:** 2026-10-16
-- **Status:** accepted
+- **Status:** accepted; amended by [0128](0128-an-extensions-callback-runs-at-once-on-its-contexts-thread.md)
 
 How a native extension's function takes a Lucent function to call back
 ([T142](../tasks.md#t142)'s callbacks item), in a C header or a C++ one

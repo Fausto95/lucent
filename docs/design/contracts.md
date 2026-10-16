@@ -1210,7 +1210,8 @@ build the C code into the one native package.
 
 **Planned:** [T142](../tasks.md#t142)'s functions take callbacks as
 [0126](../decisions/0126-an-extensions-callback-runs-where-its-call-ran.md)
-decides and an `AbortSignal` as a flag, and `android.prefab` links Gradle
+and [0128](../decisions/0128-an-extensions-callback-runs-at-once-on-its-contexts-thread.md)
+decide, and an `AbortSignal` as a flag, and `android.prefab` links Gradle
 prefab modules. C++ headers are read as
 [0125](../decisions/0125-a-cpp-headers-classes-are-handles-the-generated-cpp-calls.md)
 decides.
