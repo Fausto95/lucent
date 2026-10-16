@@ -967,21 +967,26 @@ since widget extensions run under tight limits.
 
 ### Worklet runtimes
 
-**Planned** ([T134](../tasks.md#t134)). Worklets call Lucent modules, as
-Nitro objects and Expo modules do on `react-native-worklets` runtimes.
-Hosts are already per runtime, so each worklet runtime would get one,
-with its calls' results and callbacks posted to its own scheduler.
+**Planned** ([T134](../tasks.md#t134),
+[0123](../decisions/0123-a-runtime-that-calls-lucent-gets-a-host-there.md)).
+Worklets call Lucent modules, as Nitro objects and Expo modules do on
+`react-native-worklets` runtimes.
 
-**Open:**
-
-- **Installing** on a runtime Lucent didn't create, without naming one
-  worklet library in core. A generic install entry is the likely shape.
-- **The main-thread rule.** The UI runtime runs on the main thread. A
-  synchronous export called there must enter its actor as main-thread
-  entries do, never with a ticket.
-- **Instances across runtimes.** An instance belongs to the host that
-  wrapped it, and `instanceOf` refuses another host's. Sharing one with a
-  worklet needs a rule.
+- **Installing.** A Lucent function a worklet library makes again in its
+  runtime calls through that runtime's host, an _attached_ host made at
+  its first call and torn down with the runtime. `Host::attach(rt,
+poster)` lets the runtime's creator give it a scheduler. Core names no
+  library.
+- **Whose work.** An attached runtime is never the default runtime, and
+  never starts or holds a module state generation.
+- **Calls.** A synchronous export runs on the calling thread under its
+  actor; on the main thread (the UI runtime) it enters as main-thread
+  entries do. Async results and later callbacks go through the runtime's
+  scheduler: without one, an async call rejects with a
+  `NotSupportedError`, and a later callback fails as one with no runtime
+  does.
+- **Instances.** Each runtime has its own object for an instance, which
+  a call there returns; another runtime's object throws a `TypeError`.
 
 ### JavaScript tasks from background entry points
 

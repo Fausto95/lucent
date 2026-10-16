@@ -53,7 +53,7 @@ what became of each one that is still linked or was still open.
 | [T131](#t131)            | Android classes the OS instantiates, written in Lucent     | done (2026-10-14)                                       |
 | [T132](#t132)            | iOS background execution                                   | done (2026-10-14); relaunches are T137                  |
 | [T133](#t133)            | iOS app extensions and widgets                             | waiting; needs T130                                     |
-| [T134](#t134)            | Calls from worklet runtimes                                | ready; its first step is a decision                     |
+| [T134](#t134)            | Calls from worklet runtimes                                | in progress (#342): decided (0123)                      |
 | [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it         |
 | [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T133                                     |
 | [T137](#t137)            | Relaunches for background URL sessions and silent pushes   | ready                                                   |
@@ -1324,17 +1324,18 @@ a SwiftUI body, a notification service extension or a share extension.
 **Goal:** Worklets call Lucent modules, as Nitro objects and Expo modules
 work on `react-native-worklets` runtimes.
 
-- **Status:** ready; its first step is a decision.
+- **Status:** in progress (#342): decided (0123).
 - **Area:** runtime, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V3, V5.
 - **Where:** `jsi/host.h`, `rn/LucentModule.cpp`, `runtime/js`.
 
-- [ ] A decision: how Lucent installs on a worklet runtime without naming
+- [x] A decision: how Lucent installs on a worklet runtime without naming
       a library, and what a call from one does (a synchronous export on
       that runtime's thread under its module's actor, the main-thread rule
       on the UI runtime, async results and callbacks posted to that
-      runtime's scheduler, instances shared across runtimes).
+      runtime's scheduler, instances shared across runtimes): decision
+      0123 (#342).
 - [ ] A `Host` per worklet runtime, torn down with it. Work that module
       code or an entry point starts stays with the runtime that started
       it, never with the worklet runtime attached last.
