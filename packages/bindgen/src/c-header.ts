@@ -64,7 +64,7 @@ export interface CHeaderOptions {
 }
 
 /** A node of clang's JSON AST, as far as this reads it. */
-interface Node {
+export interface Node {
   id?: string;
   kind?: string;
   name?: string;
@@ -80,7 +80,7 @@ interface Node {
   ownedTagDecl?: { id?: string };
 }
 
-interface Location {
+export interface Location {
   file?: string;
   spellingLoc?: Location;
   expansionLoc?: Location;
@@ -162,7 +162,7 @@ export function cLinkage(
 }
 
 /** clang's JSON AST of `header` in `language`, or its errors. Throws when clang cannot run. */
-function dumpAst(
+export function dumpAst(
   header: string,
   language: string[],
   opts: CHeaderOptions,
@@ -324,7 +324,7 @@ export function readAst(unit: Node, header: string): CHeader {
  * A walker that reports each location's file: clang prints it only where
  * it changes, so every location must be walked, in the order printed.
  */
-function followFiles(seen: (file: string) => void): (v: unknown) => void {
+export function followFiles(seen: (file: string) => void): (v: unknown) => void {
   const follow = (v: unknown): void => {
     if (Array.isArray(v)) return v.forEach(follow);
     if (typeof v !== "object" || v === null) return;
@@ -338,7 +338,7 @@ function followFiles(seen: (file: string) => void): (v: unknown) => void {
   return follow;
 }
 
-function sameFile(a: string, b: string): boolean {
+export function sameFile(a: string, b: string): boolean {
   if (a === b) return true;
 
   try {
@@ -368,7 +368,7 @@ function recordOf(td: Node): string | undefined {
 }
 
 /** A function type's result: what precedes its parameter list (`OrbitFilter *(double)` → `OrbitFilter *`). */
-function resultSpelling(fn: string): string {
+export function resultSpelling(fn: string): string {
   let depth = 0;
 
   for (let i = fn.length - 1; i >= 0; i--) {
