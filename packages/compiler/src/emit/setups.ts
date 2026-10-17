@@ -1001,20 +1001,6 @@ export function mountUnit(
     { scope: cpp.type("Mount") },
   );
 
-  const setEmit = cpp.fn(
-    "setEmit",
-    cpp.voidType,
-    [cpp.param(cpp.type("Emit"), "emit")],
-    [
-      cpp.ifStmt(cpp.and(cpp.id("state_"), cpp.not(cpp.arrow(cpp.id("state_"), "disposed"))), [
-        cpp.exprStmt(
-          cpp.assign(cpp.arrow(cpp.id("state_"), "emit"), cpp.call("std::move", [cpp.id("emit")])),
-        ),
-      ]),
-    ],
-    { scope: cpp.type("Mount") },
-  );
-
   const viewFn: cpp.Decl = {
     k: "function",
     name: "view",
@@ -1090,7 +1076,7 @@ export function mountUnit(
     { scope: cpp.type("Mount") },
   );
 
-  const decls: cpp.Decl[] = [stateStruct, create, viewFn, update, setEmit, dispose];
+  const decls: cpp.Decl[] = [stateStruct, create, viewFn, update, dispose];
 
   if (s.commands.length) decls.push(commandFn(ctx, s, names.commands, view));
 

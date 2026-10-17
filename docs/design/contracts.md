@@ -37,7 +37,7 @@ each contract as the code implements it today. The design is
 | [C-EXEC](#c-exec-execution-identities-scopes-and-operations) | Identities, scopes, operations, contexts, hosts, compute, channels    | v1.15   | `packages/runtime/cpp/lucent/`                              |
 | [C-BIGINT](#c-bigint-the-runtimes-bigint)                    | The runtime's `BigInt` and native integer conversions                 | v1.1    | `lucent/bigint.h`                                           |
 | [C-BUFFER](#c-buffer-native-buffers)                         | Native buffers, borrows, moves, loans, adoptions, native handles      | v1.7    | `lucent/buffer.h`, `handle.h`, `bytes.h`, `jsi/convert.*`   |
-| [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v3.0    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
+| [C-VIEW](#c-view-components-and-views)                       | Component descriptions, transport, mounts, hosts, toolkit bodies      | v3.1    | `packages/compiler/src/ui/`, `packages/runtime/cpp/rn/`     |
 | [C-BUILD](#c-build-build-records-and-identities)             | Build records, pending actions, SDK locks, build identities           | v1.8    | `packages/lucent/src/cli/`, `compiler/src/emit/identity.ts` |
 | [C-TRACE](#c-trace-correlated-tracing)                       | Correlated runtime and build tracing                                  | v1      | `lucent/trace.h`, `packages/lucent/src/cli/trace.ts`        |
 | [C-EXT](#c-ext-typed-native-extensions)                      | C libraries a Lucent package declares                                 | v1      | `compiler/src/extensions/`, `lucent/extension.h`            |
@@ -878,7 +878,7 @@ runs: Hermes has no `ArrayBuffer.prototype.transfer`, and JSI no detach.
 
 ## C-VIEW: components and views
 
-**Version: v3.0.** `VIEW_CONTRACT_VERSION` in the code is 3: it counts
+**Version: v3.1.** `VIEW_CONTRACT_VERSION` in the code is 3: it counts
 layout changes of `ComponentDescription` that consumers must follow, not
 every revision. Views are in preview; [views.md](views.md) describes their
 runtime.
@@ -991,7 +991,7 @@ export const VIEW_CONTRACT_VERSION = 3;
 | Instances       | `__lucentViewInstance(value)` (`kInstanceName`) gives an instance's id: its runtime's id × 2^32 plus its number there, the same while it lives. The proxy checks the class's prototype first (a `TypeError` at render). Props hold the instance from their parse; an id of a gone instance or a torn-down runtime reads as missing.  |
 | C++ values      | Keep presence and nullness; `changed()` treats `Object.is` or deep equality as unchanged.                                                                                                                                                                                                                                            |
 | Requests        | `__lucentViewRequests(settle)` (`kRequestsName`), settled `settle(id, error \| null, value)` on the JS thread. A runtime's ids start at `requestBase(id)`, its id × 2^32. JavaScript rejects pending requests at unmount and ignores late answers.                                                                                   |
-| Generated files | `cpp/generated/<target>/views/<registration>.{h,cpp}`, `<registration>_mount.cpp`, `views/lucent_views.{h,cpp}`, in `lucent::views::<registration>`.                                                                                                                                                                                 |
+| Generated files | `cpp/generated/<target>/views/<registration>.{h,cpp}`, `<registration>_mount.cpp`, in `lucent::views::<registration>`; `views/lucent_views.h`, a marker: with it, the hosts build.                                                                                                                                                   |
 | React surface   | Own props, callbacks, React Native's `ViewProps` and a `ref` to the commands, typed in `types/views/<module>.d.ts`, an instance's class from `lucent:module/<module>` (`types/module/<module>.d.ts`, `instanceModules`). `lucent:views/<module>` resolves to `js/_lucent/components/<module>.js` (`CompileResult.componentModules`). |
 | API hash        | Covers component contracts (C-BUILD).                                                                                                                                                                                                                                                                                                |
 
@@ -1004,7 +1004,6 @@ struct Mount {
   static std::shared_ptr<Mount> create(const Props&, Emit /*, lucent::NativeRef slot */);  // main thread
   lucent::NativeRef view() const;                          // empty if setup threw
   void update(const Props& props, const Props& previous);  // any thread; one transaction on main
-  void setEmit(Emit);                                      // main thread
   void command(const Command&, lucent::views::Respond);    // main thread; with commands only
   void dispose();                                          // main thread; idempotent
 };

@@ -15,7 +15,8 @@ import { GAUGE, components, instanceComponents } from "./views-fixture.ts";
  * registers, the props' change set, every event, a command and a result's
  * JavaScript value.
  */
-const HOST = `#include <views/lucent_views.h>
+const HOST = `#include <react/renderer/componentregistry/ComponentDescriptorProvider.h>
+#include <views/lucent_views.h>
 #include <views/${GAUGE}.h>
 
 namespace gauge = lucent::views::${GAUGE};

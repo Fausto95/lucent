@@ -77,7 +77,7 @@ describe("components' Fabric sources in compiles", () => {
       writeNativePackage(result, out);
 
       expect(fs.existsSync(path.join(out, "js/_lucent/views.js"))).toBe(true);
-      expect(fs.existsSync(path.join(out, "cpp/generated/ios/views/lucent_views.cpp"))).toBe(true);
+      expect(fs.existsSync(path.join(out, "cpp/generated/ios/views/lucent_views.h"))).toBe(true);
       expect(fs.existsSync(path.join(out, "cpp/rn/LucentViews.h"))).toBe(true);
     },
     180_000,
