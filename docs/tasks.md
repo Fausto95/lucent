@@ -73,7 +73,7 @@ what became of each one that is still linked or was still open.
 | [T155](#t155)            | The production-candidate gate                              | waiting; needs every other task but T135                             |
 | [T156](#t156)            | CI runs what the docs say it runs                          | done (2026-10-17)                                                    |
 | [T157](#t157)            | Small fixes the docs rewrite found                         | done (2026-10-17)                                                    |
-| [T158](#t158)            | An edit loop within its budget                             | ready                                                                |
+| [T158](#t158)            | An edit loop within its budget                             | waiting; needs a decision: incremental compiles, or P5's fixture     |
 
 ## Gates
 
@@ -1993,20 +1993,34 @@ code.
 **Goal:** A body edit's check, build and editor diagnostics meet P5 on the
 whole e2e-case fixture, as they did on its first 53 modules.
 
-- **Status:** ready.
+- **Status:** waiting; needs a decision. Meeting P5 on 122 modules takes
+  incremental compiles (below), a large change to the emitter; the other
+  way is a decision that holds P5 to an app's size, not the corpus's.
 - **Area:** compiler, tooling.
-- **Needs:** nothing.
+- **Needs:** a decision.
 - **Verify:** V1, V7.
 - **Where:** `packages/compiler/src/`, `packages/lucent/src/cli/`,
   `packages/lucent/ts-plugin/`, `scripts/bench-build.ts`.
 
 Found running the edit-loop budget in CI ([T156](#t156)):
 
-- [ ] Profile a body edit's check step, which costs what a cold check
-      does on 122 modules (5.5 s on a 2-core x64 container).
+- [x] Profile a body edit's check step, which costs what a cold check
+      does on 122 modules (5.5 s on a 2-core x64 container). Its compile
+      takes 5.7 s: TypeScript 2.1 s (parsing and binding 0.55 s, semantic
+      diagnostics 1.35 s) and the emitter 3.6 s (program facts 0.65 s,
+      lowering every module 2.9 s). Each module's own work, checked and
+      lowered again, is about 80% of it. The constant factors found, the
+      macro guard's second print (0.23 s), the IR verifier (0.21 s) and
+      include planning (0.17 s), are about 10%: not enough.
 - [ ] Reuse what an edit leaves unchanged: other modules' analysis and
       generated code, and the editor's program, so the cost follows the
-      edit, not the app.
+      edit, not the app. That takes a memo of each module's lowering:
+      its code, and what it adds to the 25 or so collections the emitters
+      share (shims, Java classes, frameworks, globals) and to the compile
+      context (reads, SDK uses). Its key: the module's text, every
+      module's API, and the program facts it reads, which a body edit
+      elsewhere can change. And TypeScript's builder program (a
+      `.tsbuildinfo`), so semantic diagnostics run for what changed.
 - [ ] `node scripts/bench-build.ts --check` passes on the fixture, on the
       development machine and on Linux x64.
 
