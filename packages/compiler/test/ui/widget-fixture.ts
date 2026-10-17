@@ -132,6 +132,9 @@ export function buildWeather(
       .map((f) => path.join(dir, f)),
     {
       platforms: [options.platform ?? "ios"],
+      // An iOS build leaves Android's imports to Android's (lucent:ui's types name its views):
+      // where an Android SDK is installed, each build would bind them again, into its own cache.
+      ...((options.platform ?? "ios") === "ios" ? { deferred: ["android" as const] } : {}),
       sdk: {
         schemas: set,
         cacheDir: path.join(dir, "cache"),

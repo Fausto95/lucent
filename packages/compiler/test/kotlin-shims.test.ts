@@ -52,6 +52,15 @@ function r8(): string | undefined {
 
 const shims = "dev/lucent/shims";
 
+/**
+ * The Kotlin shims a compile generated, by file. Its exports' Kotlin API
+ * (decision 0116: Exports.kt, LucentEntries.kt) calls Lucent's runtime
+ * classes, which these tests leave out: native-exports-kotlin.test.ts
+ * compiles and runs that.
+ */
+const shimsOf = (r: CompileResult) =>
+  [...(r.kotlin ?? [])].filter(([file]) => file.startsWith(`${shims}/`));
+
 const searchShims = `${shims}/LucentShims_dev_orbit_search.kt`;
 
 const shapesShims = `${shims}/LucentShims_dev_orbit_shapes.kt`;
@@ -255,7 +264,7 @@ describe.skipIf(!toolchain)("Kotlin shims", () => {
   /** The generated Kotlin files, compiled into a jar with kotlinc, warnings as errors. */
   const compiled = (r: CompileResult, name: string) => {
     const out = path.join(dir, name);
-    const files = [...(r.kotlin ?? [])].map(([file, source]) => {
+    const files = shimsOf(r).map(([file, source]) => {
       const full = path.join(out, "src", file);
       fs.mkdirSync(path.dirname(full), { recursive: true });
       fs.writeFileSync(full, source);
@@ -281,7 +290,7 @@ describe.skipIf(!toolchain)("Kotlin shims", () => {
     const dts = r.types?.get("android/dev.orbit.search.d.ts") ?? "";
 
     expect(r.diagnostics).toEqual([]);
-    expect([...(r.kotlin?.keys() ?? [])]).toEqual([searchShims]);
+    expect(shimsOf(r).map(([file]) => file)).toEqual([searchShims]);
     expect(kotlin).toContain("object LucentShims_dev_orbit_search {");
     expect(kotlin).toContain("fun Searcher_search_");
     expect(kotlin).toContain("done: java.util.function.BiConsumer<Any?, Throwable?>");
@@ -693,7 +702,11 @@ export async function run(): Promise<string> {
     );
 
     expect(r.diagnostics).toEqual([]);
-    expect([...(r.kotlin?.keys() ?? [])].sort()).toEqual(
+    expect(
+      shimsOf(r)
+        .map(([file]) => file)
+        .sort(),
+    ).toEqual(
       [
         idsShims,
         searchShims,
