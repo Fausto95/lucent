@@ -45,6 +45,7 @@ The repository layout, and the rules every change follows, are in
 | `node scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++                                                 | Hermes |
 | `node scripts/bench.ts --check`               | performance budgets                                                                     | Hermes |
 | `node scripts/smoke-install.ts`               | the packed package, installed alone in a fresh app                                      |        |
+| `node scripts/install-matrix.ts`              | the packed package in pnpm, Yarn and npm workspaces, and an upgrade from npm's release  |        |
 | `pnpm typecheck`                              | the repository's TypeScript                                                             |        |
 | `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`                                  |        |
 | `node scripts/website.ts --check`             | the website (below)                                                                     | Vale   |

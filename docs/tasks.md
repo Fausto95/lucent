@@ -63,7 +63,7 @@ what became of each one that is still linked or was still open.
 | [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #375): all but lucent-mmkv, which needs devices |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | done (2026-10-16)                                                    |
 | [T144](#t144)            | A web target for shared modules                            | done (2026-10-17)                                                    |
-| [T145](#t145)            | The package distribution matrix                            | ready                                                                |
+| [T145](#t145)            | The package distribution matrix                            | in progress (#383): workspaces and upgrades                          |
 | **Production candidate** |                                                            |                                                                      |
 | [T150](#t150)            | Reference ports for each parity row                        | waiting; each port names its needs                                   |
 | [T151](#t151)            | Lifetime, concurrency and Fabric stress validation         | ready                                                                |
@@ -1694,19 +1694,19 @@ now its Kotlin and Java as the Java packages they declare.
 **Goal:** Lucent packages install, build and upgrade the ways real apps
 use them.
 
-- **Status:** ready.
+- **Status:** in progress: workspaces and upgrades (#383).
 - **Area:** tooling, verification.
 - **Needs:** nothing.
 - **Verify:** V5, V6.
 - **Where:** `scripts/smoke-install.ts`, `scripts/window-app.ts`,
-  `packages/compiler/src/packages.ts`.
+  `scripts/install-matrix.ts`, `packages/compiler/src/packages.ts`.
 
-- [ ] Two unrelated Lucent packages with transitive dependencies in one
-      app.
-- [ ] Monorepos: pnpm, Yarn and npm workspaces, with a package linked from
-      the workspace.
-- [ ] An upgrade from the previous release of `@lucent-lang/lucent`, and a
-      clean rebuild after it.
+- [x] Two unrelated Lucent packages with transitive dependencies in one
+      app (`install-matrix.ts`, #383).
+- [x] Monorepos: pnpm, Yarn and npm workspaces, with a package linked from
+      the workspace (#383).
+- [x] An upgrade from the previous release of `@lucent-lang/lucent`, and a
+      clean rebuild after it: the same files (#383).
 - [ ] Release builds: Android with R8, iOS with the Release
       configuration, and a package's native resources and assets in both.
 - [ ] A package's native inputs (sources, resources, frameworks) built in

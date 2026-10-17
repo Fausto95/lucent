@@ -56,7 +56,13 @@ const areas = {
   runtime: ["packages/runtime/"],
   // What decides the C++ an app compiles: the device runs check it on the platforms.
   compiler: ["packages/compiler/", "packages/codegen/"],
-  bench: ["benchmarks/", "scripts/bench*", "scripts/smoke-install.ts", "examples/"],
+  bench: [
+    "benchmarks/",
+    "scripts/bench*",
+    "scripts/smoke-install.ts",
+    "scripts/install-matrix.ts",
+    "examples/",
+  ],
   bare: [
     "apps/bare-example/",
     "examples/",
@@ -118,7 +124,7 @@ const harnesses = [
     name: "Performance budgets, fresh install",
     key: "bench",
     // The kernels' budgets enforced; the CPU-bound ratios reported (see scripts/bench.ts).
-    run: "node scripts/bench.ts --check --shared-runner && node scripts/smoke-install.ts",
+    run: "node scripts/bench.ts --check --shared-runner && node scripts/smoke-install.ts && node scripts/install-matrix.ts",
     needs: ["packages", "bench"],
   },
   {
