@@ -445,6 +445,7 @@ export function kotlinExports(all: readonly Entry[]): {
                 ctor.api.params.map((p) => ({ value: kt.name(p.name) })),
               ),
             },
+            { value: kt.nullLit },
           ],
         },
       });
@@ -503,14 +504,18 @@ export function kotlinExports(all: readonly Entry[]): {
             k: "class",
             name,
             modifiers: ["open"],
-            params: [kt.param("handle", kt.type("Long"))],
+            // The constructor native code calls, apart from one of the class's own that takes a Long.
+            params: [
+              kt.param("handle", kt.type("Long")),
+              kt.param("wrap", kt.nullable(kt.type(`${LUCENT_INSTANCE}.Wrap`))),
+            ],
             constructorModifiers: ["internal"],
             supertypes: [
               {
                 type: kt.type(
                   base ? dotted(javaName(base.module, base.decl.name!.text)) : LUCENT_INSTANCE,
                 ),
-                args: [{ value: kt.name("handle") }],
+                args: [{ value: kt.name("handle") }, { value: kt.name("wrap") }],
               },
             ],
             members: [...instanceMembers, { k: "companion", members: companion }],

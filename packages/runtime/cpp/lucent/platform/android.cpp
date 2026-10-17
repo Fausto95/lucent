@@ -1324,9 +1324,10 @@ jobject javaOf(JNIEnv* e, lucent_object o) {
     auto found = instanceClasses().find(typeid(instance).name());
     if (found != instanceClasses().end()) name = found->second;
   }
+  // A wrapper's constructor that takes the handle, and a null Wrap: one of the class's own may take a long.
   jclass c = findClass(name.c_str());
-  jmethodID init = method(c, "<init>", "(J)V");
-  jobject wrapper = e->NewObject(c, init, reinterpret_cast<jlong>(o));
+  jmethodID init = method(c, "<init>", "(JLdev/lucent/LucentInstance$Wrap;)V");
+  jobject wrapper = e->NewObject(c, init, reinterpret_cast<jlong>(o), static_cast<jobject>(nullptr));
   if (e->ExceptionCheck()) {
     lucent_release(o);
     rethrowPending(e);

@@ -16,6 +16,21 @@ public class LucentInstance implements AutoCloseable {
     this.handle = handle;
   }
 
+  /**
+   * Takes `handle`, as a class's wrapper does: native code calls the
+   * wrapper's constructor that takes the handle and a Wrap, always null, so
+   * that it is apart from a constructor of the class's own that takes one
+   * Long, as `constructor(id: bigint)` does.
+   */
+  public LucentInstance(long handle, Wrap wrap) {
+    this(handle);
+  }
+
+  /** The mark of a wrapper's constructor that takes a handle; never made. */
+  public static final class Wrap {
+    private Wrap() {}
+  }
+
   /** The lucent_object, for the class's entries; 0 once closed. */
   public final synchronized long handle() {
     return handle;

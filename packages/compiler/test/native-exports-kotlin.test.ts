@@ -70,6 +70,15 @@ export class Labelled extends Counter {
   }
 }
 
+// A constructor that takes one Long, as the wrapper's own constructor does.
+export class Account {
+  constructor(readonly id: bigint) {}
+
+  static of(id: bigint): Account {
+    return new Account(id * 2n);
+  }
+}
+
 export function sum(cs: Counter[]): number {
   let n = 0;
   for (const c of cs) n += c.value;
@@ -124,6 +133,7 @@ export function taken(): number {
 const probe = `package probe
 
 import dev.lucent.LucentException
+import dev.lucent.app.counters.Account
 import dev.lucent.app.counters.Counter
 import dev.lucent.app.counters.Labelled
 import dev.lucent.app.counters.describe
@@ -164,6 +174,11 @@ object Probe {
     lines += "tags " + tags(linkedMapOf("b" to 2.0, "a" to 1.0))
     val l = Labelled("x")
     lines += "labelled " + l.increment(2.0) + " " + l.label + " " + (sum(listOf(l)))
+    val a = Account(7L)
+    val b = Account.of(4L)
+    lines += "accounts " + a.id + " " + b.id
+    a.close()
+    b.close()
     try {
       greet("")
     } catch (e: LucentException) {
@@ -248,7 +263,7 @@ describe.skipIf(!tc || !fake || !jdk)("the Kotlin API of a module's exports", ()
     expect(exports).toContain("suspend fun later(n: Double): String {");
     const counter = r.kotlin!.get("dev/lucent/app/counters/Counter.kt")!;
     expect(counter).toContain(
-      "open class Counter internal constructor(handle: Long) : dev.lucent.LucentInstance(handle) {",
+      "open class Counter internal constructor(handle: Long, wrap: dev.lucent.LucentInstance.Wrap?) : dev.lucent.LucentInstance(handle, wrap) {",
     );
     expect(r.kotlin!.get("dev/lucent/app/counters/Labelled.kt")).toContain(
       "override fun increment(by: Double): Double {",
@@ -264,6 +279,7 @@ describe.skipIf(!tc || !fake || !jdk)("the Kotlin API of a module's exports", ()
         "sum 110.0, none, a counter of 100",
         "tags [b=2, a=1]",
         "labelled 21.0 x 21.0",
+        "accounts 7 8",
         "threw RangeError: no name",
         "await later 4, settled at 10",
         "await void kotlin.Unit, kotlin.Unit, value 0.0",
