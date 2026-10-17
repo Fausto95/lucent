@@ -205,7 +205,12 @@ describe.skipIf(!xcode)("Swift-only members, called through shims", () => {
     expect(r.diagnostics).toEqual([]);
     // One shim per member used, however often: Point.origin is read twice.
     const symbols = [...shims.matchAll(/@_cdecl\("(lucent_swift_\w+)"\)/g)].map((m) => m[1]);
-    expect(symbols).toHaveLength(21);
+    // On a failure, what each shim calls: its first lines.
+    const calls = shims
+      .split('@_cdecl("')
+      .slice(1)
+      .map((shim) => shim.split("\n").slice(1, 4).join(" ").replace(/\s+/g, " "));
+    expect(symbols, calls.join("\n")).toHaveLength(21);
     expect(new Set(symbols).size).toBe(symbols.length);
     expect(shims).toContain("import Shapes");
     // Calls written from the Swift names, labels included.
