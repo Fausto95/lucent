@@ -755,7 +755,7 @@ struct ProxyTarget {
   /// The actor that made it, where what its methods captured is released.
   Actor* actor = &currentActor();
   /// What lives as long as the Java object: an OS-made instance's hold on module state.
-  std::shared_ptr<void> keep;
+  std::shared_ptr<void> keep{};
 };
 
 /// The Java object the OS made that the next subclassFor of its class, on this thread, stands for.

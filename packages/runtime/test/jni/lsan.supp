@@ -1,0 +1,4 @@
+# What the JVM allocates and keeps until the process ends (its archived
+# classes, method ids): no leak of Lucent's. A leak of Lucent's own has no
+# libjvm frame, so it is still reported.
+leak:libjvm.so

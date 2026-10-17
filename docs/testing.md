@@ -224,7 +224,7 @@ until nothing is pending.
 
 ```sh
 packages/runtime/test/jsi/run.sh   # needs HERMES_DIR; SANITIZE as above
-packages/runtime/test/jni/run.sh   # needs a JDK; passes with a note without one
+packages/runtime/test/jni/run.sh   # needs a JDK; passes with a note without one, fails in CI
 ```
 
 `jsi/run.sh` checks the host's lifetime across runtimes, a hand-written
@@ -233,8 +233,10 @@ reloads four runtimes alive at once forty times, with work in flight in
 each. Its sanitizer runs need `CXX=g++ CC=gcc` where clang has no
 sanitizer runtime. `jni/run.sh` runs
 the JNI glue (`platform/android.cpp`, built with `LUCENT_JNI_HOST`) on a
-desktop JVM under `-Xcheck:jni`. Any JVM warning fails it. No CI job runs
-`jni/run.sh`.
+desktop JVM under `-Xcheck:jni`. Any JVM warning fails it. With
+`SANITIZE=1` its leak report leaves out what the JVM keeps until exit
+(`jni/lsan.supp`); there is no TSan run, as the JVM's own threads are
+not instrumented.
 
 ## Platform code on the host
 
@@ -469,7 +471,7 @@ nightly schedule (03:17 UTC) and by hand. Its `changes` job
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Unit tests (two Linux shards)                       | `pnpm check` (first shard), every unit test with the slow ones                                                                                                                        | Always                                                                                                    |
 | Unit tests with the iOS SDK (three macOS shards)    | The same suite on macOS                                                                                                                                                               | `packages/`                                                                                               |
-| Runtime and JSI host                                | `run.sh`, `SANITIZE=1 CXX=g++`, `jsi/run.sh` plain and with `SANITIZE=1`                                                                                                              | `packages/runtime/`                                                                                       |
+| Runtime and JSI host                                | `run.sh`, `SANITIZE=1 CXX=g++`, `jsi/run.sh` plain and with `SANITIZE=1`, `jni/run.sh` plain and with `SANITIZE=1 CXX=g++ CC=gcc`                                                     | `packages/runtime/`, the JNI host (`compiler/test/jni-host/`)                                             |
 | Runtime (TSan, GCC)                                 | `SANITIZE=thread CXX=g++ CC=gcc run.sh`                                                                                                                                               | `packages/runtime/`                                                                                       |
 | End-to-end                                          | `pnpm test:e2e`                                                                                                                                                                       | `packages/`                                                                                               |
 | Performance budgets, fresh install                  | `bench.ts --check --shared-runner`, `smoke-install.ts`, `install-matrix.ts`                                                                                                           | `packages/`, `benchmarks/`, `examples/`, `scripts/bench*`, the two install scripts                        |

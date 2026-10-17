@@ -117,11 +117,11 @@ run_binary "$log" "${out}_resource"
 
 # The app's and its scenes' lifecycle, as the platform reports it, and
 # presentations that settle once however they end.
-"${out}_lifecycle"
+run_binary "$log" "${out}_lifecycle"
 
 # Native extensions: handles destroyed once on their context, and checked
 # conversions of what crosses into C.
-"${out}_extension"
+run_binary "$log" "${out}_extension"
 
 # Execution contexts: module actors, the main context and
 # isolated contexts, with what crosses between their threads.
@@ -202,16 +202,16 @@ run_binary "$log" "${out}_android_requests"
 
 # Native operations as promises: settled on their owner, cancelled by a
 # signal or their scope, late results released.
-"${out}_operation"
+run_binary "$log" "${out}_operation"
 
 # Tracing: bounded, correlated events from the runtime's seams, and the
 # three causes a trace tells apart (a queued job, a compute stall, a copy).
-"${out}_trace"
+run_binary "$log" "${out}_trace"
 
 # The executor bench: 1080p frames at 60 Hz through an executor into a
 # latest channel while a synchronous call holds the module's actor for
 # 500 ms. The handler waits for no actor; it prints its latency and drops.
-"${out}_executor"
+run_binary "$log" "${out}_executor"
 
 # The Objective-C glue helpers, on the macOS host (ARC).
 if [[ "$(uname)" == "Darwin" ]]; then

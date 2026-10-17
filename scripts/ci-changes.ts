@@ -56,7 +56,8 @@ const quiet: Pattern[] = [
 const areas = {
   // Everything under packages/ ships in @lucent-lang/lucent: the harnesses run it.
   packages: ["packages/"],
-  runtime: ["packages/runtime/"],
+  // The runtime, and the desktop JNI host its JNI glue's tests run on.
+  runtime: ["packages/runtime/", "packages/compiler/test/jni-host/"],
   // What decides the C++ an app compiles: the device runs check it on the platforms.
   compiler: ["packages/compiler/", "packages/codegen/"],
   bench: [

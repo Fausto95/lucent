@@ -3,7 +3,10 @@
 # runtime's platform/android.cpp built with LUCENT_JNI_HOST, and the desktop
 # JNI host the compiler's JVM tests use (compiler/test/jni-host). Needs a
 # JDK (JAVA_HOME, or the one javac belongs to); without one it says so and
-# passes. The JVM runs with -Xcheck:jni: any warning it prints fails.
+# passes, but in CI (CI set) it fails. The JVM runs with -Xcheck:jni: any
+# warning it prints fails. SANITIZE=1 builds with ASan and UBSan; the
+# JVM's own allocations, which it keeps until the process ends, are not
+# reported as leaks (lsan.supp).
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 cpp="$here/../../cpp"
@@ -16,6 +19,10 @@ jdk="${JAVA_HOME:-}"
 if [[ -z "$jdk" ]] && command -v javac >/dev/null; then jdk="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"; fi
 lib=$(find "$jdk/lib" -name 'libjvm.*' 2>/dev/null | head -1 || true)
 if [[ -z "$jdk" || -z "$lib" ]]; then
+  if [[ -n "${CI:-}" ]]; then
+    echo "jni: no JDK with a libjvm here, and CI has one: failed" >&2
+    exit 1
+  fi
   echo "jni: no JDK with a libjvm here: skipped"
   exit 0
 fi
@@ -25,6 +32,7 @@ os=linux
 flags=(-std=c++20 -ffp-contract=off -g -O1 -Wall -Wextra -Wno-unused-parameter -I"$cpp" -I"$host" -I"$jdk/include" -I"$jdk/include/$os")
 if [[ "${SANITIZE:-0}" == "1" ]]; then
   flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer)
+  export LSAN_OPTIONS="suppressions=$here/lsan.supp${LSAN_OPTIONS:+:$LSAN_OPTIONS}"
 elif [[ "${SANITIZE:-0}" == "thread" ]]; then
   flags+=(-fsanitize=thread -fno-omit-frame-pointer)
 fi
