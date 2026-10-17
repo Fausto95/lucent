@@ -50,6 +50,11 @@ export class Counter {
     return "settled at " + this.total;
   }
 
+  async reset(): Promise<void> {
+    await Promise.resolve();
+    this.total = 0;
+  }
+
   static make(): Counter {
     return new Counter(100);
   }
@@ -89,6 +94,13 @@ export async function later(n: number): Promise<string> {
   return "later " + n;
 }
 
+let rests = 0;
+
+export async function rest(): Promise<void> {
+  await Promise.resolve();
+  rests++;
+}
+
 let busy = false;
 let turns = 0;
 
@@ -117,6 +129,7 @@ import dev.lucent.app.counters.Labelled
 import dev.lucent.app.counters.describe
 import dev.lucent.app.counters.greet
 import dev.lucent.app.counters.later
+import dev.lucent.app.counters.rest
 import dev.lucent.app.counters.sum
 import dev.lucent.app.counters.tags
 import dev.lucent.app.counters.take
@@ -157,6 +170,8 @@ object Probe {
       lines += "threw " + e.name + ": " + e.message
     }
     lines += "await " + await { later(4.0) } + ", " + await { c.settle() }
+    // An async function or method that gives nothing: Unit.
+    lines += "await void " + await { rest() } + ", " + await { c.reset() } + ", value " + c.value
     // Threads call at once: each call holds the module's actor.
     val overlapped = AtomicInteger()
     val threads = (1..8).map {
@@ -251,6 +266,7 @@ describe.skipIf(!tc || !fake || !jdk)("the Kotlin API of a module's exports", ()
         "labelled 21.0 x 21.0",
         "threw RangeError: no name",
         "await later 4, settled at 10",
+        "await void kotlin.Unit, kotlin.Unit, value 0.0",
         "turns 200.0, 0 overlapped",
         "closed TypeError",
         "holds 0",
