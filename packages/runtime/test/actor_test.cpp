@@ -513,8 +513,33 @@ static void modulesStartWithNoJavaScriptRuntime() {
   CHECK(startup::initialized == 1);
 }
 
+/// What runs after every actor has run what it was posted first: a debug
+/// build's leak count at teardown, after each actor's disposals.
+static void afterEveryActorWaitsForTheirQueues() {
+  Actor& first = Actor::create("first");
+  Actor& second = Actor::create("second");
+  std::atomic<int> done{0};
+
+  first.post([&] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(60));
+    done++;
+  });
+  second.post([&] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    done++;
+  });
+  Actor::shared().post([&] { done++; });
+
+  std::promise<int> seen;
+  auto result = seen.get_future();
+  Actor::afterEveryActor([&] { seen.set_value(Actor::shared().onActorThread() ? done.load() : -1); });
+
+  CHECK(settled(result, "after every actor") == 3);
+}
+
 int main() {
   actorsAreDistinct();
+  afterEveryActorWaitsForTheirQueues();
   aLongJobDelaysNeitherAnotherActorNorMain();
   mainFromModuleCodeRunsOnceTheActorIsFree();
   aCallsMicrotasksRunBeforeTheNextJob();

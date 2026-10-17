@@ -551,6 +551,7 @@ owns its scopes.
 | Rule          | Contract                                                                                                                                                                                        |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Actors        | Each import component (a package, or the app's modules) gets one (`lucent_app::actor_N`); other code runs on `Actor::shared()`. Never destroyed. The compiler calls this owner `legacy-module`. |
+| After all     | `Actor::afterEveryActor(f)`: `f` as a turn of `Actor::shared()` once every actor with a thread has run what was posted to it before the call (a teardown's disposals).                          |
 | Lock          | Every entry into module code holds its actor's `LucentLock`, a recursive, fair ticket lock (`LucentScope`).                                                                                     |
 | Waits         | Code holding a lock waits for nothing but another actor's lock. A wait that would close a cycle throws `Lucent: deadlock: …`.                                                                   |
 | Main thread   | Never takes a ticket. Deferred work runs once the lock is free (`enterFromMain`); work that must answer waits only for the holder (`lockFromMain`), with a debug warning past 50 ms.            |

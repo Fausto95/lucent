@@ -288,6 +288,12 @@ class Actor final : public ExecutionContext {
   /// pendingWork() of every actor there is (for tests and tools).
   static size_t pendingWorkOfAll();
 
+  /// Runs `f` as a turn of the shared actor once every actor with a thread
+  /// has run what was posted to it before the call: a teardown's disposals
+  /// and destroy hooks, each in its actor, say. A debug build's leak count
+  /// at teardown waits for them so (rn/LucentModule.cpp).
+  static void afterEveryActor(Job f);
+
  private:
   explicit Actor(const char* name);
 

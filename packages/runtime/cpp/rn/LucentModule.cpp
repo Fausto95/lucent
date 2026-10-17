@@ -38,8 +38,9 @@ LucentModule::~LucentModule() {
   // removed, cycles through them. Not the views': the renderer releases
   // them with its views, and the platform's garbage collector the
   // callbacks their setups gave it, on their own schedule. Counted once
-  // the module context has run what the teardown left it.
-  lucent::postCallback([] {
+  // every actor has run what the teardown left it: each package's
+  // disposals and destroy hooks run in its own actor.
+  lucent::Actor::afterEveryActor([] {
     if (long n = lucent::moduleNativeRefs()) {
       std::string message = "[lucent] " + std::to_string(n) + " native reference(s) module code still holds at teardown";
       lucent::logError(message.c_str());
