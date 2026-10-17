@@ -71,8 +71,9 @@ what became of each one that is still linked or was still open.
 | [T153](#t153)            | Benchmarks against Nitro and Expo Modules                  | ready                                                                |
 | [T154](#t154)            | Guides for every parity row, and migration guides          | waiting; needs T150                                                  |
 | [T155](#t155)            | The production-candidate gate                              | waiting; needs every other task but T135                             |
-| [T156](#t156)            | CI runs what the docs say it runs                          | in progress (#387, #388)                                             |
+| [T156](#t156)            | CI runs what the docs say it runs                          | in progress (#387 to #389)                                           |
 | [T157](#t157)            | Small fixes the docs rewrite found                         | ready                                                                |
+| [T158](#t158)            | An edit loop within its budget                             | ready                                                                |
 
 ## Gates
 
@@ -86,7 +87,7 @@ Needs lists; the production candidate needs the other four.
 | View parity          | T120–T125 | A component takes props of any type and React Native's view props, has a controller root, and shows native objects in toolkit bodies |
 | Execution modes      | T130–T137 | Lucent code runs with no JavaScript, in background tasks, services, extensions, widgets and worklet runtimes                         |
 | Distribution         | T140–T145 | Fresh apps on each supported release build and run, and packages build like any library, with C++, their own Kotlin and the web      |
-| Production candidate | T150–T157 | Ports prove each row, stress and budgets pass, CI runs what it claims, the docs cover every row, and the integration run is green    |
+| Production candidate | T150–T158 | Ports prove each row, stress and budgets pass, CI runs what it claims, the docs cover every row, and the integration run is green    |
 
 ## Requirements
 
@@ -1908,7 +1909,7 @@ candidate is documented.
 **Goal:** Every check the docs describe runs where they say it does, and a
 skipped check is reported as skipped.
 
-- **Status:** in progress (#387, #388).
+- **Status:** in progress (#387 to #389).
 - **Area:** tooling, verification.
 - **Needs:** nothing.
 - **Verify:** V0, V1.
@@ -1917,10 +1918,11 @@ skipped check is reported as skipped.
 
 Found while rewriting [testing.md](testing.md):
 
-- [ ] The edit-loop budget (`node scripts/bench-build.ts --check`) runs in
-      CI.
-- [ ] CI's Hermes build includes `hermesc`, so the kernel benchmarks
-      compare with bytecode, not with source.
+- [x] The edit-loop budget (`node scripts/bench-build.ts --check`) runs in
+      CI, reported with `--shared-runner` as `bench.ts`'s ratios are. It
+      misses P5 today ([T158](#t158)).
+- [x] CI's Hermes build includes `hermesc`, so the kernel benchmarks
+      compare with bytecode, not with source (its cache key names it).
 - [ ] The Mac Catalyst run tests get the pods they need in the `ios-test`
       shards, instead of being skipped.
 - [x] `packages/runtime/test/jni/run.sh` runs in CI, plain and with
@@ -1971,14 +1973,45 @@ code.
 
 **Done when:** each item is fixed or recorded as intended.
 
+<a id="t158"></a>
+
+### T158: An edit loop within its budget
+
+**Goal:** A body edit's check, build and editor diagnostics meet P5 on the
+whole e2e-case fixture, as they did on its first 53 modules.
+
+- **Status:** ready.
+- **Area:** compiler, tooling.
+- **Needs:** nothing.
+- **Verify:** V1, V7.
+- **Where:** `packages/compiler/src/`, `packages/lucent/src/cli/`,
+  `packages/lucent/ts-plugin/`, `scripts/bench-build.ts`.
+
+Found running the edit-loop budget in CI ([T156](#t156)):
+
+- [ ] Profile a body edit's check step, which costs what a cold check
+      does on 122 modules (5.5 s on a 2-core x64 container).
+- [ ] Reuse what an edit leaves unchanged: other modules' analysis and
+      generated code, and the editor's program, so the cost follows the
+      edit, not the app.
+- [ ] `node scripts/bench-build.ts --check` passes on the fixture, on the
+      development machine and on Linux x64.
+
+**Done when:** P5 is met, or a decision records a different budget with
+its reason.
+
 ## Performance budgets
 
 Host budgets are enforced by `node scripts/bench.ts --check` and
-`node scripts/bench-build.ts --check`. CI runs the first on shared
-runners: it enforces the kernels and the sizes, and reports the boundary
-and floor ratios, which move with the CPU (`--shared-runner`). The second
-doesn't run in CI yet ([T156](#t156)). A missed budget is recorded and
-decided, never quietly weakened.
+`node scripts/bench-build.ts --check`. CI runs both on shared runners
+(`--shared-runner`): it enforces the kernels and the sizes, and reports
+the boundary and floor ratios and the edit loop's times, which move with
+the CPU. A missed budget is recorded and decided, never quietly weakened.
+
+P5 is missed (2026-10-17). The fixture is every e2e case module, 122 now
+against 53 when P5 was met. On a 2-core x64 container a body edit's check
+takes 6.3 s at p95 and warm diagnostics 4.6 s. A body edit's check step
+costs what a cold one does. [T158](#t158) brings the loop back within P5.
 
 | Id  | Dimension          | Gate                                                                             | Where                                 |
 | --- | ------------------ | -------------------------------------------------------------------------------- | ------------------------------------- |

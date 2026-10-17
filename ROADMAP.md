@@ -170,7 +170,7 @@ other four.
 | View parity          | Props of any type, React Native's view props, controller roots, objects in toolkit bodies      | [T120–T125](docs/tasks.md#t120) | open  |
 | Execution modes      | Code that runs with no JavaScript, in background tasks, services, extensions and worklets      | [T130–T137](docs/tasks.md#t130) | open  |
 | Distribution         | Fresh apps on each supported release build and run; packages build like any library            | [T140–T145](docs/tasks.md#t140) | open  |
-| Production candidate | Ports prove each row, stress and budgets pass, CI runs what it claims, the docs cover each row | [T150–T157](docs/tasks.md#t150) | open  |
+| Production candidate | Ports prove each row, stress and budgets pass, CI runs what it claims, the docs cover each row | [T150–T158](docs/tasks.md#t150) | open  |
 
 ## What's next
 

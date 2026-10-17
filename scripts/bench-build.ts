@@ -3,7 +3,7 @@
  * module (packages/compiler/test/e2e/cases) in one app, built for the host
  * so no platform SDK is involved.
  *
- *   node scripts/bench-build.ts [--rounds N] [--json <file>] [--check]
+ *   node scripts/bench-build.ts [--rounds N] [--json <file>] [--check [--shared-runner]]
  *
  * Scenarios, each run N times:
  *   build/cold                lucent build with no .lucent directory
@@ -25,6 +25,10 @@
  * Linking and installing are not part of this loop. With
  * --check, a scenario whose p95 exceeds its budget
  * (scripts/bench-build-budgets.json: the design's feedback targets) fails.
+ * --shared-runner (CI): the budgets are times, which move with the CPU
+ * (CI's runners differ from run to run), so a scenario over its budget is
+ * reported, as a warning, rather than failing; a stable machine enforces
+ * them.
  */
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -53,6 +57,7 @@ const option = (name: string) => {
 const rounds = Number(option("--rounds") ?? "7");
 const jsonFile = option("--json");
 const check = args.includes("--check");
+const sharedRunner = args.includes("--shared-runner");
 const budgets: Record<string, number> = JSON.parse(
   fs.readFileSync(path.join(root, "scripts/bench-build-budgets.json"), "utf8"),
 );
@@ -252,6 +257,8 @@ const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[xs.length >> 1]!;
 /** The nearest-rank 95th percentile. */
 const p95 = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.ceil(0.95 * xs.length) - 1]!;
 
+const cpus = os.cpus();
+console.log(`machine: ${cpus[0]?.model ?? "unknown CPU"}, ${cpus.length} cores`);
 console.log(`${modules} modules, ${rounds} rounds (wall clock includes starting the CLI)\n`);
 console.log("scenario                median ms   p95 ms   check step ms   budget (p95)");
 const over: string[] = [];
@@ -301,7 +308,16 @@ if (jsonFile) {
 
 fs.rmSync(app, { recursive: true, force: true });
 
-if (check && over.length) {
+if (check && over.length && sharedRunner) {
+  // GitHub shows these on the run and the pull request.
+  const prefix = process.env.GITHUB_ACTIONS
+    ? "::warning title=Edit loop on a shared runner::"
+    : "warning: ";
+  console.log(
+    `\nover their budgets on this shared runner (${cpus[0]?.model ?? "unknown CPU"}), not enforced here:`,
+  );
+  for (const o of over) console.log(`${prefix}${o}`);
+} else if (check && over.length) {
   console.error(`\nover budget:\n${over.map((o) => `  ${o}`).join("\n")}`);
   process.exit(1);
 }
