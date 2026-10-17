@@ -176,7 +176,10 @@ export interface Plan {
   iosChecks: boolean;
   /** The bare example's iOS and Android builds. */
   apps: boolean;
-  /** The bare example's test screen on the iOS simulator and the Android emulator. */
+  /**
+   * The example apps' screens on the iOS simulator and the Android emulator. ci.yml runs them
+   * nightly and by hand only, until they run reliably: this is what a pull request would need.
+   */
   devices: boolean;
 }
 

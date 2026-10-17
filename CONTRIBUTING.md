@@ -64,9 +64,10 @@ e2e's cases, `LUCENT_E2E_JOBS`) set how many.
 
 [docs/testing.md](docs/testing.md) explains the differential suites. Device
 runs (`.github/workflows/devices.yml`, with `scripts/device-check.ts`) open
-the bare example's Tests screen on the iOS simulator and an Android
-emulator and wait for its verdict: nightly, on pull requests that change
-the runtime or the compiler, and before a release.
+each example app's Tests and Platform screens on the iOS simulator and an
+Android emulator and wait for their verdict. They run nightly and by hand
+(`workflow_dispatch`), not on pull requests, and don't gate the CI check
+until they run reliably.
 
 ### What CI runs
 
@@ -119,9 +120,10 @@ say what a change means for people using Lucent.
   (the bundled packages move with it) and writes
   `packages/lucent/CHANGELOG.md`, each entry linking its PR and author.
   The release workflow runs only after CI passed on that commit of
-  `main`; merging the PR, once CI passes on its merge (device runs
-  included), publishes to npm through trusted publishing (no token, with
-  provenance), tags the release and creates the GitHub release.
+  `main`; merging the PR, once CI passes on its merge, publishes to npm
+  through trusted publishing (no token, with provenance), tags the release
+  and creates the GitHub release. The device runs of the night before are
+  the ones to look at first.
 
 ## Docs
 

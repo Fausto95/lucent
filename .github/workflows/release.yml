@@ -3,8 +3,9 @@ name: Release
 # Changesets drive releases. After CI passes on a push to main, pending
 # changesets (.changeset/*.md) open or update a "Version packages" PR that
 # bumps @lucent-lang/lucent and writes its CHANGELOG.md. Merging that PR
-# (CI passing on its merge, device runs included) publishes the new
-# version to npm, tags it and creates the GitHub release.
+# (CI passing on its merge; the device runs are nightly, and don't gate
+# it) publishes the new version to npm, tags it and creates the GitHub
+# release.
 #
 # Publishing uses npm's trusted publishing: npm exchanges this job's OIDC
 # token (id-token: write) for a one-time credential, so the repository

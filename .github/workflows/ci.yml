@@ -244,6 +244,16 @@ jobs:
       - uses: ./.github/actions/sdk-cache
         with:
           key: ios-test-${{ matrix.shard }}
+      # The Mac Catalyst run tests (ui/*-run.test.ts, through mount-harness.ts) run on React
+      # Native's prebuilt frameworks and headers, which the bare example's pods hold. Without
+      # them those tests skip. The pods are cached by their lock file.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/bare-example/ios/Pods
+          key: pods-ios-test-${{ hashFiles('apps/bare-example/ios/Podfile.lock') }}
+      - name: Install pods (React Native's prebuilt frameworks, for the Mac Catalyst run tests)
+        working-directory: apps/bare-example/ios
+        run: bundle exec pod install
       - name: Compiler and bindgen tests with the iOS SDK (the Linux job skips them)
         run: pnpm exec vp test run --shard=${{ matrix.shard }}/3 --reporter=default --reporter=json --outputFile.json=unit-test-report.json
       - name: Keep the timings
@@ -423,7 +433,8 @@ jobs:
   # The compiled modules on the platforms themselves: each example app's Tests screen (every
   # end-to-end case through the compiled C++) and Platform screen on the iOS simulator and the
   # Android emulator. Nightly and on a manual run only, until they run reliably; they don't gate
-  # the CI check.
+  # the CI check, and pull requests don't run them (the plan's `devices` output names the ones
+  # that would).
   devices:
     name: Device run (${{ matrix.platform }}${{ matrix.app == 'expo' && ', Expo' || '' }})
     needs: changes
