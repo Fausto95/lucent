@@ -295,6 +295,7 @@ build's proxies with the host's native code.
 
 ```sh
 node scripts/smoke-install.ts
+node scripts/install-matrix.ts [pnpm|yarn|npm|upgrade]…
 node scripts/window-app.ts --matrix
 node scripts/window-app.ts --app bare --release 0.86 --platform android [--no-native]
 node scripts/window-app.ts --app bare --release 0.86 --platform android --dir <app> --check
@@ -309,6 +310,14 @@ and `lucent build` from the tarball, and compiles the extension's C++.
 Last, it loads the Metro and Expo integrations and
 `@lucent-lang/lucent/core`, and asks tsserver for the editor's
 diagnostics. It builds no app.
+
+`install-matrix.ts` builds the packed package's apps the ways real apps
+install Lucent packages (T145), for the host. In a pnpm, a Yarn 4 and an
+npm workspace, an app depends on two Lucent packages linked from the
+workspace, which both depend on a third the app doesn't name. Each build
+compiles every package's modules and copies the third's resources and
+assets. An app built with the release on npm is upgraded to the packed
+one, whose build must write what a clean build writes.
 
 `window-app.ts` makes a fresh app per release of the window: bare from
 React Native's template (0.86 to 0.88), Expo from `create-expo-app`'s
@@ -433,7 +442,7 @@ nightly schedule (03:17 UTC) and by hand. Its `changes` job
 | Runtime and JSI host                                | `run.sh`, `SANITIZE=1 CXX=g++`, `jsi/run.sh` plain and with `SANITIZE=1`                                                                                                              | `packages/runtime/`                                                                                       |
 | Runtime (TSan, GCC)                                 | `SANITIZE=thread CXX=g++ CC=gcc run.sh`                                                                                                                                               | `packages/runtime/`                                                                                       |
 | End-to-end                                          | `pnpm test:e2e`                                                                                                                                                                       | `packages/`                                                                                               |
-| Performance budgets, fresh install                  | `bench.ts --check --shared-runner`, `smoke-install.ts`                                                                                                                                | `packages/`, `benchmarks/`, `examples/`, `scripts/bench*`, `smoke-install.ts`                             |
+| Performance budgets, fresh install                  | `bench.ts --check --shared-runner`, `smoke-install.ts`, `install-matrix.ts`                                                                                                           | `packages/`, `benchmarks/`, `examples/`, `scripts/bench*`, the two install scripts                        |
 | React Native releases (headers)                     | `react-native-headers.ts --window`, `react-native-releases.test.ts`                                                                                                                   | The runtime, compiler or codegen, `react-native-headers.ts`, `doctor.ts`                                  |
 | App check (bare), App check (Expo)                  | `app-check.ts`                                                                                                                                                                        | `packages/`, the app, `examples/`, the shared example app, the two scripts                                |
 | Website                                             | `website.ts --check`, typecheck, build                                                                                                                                                | `packages/`, `apps/website/`, the website scripts, `README.md`, `ROADMAP.md` and the other files it reads |
