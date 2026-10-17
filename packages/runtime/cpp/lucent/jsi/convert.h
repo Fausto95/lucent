@@ -5,8 +5,8 @@
 // argument: "hash: argument 'input' must be a string".
 //
 // Arrays, records, maps and structs are copied across the boundary. Class
-// instances keep their identity. All functions here run on the JS thread with
-// the Lucent lock held.
+// instances keep their identity. All functions here run on the JS thread,
+// holding the actor of the module called (callSync, host.h).
 #pragma once
 
 #include <array>
@@ -579,10 +579,13 @@ struct Convert<DataView> {
 
 /// A NativeBuffer crosses as an opaque handle, the same JS object for the
 /// same buffer while JavaScript holds it. Its methods mirror lucent:core's:
-/// `byteLength`, `toUint8Array()`, `withRead(f)`, `withWrite(f)`,
-/// `transfer()`, `close()`. JavaScript never gets an ArrayBuffer over the
-/// storage: a borrow lends it a copy (a write borrow copies it back when
-/// the callback returns), counted in the buffer stats.
+/// `byteLength`, `toUint8Array()`, `withRead(f)` and `withWrite(f)` (with
+/// `withReadAs` and `withWriteAs`, another typed array), `transfer()`,
+/// `transferToArrayBuffer()`, `close()` (and Symbol.dispose) and `handle()`.
+/// A borrow lends JavaScript a copy (a write borrow copies it back when the
+/// callback returns), counted in the buffer stats. Only
+/// transferToArrayBuffer() gives it an ArrayBuffer over the storage, which
+/// then no Lucent code holds.
 template <>
 struct Convert<NativeBuffer> {
   static NativeBuffer fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);

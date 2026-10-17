@@ -1,6 +1,7 @@
 // Lucent runtime — what a debug build reports of the runtime (T61): the
 // live count of each kind of thing it owns. A view's mounts and their
-// native view trees are ui_debug.h's.
+// native view trees are view.h's (debugSnapshot), each platform's tree its
+// platform/*_debug file's.
 #pragma once
 
 #include "live.h"

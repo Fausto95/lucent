@@ -9,7 +9,7 @@
 // never delivered. Its token names it without a pointer, so a late native
 // callback can be checked against the scope's current state.
 //
-// Neither knows about JavaScript, the scheduler or the Lucent lock: callbacks
+// Neither knows about JavaScript, the scheduler or the actors: callbacks
 // run on the thread that settles or disposes, except that a scope with an
 // owner (Scope::Owner, an execution context) is disposed there.
 #pragma once

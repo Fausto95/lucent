@@ -26,8 +26,8 @@ export type NodeStatus = "ok" | "cached" | "failed" | "skipped";
 
 /**
  * The steps a build reuses when their inputs are unchanged (recorded
- * "cached"); with a `:` suffix, steps of that one (`extract:UIKit`). The
- * others run every build: resolving computes what these are reused by.
+ * "cached"); with a `:` suffix, steps of that one (`extract:extensions`).
+ * The others run every build: resolving computes what these are reused by.
  */
 export const REUSABLE_STEPS = ["resolve:android", "extract", "check", "generate"] as const;
 
@@ -41,7 +41,7 @@ export interface Artifact {
 }
 
 export interface BuildNode {
-  /** Unique within a record: `check`, `extract:ios/UIKit`. */
+  /** Unique within a record: `check`, `extract:extensions`. */
   id: string;
   kind: NodeKind;
   status: NodeStatus;

@@ -5,7 +5,7 @@
 // context. The input is copied at submission (transport.h), so the task
 // shares nothing mutable with its caller; the result is moved back, and the
 // promise settles on the context that submitted it, whatever thread the task
-// ran on. Workers never take the Lucent lock or wait for the UI loop, so a
+// ran on. Workers never take an actor or wait for the UI loop, so a
 // task neither waits behind module code nor holds it up.
 //
 // The pool is bounded twice: a fixed number of workers (one fewer than the

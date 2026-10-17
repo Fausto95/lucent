@@ -1,9 +1,13 @@
 // Lucent runtime — Promise<T> and async functions (C++20 coroutines).
 //
-// A Lucent `async function` is a C++ coroutine returning Promise<T>. Like
-// JavaScript, the body starts running immediately and every `await`
-// suspends, resuming later from the microtask queue (never inline), so the
-// interleaving matches JavaScript's.
+// A Lucent `async function` that awaits is a C++ coroutine returning
+// Promise<T>; one that never does is a plain function returning a settled
+// or adopted promise (adoptedPromise). Like JavaScript, the body starts
+// running immediately, and every `await` suspends and never resumes
+// inline: as a microtask of its context once the promise settles there, or
+// as a job posted to it when the promise settles on another context (Later
+// for a value that is not a promise). So the interleaving matches
+// JavaScript's.
 //
 // Coroutine parameters are always taken by value: a coroutine frame must not
 // hold references to its caller's locals.
