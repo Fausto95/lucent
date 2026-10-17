@@ -1,3 +1,4 @@
+import { nativeOut } from "../native-out.ts";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -130,7 +131,7 @@ export async function buildOrCheck(
       out.data({
         ok: result.ok,
         upToDate: result.upToDate,
-        out: path.resolve(root, typeof flags.out === "string" ? flags.out : ".lucent/native"),
+        out: nativeOut(root, typeof flags.out === "string" ? flags.out : undefined),
         modules: result.modules,
         steps: steps.results,
         diagnostics: result.diagnostics,
@@ -164,7 +165,7 @@ export async function buildOrCheck(
   }
   if (xcode) {
     const stale = podInstallStale(
-      path.resolve(root, typeof flags.out === "string" ? flags.out : ".lucent/native"),
+      nativeOut(root, typeof flags.out === "string" ? flags.out : undefined),
       result.actions,
     );
     if (stale) {

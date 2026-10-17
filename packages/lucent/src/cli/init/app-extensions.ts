@@ -1,3 +1,4 @@
+import { nativeOut } from "../native-out.ts";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -44,7 +45,7 @@ export function appXcodeProject(root: string): string | undefined {
 }
 
 /** The last build's ios-extensions.json in the native package at `outDir`, or undefined. */
-export function extensionTargetsOf(root: string, outDir = path.join(root, ".lucent", "native")) {
+export function extensionTargetsOf(root: string, outDir = nativeOut(root)) {
   return extensions.readExtensionTargets(root, path.relative(root, outDir));
 }
 

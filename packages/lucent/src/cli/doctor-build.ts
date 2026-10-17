@@ -1,7 +1,7 @@
 /**
  * Doctor's checks of the app's build (T61): what `lucent build` recorded
  * (.lucent/build-record.json, and the record before it), the identity it
- * gave this JavaScript (.lucent/native/js/_lucent/identity.js), and the
+ * gave this JavaScript (the native package's js/_lucent/identity.js), and the
  * native builds made since (Xcode's products, Gradle's native libraries),
  * read for the identity Lucent compiles into them. Files only: no build
  * runs, and nothing loads the compiler.
@@ -10,10 +10,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { type BuildRecord, reusable } from "./build-graph.ts";
 import type { Check, Probe } from "./doctor.ts";
+import { nativeOut } from "./native-out.ts";
 
 const RECORD = ".lucent/build-record.json";
 const PREVIOUS = ".lucent/build-record.previous.json";
-const IDENTITY = ".lucent/native/js/_lucent/identity.js";
+/** The identity's file, in the native package (nativeOut: .lucent/native, or LUCENT_OUT's). */
+const IDENTITY = "js/_lucent/identity.js";
 
 /** The string the native runtime's identity is installed under: in every native build of Lucent code. */
 const MARKER = "__lucentIdentity";
@@ -42,7 +44,7 @@ function readJson<T>(file: string): T | undefined {
 
 /** identity.js's object: `module.exports = {…};`. */
 function readIdentity(root: string): Identity | undefined {
-  const file = path.join(root, IDENTITY);
+  const file = path.join(nativeOut(root), IDENTITY);
   if (!fs.existsSync(file)) return undefined;
 
   const text = fs.readFileSync(file, "utf8");
@@ -184,7 +186,7 @@ function nativeBinaries(root: string, probe: Probe): Partial<Record<"ios" | "and
   const lib = newest(
     [
       path.join(root, "android/app/build/intermediates"),
-      path.join(root, ".lucent/native/android/build"),
+      path.join(nativeOut(root), "android/build"),
     ].flatMap((dir) => files(dir).filter((f) => path.basename(f) === "liblucentnative.so")),
   );
   if (lib) out.android = [fs.readFileSync(lib)];

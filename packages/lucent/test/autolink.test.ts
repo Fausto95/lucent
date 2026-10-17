@@ -59,6 +59,28 @@ describe("the autolinking entry", () => {
     expect(fs.existsSync(path.join(out, "js/bye.js"))).toBe(true);
   });
 
+  it("links and builds the package LUCENT_OUT names, which Metro bundles", () => {
+    const root = app();
+    const previous = process.env.LUCENT_OUT;
+    process.env.LUCENT_OUT = "build/native";
+    try {
+      const out = path.join(root, "build/native");
+      const { nativePackage } = require("../metro/native-package.cjs") as {
+        nativePackage(root: string): string;
+      };
+      expect(nativePackage(root)).toBe(out);
+
+      // The build autolinking runs, in the same environment, writes it there.
+      expect(autolink(root)).toEqual({ root: out });
+      expect(fs.existsSync(path.join(out, "js/hello.js"))).toBe(true);
+      expect(fs.existsSync(path.join(root, ".lucent/native"))).toBe(false);
+      expect(autolink.staleness(root, out)).toBeUndefined();
+    } finally {
+      if (previous === undefined) delete process.env.LUCENT_OUT;
+      else process.env.LUCENT_OUT = previous;
+    }
+  });
+
   it("is what React Native's config reads, printing nothing on stdout", () => {
     const root = app();
     const { spawnSync } = require("node:child_process") as typeof import("node:child_process");

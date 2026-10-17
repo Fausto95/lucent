@@ -5,6 +5,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { nativePackage } = require("./metro/native-package.cjs");
 const {
   readExtensionTargets,
   withExtensionPods,
@@ -208,7 +209,7 @@ function withPodHook(text) {
 
 /** What Lucent packages need (their lucent.json), as the last build resolved it. */
 function resolvedNative(projectRoot) {
-  const file = path.join(projectRoot, ".lucent", "native", "resolved.json");
+  const file = path.join(nativePackage(projectRoot), "resolved.json");
   if (!fs.existsSync(file)) return { ios: {} };
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }

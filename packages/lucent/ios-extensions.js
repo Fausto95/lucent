@@ -12,9 +12,17 @@ const path = require("node:path");
 /** The manifest's format this reads; another is refused (app-extension-targets.ts). */
 const FORMAT = 1;
 
-/** The native package's ios-extensions.json, or undefined without one. */
-function readExtensionTargets(projectRoot, nativePackage = path.join(".lucent", "native")) {
-  const file = path.join(projectRoot, nativePackage, "ios-extensions.json");
+/**
+ * The native package's ios-extensions.json, or undefined without one: the
+ * package at `nativePackage` (relative to the project), else where
+ * metro/native-package.cjs says it is.
+ */
+function readExtensionTargets(projectRoot, nativePackage) {
+  const dir =
+    nativePackage === undefined
+      ? require("./metro/native-package.cjs").nativePackage(projectRoot)
+      : path.join(projectRoot, nativePackage);
+  const file = path.join(dir, "ios-extensions.json");
   if (!fs.existsSync(file)) return undefined;
   const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
   if (manifest.format !== FORMAT)
