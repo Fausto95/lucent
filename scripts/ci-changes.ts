@@ -132,8 +132,9 @@ const harnesses = [
   {
     name: "Performance budgets, fresh install",
     key: "bench",
-    // The kernels' budgets enforced; the CPU-bound ratios reported (see scripts/bench.ts).
-    run: "node scripts/bench.ts --check --shared-runner && node scripts/smoke-install.ts && node scripts/install-matrix.ts",
+    // The kernels' budgets enforced; the CPU-bound ratios and the edit loop's times reported
+    // (scripts/bench.ts, scripts/bench-build.ts). Each check runs, whichever failed before it.
+    run: "s=0; node scripts/bench.ts --check --shared-runner || s=1; node scripts/bench-build.ts --check --shared-runner || s=1; node scripts/smoke-install.ts || s=1; node scripts/install-matrix.ts || s=1; exit $s",
     needs: ["packages", "bench"],
   },
   {

@@ -1,5 +1,5 @@
 name: Hermes
-description: The Hermes revision HERMES_REF, built into HERMES_DIR (cached), for the harnesses that run Lucent through JSI.
+description: The Hermes revision HERMES_REF, built into HERMES_DIR (cached), for the harnesses that run Lucent through JSI, with hermesc for the benchmarks' bytecode.
 runs:
   using: composite
   steps:
@@ -8,7 +8,8 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ env.HERMES_DIR }}
-        key: hermes-${{ runner.os }}-${{ env.HERMES_REF }}
+        # -hermesc: the build's targets; a build cached without hermesc is not restored.
+        key: hermes-${{ runner.os }}-${{ env.HERMES_REF }}-hermesc
     # The Ubuntu image has Ninja and ICU's headers; an apt-get update alone took longer than the
     # rest of this action on a cache hit.
     - name: Build Hermes
@@ -22,4 +23,6 @@ runs:
         git fetch --depth 1 https://github.com/facebook/hermes.git "$HERMES_REF"
         git checkout FETCH_HEAD
         cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-        ninja -C build hermesvm jsi
+        # hermesc: scripts/bench.ts runs the kernels' JavaScript as `hermesc -O` bytecode, as a
+        # release build ships it, not from source.
+        ninja -C build hermesvm jsi hermesc

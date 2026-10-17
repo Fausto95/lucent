@@ -455,8 +455,9 @@ times the boundary, and measures the generated objects and install time.
 
 `bench-build.ts` times the edit loop for the host: cold, no-op and
 body-edit builds, a check, editor diagnostics and the edited unit's C++.
-`--check` holds each p95 to `scripts/bench-build-budgets.json`. No CI job
-runs it.
+`--check` holds each p95 to `scripts/bench-build-budgets.json`. In CI,
+with `--shared-runner`, a time over its budget is a warning: times move
+with the runner's CPU. P5 is missed today ([T158](tasks.md#t158)).
 
 `node scripts/bench-publish.ts <results.json>` copies a run to
 `benchmarks/results/`. Comparisons with Nitro and Expo Modules are
@@ -475,7 +476,7 @@ nightly schedule (03:17 UTC) and by hand. Its `changes` job
 | Runtime and JSI host                                | `run.sh`, `SANITIZE=1 CXX=g++`, `jsi/run.sh` plain and with `SANITIZE=1`, `jni/run.sh` plain and with `SANITIZE=1 CXX=g++ CC=gcc`                                                     | `packages/runtime/`, the JNI host (`compiler/test/jni-host/`)                                                                                            |
 | Runtime (TSan, GCC)                                 | `SANITIZE=thread CXX=g++ CC=gcc run.sh`                                                                                                                                               | `packages/runtime/`                                                                                                                                      |
 | End-to-end                                          | `pnpm test:e2e`                                                                                                                                                                       | `packages/`                                                                                                                                              |
-| Performance budgets, fresh install                  | `bench.ts --check --shared-runner`, `smoke-install.ts`, `install-matrix.ts`                                                                                                           | `packages/`, `benchmarks/`, `examples/`, `scripts/bench*`, the two install scripts                                                                       |
+| Performance budgets, fresh install                  | `bench.ts --check --shared-runner`, `bench-build.ts --check --shared-runner`, `smoke-install.ts`, `install-matrix.ts`, each whichever failed before it                                | `packages/`, `benchmarks/`, `examples/`, `scripts/bench*`, the two install scripts                                                                       |
 | React Native releases (headers)                     | `react-native-headers.ts --window`, `react-native-releases.test.ts`                                                                                                                   | The runtime, compiler or codegen, `react-native-headers.ts`, `doctor.ts`                                                                                 |
 | App check (bare), App check (Expo)                  | `app-check.ts`                                                                                                                                                                        | `packages/`, the app, `examples/`, the shared example app, the two scripts                                                                               |
 | Website                                             | `website.ts --check`, typecheck, build                                                                                                                                                | `packages/`, `apps/website/`, the website scripts, `docs/`, `README.md`, `ROADMAP.md`, `vercel.json`, `benchmarks/results/` and the other files it reads |
