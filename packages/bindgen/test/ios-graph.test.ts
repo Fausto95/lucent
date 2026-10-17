@@ -623,6 +623,13 @@ describe("what app extensions can't use (decision 0124)", () => {
         functionSignature: { parameters: [], returns: [BOOL] },
         availability: [...ios17, ...extensionOnly],
       }),
+      sym("swift.method", `${APP}(im)open`, ["KITApp", "open()"], {
+        names: { title: "open()" },
+        declarationFragments: [{ kind: "text", spelling: "func open() -> " }, BOOL],
+        functionSignature: { parameters: [], returns: [BOOL] },
+        // The attribute's own spelling of the domain.
+        availability: [{ domain: "iOSApplicationExtension", isUnconditionallyUnavailable: true }],
+      }),
       sym("swift.method", `${APP}(im)ping`, ["KITApp", "ping()"], {
         names: { title: "ping()" },
         declarationFragments: [{ kind: "text", spelling: "func ping() -> " }, BOOL],
@@ -632,6 +639,7 @@ describe("what app extensions can't use (decision 0124)", () => {
     relationships: [
       { kind: "memberOf", source: `${APP}(py)title`, target: APP },
       { kind: "memberOf", source: `${APP}(im)activate`, target: APP },
+      { kind: "memberOf", source: `${APP}(im)open`, target: APP },
       { kind: "memberOf", source: `${APP}(im)ping`, target: APP },
     ],
   };
@@ -651,7 +659,7 @@ describe("what app extensions can't use (decision 0124)", () => {
     const methods = Object.fromEntries(
       (cls("KITApp").methods ?? []).map((m) => [m.name, m.extensionUnavailable]),
     );
-    expect(methods).toEqual({ activate: true, ping: undefined });
+    expect(methods).toEqual({ activate: true, open: true, ping: undefined });
     // The OS version that introduced it is still its own, in the iOS domain.
     expect(cls("KITApp").methods?.find((m) => m.name === "activate")?.since).toBe("17.0");
   });

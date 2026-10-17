@@ -79,6 +79,8 @@ export interface Explanation {
   right: Example;
   /** The SDK the examples need, if any. */
   sdk?: "ios" | "android";
+  /** The platform's build that reports it, when no other does (an app extension's code is iOS's). */
+  build?: "ios" | "android";
   /** Reported as a warning: the code still compiles. */
   severity?: "warning";
   /** About views (components): the diagnostics reference groups them apart. */
@@ -669,6 +671,7 @@ export const Explanations: Record<Code, Explanation> = {
         'import { UNNotificationServiceExtension } from "lucent:ios/UserNotifications";\n\nexport class Rich extends UNNotificationServiceExtension {}\n\nexport function ready(): boolean {\n  return true;\n}\n',
     },
     sdk: "ios",
+    build: "ios",
   },
   LUCENT3019: {
     title: "App extension code that isn't one",

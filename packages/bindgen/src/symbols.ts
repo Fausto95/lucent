@@ -583,14 +583,19 @@ export function since(s: SymbolGraphSymbol): string | undefined {
   return `${ios.introduced.major}.${ios.introduced.minor ?? 0}`;
 }
 
+/** The symbol graph's domain of app extensions on iOS, as Swift's releases spell it. */
+const EXTENSION_DOMAINS = new Set(["iOSAppExtension", "iOSApplicationExtension"]);
+
 /**
  * Whether app extensions can't use a symbol (decision 0124): what
  * `NS_EXTENSION_UNAVAILABLE_IOS` or `@available(iOSApplicationExtension,
- * unavailable)` marks, the symbol graph's `iOSAppExtension` domain.
+ * unavailable)` marks, the symbol graph's `iOSAppExtension` domain (the
+ * attribute's own spelling, too, which a newer Swift may write).
  */
 export function extensionUnavailable(s: SymbolGraphSymbol): boolean {
   return !!s.availability?.some(
-    (a) => a.domain === "iOSAppExtension" && (a.isUnconditionallyUnavailable || !!a.obsoleted),
+    (a) =>
+      EXTENSION_DOMAINS.has(a.domain ?? "") && (a.isUnconditionallyUnavailable || !!a.obsoleted),
   );
 }
 
