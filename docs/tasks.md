@@ -1506,7 +1506,9 @@ and its Lucent handler runs.
   (#204), then on 0.88 and SDK 58 when they joined the window (#363). window.yml builds ten fresh apps nightly and runs each on the
   simulator or the emulator, all green on 2026-10-12. On 2026-10-17 the
   five Android apps ran green and the five iOS ones failed to build:
-  Lucent read its own pod as a Swift pod to bind (#419).
+  Lucent read its own pod as a Swift pod to bind (#419), and the Expo
+  ones lacked the entries' public header (#424). A manual run that day
+  ran all ten green.
 - **Area:** tooling, verification.
 - **Needs:** nothing.
 - **Verify:** V5, V6.
