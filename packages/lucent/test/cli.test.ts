@@ -367,7 +367,20 @@ describe("a Lucent package's own pod", () => {
     // packages need for the config plugin.
     for (const file of ["cpp/lucent/prefix.h", "resolved.json", "manifest.json"])
       expect(fs.existsSync(path.join(root, ".lucent/native", file))).toBe(true);
-    expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated"))).toBe(false);
+    // And iOS's entries' header, with no entry yet, where pod install's build writes it (the
+    // module branches on PLATFORM): CocoaPods makes the pod's public headers of what it finds, and
+    // the exports' Swift calls the entries through them.
+    const generated = path.join(root, ".lucent/native/cpp/generated");
+    expect(fs.readdirSync(generated, { recursive: true }).sort()).toEqual([
+      "ios",
+      "ios/lucent_entries.h",
+    ]);
+    expect(fs.readFileSync(path.join(generated, "ios/lucent_entries.h"), "utf8")).toContain(
+      "void lucent_launch(void);",
+    );
+    expect(
+      fs.readFileSync(path.join(root, ".lucent/native/LucentNative.podspec"), "utf8"),
+    ).toContain('"cpp/generated/ios/lucent_entries.h"');
   }, 600_000);
 
   it.skipIf(!ios)(

@@ -399,7 +399,8 @@ export async function buildProject(
   }
 
   // Platform code: split platform files, or modules branching on PLATFORM.
-  if (!platforms && files.some((f) => platformOf(f) || usesPlatforms(f))) {
+  const split = files.some((f) => platformOf(f) || usesPlatforms(f));
+  if (!platforms && split) {
     // Build what this machine can: an Android-only Linux host, a Mac without the Android SDK.
     for (const p of ["ios", "android"] as const) {
       const why = sdkUnavailable(p, sdk);
@@ -456,6 +457,7 @@ export async function buildProject(
       root,
       native,
       androidDeferred: deferAndroid,
+      iosDeferred: { split },
     });
     steps.finish({
       name: "check",
@@ -496,6 +498,7 @@ export async function buildProject(
       root,
       native,
       androidDeferred: deferAndroid,
+      ...(deferIos ? { iosDeferred: { split } } : {}),
     });
     steps.finish({
       name: "check",
@@ -772,6 +775,7 @@ export async function buildProject(
     check,
     native,
     androidDeferred: deferred.includes("android"),
+    ...(deferred.includes("ios") ? { iosDeferred: { split } } : {}),
     app: {
       ...(sdk.ios?.deploymentTarget ? { deploymentTarget: sdk.ios.deploymentTarget } : {}),
       swiftPackages: sdk.ios?.swiftPackages?.packages ?? [],
