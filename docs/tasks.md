@@ -1355,6 +1355,12 @@ a SwiftUI body, a notification service extension or a share extension.
       (#350).
 - [ ] Tests: a widget fixture and a notification service fixture build
       and run on the simulator.
+- [ ] The SDK's own marks refused too: its symbol graphs carry no
+      `iOSAppExtension` availability (`UIApplication.shared`'s is iOS's
+      alone, on macOS CI's Xcode 26.6), so bindgen records none, and only
+      Lucent's own are refused. Read `NS_EXTENSION_UNAVAILABLE_IOS` where
+      it is, in the headers' availability attributes (clang's), and drop
+      the `it.fails` in `app-extension-limits.test.ts`.
 
 **Done when:** both fixtures run on the simulator in CI.
 

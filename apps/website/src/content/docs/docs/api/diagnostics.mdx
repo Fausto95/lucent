@@ -1449,7 +1449,7 @@ export function d(): number {
 
 **API unavailable in app extensions**
 
-An app extension runs without the app's `UIApplication`, so the SDK marks some APIs unavailable to it (`NS_EXTENSION_UNAVAILABLE_IOS`), as Lucent marks `present()` and `onAppEvent()`. Lucent refuses them in every module the extension's code reaches through its imports, as Xcode does in extension code. A module the app shares is one too, since its code is built into the extension.
+An app extension runs without the app's `UIApplication`, so Lucent marks `present()`, `onAppEvent()` and `onSceneEvent()` unavailable to it. Lucent refuses them in every module the extension's code reaches through its imports, one the app shares included. It refuses the SDK's own marks (`NS_EXTENSION_UNAVAILABLE_IOS`) where its bindings record them, and Xcode refuses them when it builds the extension.
 
 **Fix:** move the code the app alone runs into a module the extension's code doesn't import.
 
@@ -1471,21 +1471,20 @@ An app extension runs without the app's `UIApplication`, so the SDK marks some A
 <TabItem label="✗ push.lucent.ts">
 
 ```ts title="push.lucent.ts (wrong)"
-export declare function idleTimerOff(): Promise<boolean>;
+export declare function watch(): void;
 ```
 
 </TabItem>
 <TabItem label="✗ push.ios.lucent.ts">
 
 ```ts title="push.ios.lucent.ts (wrong)"
-import { UIApplication } from "lucent:ios/UIKit";
+import { onAppEvent } from "lucent:ios";
 import { UNNotificationServiceExtension } from "lucent:ios/UserNotifications";
-import { main } from "lucent:thread";
 
 export class Rich extends UNNotificationServiceExtension {}
 
-export async function idleTimerOff(): Promise<boolean> {
-  return main(() => UIApplication.shared.isIdleTimerDisabled);
+export function watch(): void {
+  onAppEvent("didBecomeActive", () => {});
 }
 ```
 

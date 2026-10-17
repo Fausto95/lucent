@@ -495,13 +495,13 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT3018",
     "title": "API unavailable in app extensions",
     "summary": "An iOS API that app extensions can't use, in a module an app extension's code reaches (lucent.json's `ios.appExtensions`).",
-    "details": "An app extension runs without the app's `UIApplication`, so the SDK marks some APIs unavailable to it (`NS_EXTENSION_UNAVAILABLE_IOS`), as Lucent marks `present()` and `onAppEvent()`. Lucent refuses them in every module the extension's code reaches through its imports, as Xcode does in extension code. A module the app shares is one too, since its code is built into the extension.",
+    "details": "An app extension runs without the app's `UIApplication`, so Lucent marks `present()`, `onAppEvent()` and `onSceneEvent()` unavailable to it. Lucent refuses them in every module the extension's code reaches through its imports, one the app shares included. It refuses the SDK's own marks (`NS_EXTENSION_UNAVAILABLE_IOS`) where its bindings record them, and Xcode refuses them when it builds the extension.",
     "fix": "move the code the app alone runs into a module the extension's code doesn't import",
     "wrong": {
       "package.json": "{ \"name\": \"lucent-push\", \"version\": \"1.0.0\", \"lucent\": {} }\n",
       "lucent.json": "{ \"ios\": { \"appExtensions\": [{ \"kind\": \"notificationService\", \"name\": \"RichPush\", \"class\": \"push#Rich\" }] } }\n",
-      "push.lucent.ts": "export declare function idleTimerOff(): Promise<boolean>;\n",
-      "push.ios.lucent.ts": "import { UIApplication } from \"lucent:ios/UIKit\";\nimport { UNNotificationServiceExtension } from \"lucent:ios/UserNotifications\";\nimport { main } from \"lucent:thread\";\n\nexport class Rich extends UNNotificationServiceExtension {}\n\nexport async function idleTimerOff(): Promise<boolean> {\n  return main(() => UIApplication.shared.isIdleTimerDisabled);\n}\n"
+      "push.lucent.ts": "export declare function watch(): void;\n",
+      "push.ios.lucent.ts": "import { onAppEvent } from \"lucent:ios\";\nimport { UNNotificationServiceExtension } from \"lucent:ios/UserNotifications\";\n\nexport class Rich extends UNNotificationServiceExtension {}\n\nexport function watch(): void {\n  onAppEvent(\"didBecomeActive\", () => {});\n}\n"
     },
     "right": {
       "package.json": "{ \"name\": \"lucent-push\", \"version\": \"1.0.0\", \"lucent\": {} }\n",

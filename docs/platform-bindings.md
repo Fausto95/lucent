@@ -284,6 +284,9 @@ module an app extension's code reaches through its imports (LUCENT3018,
 `analysis/app-extensions.ts`), and so a declaration of Lucent's own tagged
 `@extensionUnavailable`
 ([0124](decisions/0124-an-app-extension-is-a-target-built-from-the-code-it-reaches.md)).
+The SDK's symbol graphs carry no such domain yet (`UIApplication.shared`'s
+availability is iOS's alone), so on a real SDK only Lucent's own are
+refused ([limitations](limitations.md), [T133](tasks.md#t133)).
 
 A plan has one conversion per receiver, argument and result
 (`passthrough`, `number`, `bigint`, `copy-string`, `copy-array`,
