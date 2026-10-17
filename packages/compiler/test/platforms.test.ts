@@ -139,39 +139,44 @@ describe.skipIf(!ios)("platform modules", () => {
     expect(r.proxies.get("haptics")).toContain("impact");
   });
 
-  it("writes the SDK declarations it imports, so editors and tsc resolve lucent:*", () => {
-    const files = project(haptics);
-    const r = compile(files);
-    expect([...r.types!.keys()].sort()).toEqual(
-      expect.arrayContaining([
-        "android.d.ts",
-        "android/android.content.d.ts",
-        "android/android.os.d.ts",
-        "ios.d.ts",
-        "ios/UIKit.d.ts",
-        "thread.d.ts",
-      ]),
-    );
-    const out = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-types-"));
-    writeNativePackage(r, out);
-    // An app's own TypeScript program: both platforms at once, lucent:* mapped to the written files.
-    const program = ts.createProgram(files, {
-      strict: true,
-      noEmit: true,
-      target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.ESNext,
-      moduleResolution: ts.ModuleResolutionKind.Bundler,
-      allowImportingTsExtensions: true,
-      // As in React Native's and Expo's tsconfig bases.
-      skipLibCheck: true,
-      paths: { "lucent:*": [path.join(out, "types/*")] },
-    });
-    expect(
-      ts
-        .getPreEmitDiagnostics(program)
-        .map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")),
-    ).toEqual([]);
-  });
+  it(
+    "writes the SDK declarations it imports, so editors and tsc resolve lucent:*",
+    () => {
+      const files = project(haptics);
+      const r = compile(files);
+      expect([...r.types!.keys()].sort()).toEqual(
+        expect.arrayContaining([
+          "android.d.ts",
+          "android/android.content.d.ts",
+          "android/android.os.d.ts",
+          "ios.d.ts",
+          "ios/UIKit.d.ts",
+          "thread.d.ts",
+        ]),
+      );
+      const out = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-types-"));
+      writeNativePackage(r, out);
+      // An app's own TypeScript program: both platforms at once, lucent:* mapped to the written files.
+      const program = ts.createProgram(files, {
+        strict: true,
+        noEmit: true,
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.ESNext,
+        moduleResolution: ts.ModuleResolutionKind.Bundler,
+        allowImportingTsExtensions: true,
+        // As in React Native's and Expo's tsconfig bases.
+        skipLibCheck: true,
+        paths: { "lucent:*": [path.join(out, "types/*")] },
+      });
+      expect(
+        ts
+          .getPreEmitDiagnostics(program)
+          .map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")),
+      ).toEqual([]);
+      // Both platforms' declarations, UIKit's among them: cold where the SDK cache misses them.
+    },
+    COLD_SDK,
+  );
 
   it("keeps the single layout for projects without platform files", () => {
     const r = compile(
