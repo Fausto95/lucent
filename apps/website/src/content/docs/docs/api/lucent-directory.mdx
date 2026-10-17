@@ -98,4 +98,4 @@ Gradle's own output, `android/build/`, `android/.cxx/` and `android/.gradle/`, a
 - A build leaves an unchanged file as it was, content and time, so native builds stay incremental.
 - [`lucent clean`](/docs/api/cli/#lucent-clean) deletes `.lucent/`. The next build compiles every module. When the code imports from `lucent:android/*` and the app has `android/gradlew`, it also runs Gradle for the classpath again.
 - After a clean, run `lucent build` before you build either platform. A Gradle build that has to create `.lucent/native` [stops and asks you to build again](/docs/architecture/builds/#a-gradle-build-can-ask-for-another).
-- The SDK bindings cache isn't in `.lucent/`: it's in `~/.cache/lucent`, which [`LUCENT_CACHE_DIR`](/docs/api/environment-variables/) moves. `lucent clean --cache` deletes its SDK entries too.
+- The cache isn't in `.lucent/`: it's in `~/.cache/lucent`, which [`LUCENT_CACHE_DIR`](/docs/api/environment-variables/) moves. It holds SDK bindings, compiled Swift and Kotlin, and generated declarations, which every project shares. `lucent clean --cache` deletes each of them too, and nothing else there.

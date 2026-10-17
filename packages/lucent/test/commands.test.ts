@@ -143,13 +143,24 @@ describe("lucent new view", () => {
 });
 
 describe("lucent clean", () => {
-  it("removes the generated package and says how much it freed; --cache clears the SDK cache too", () => {
+  it("removes the generated package and says how much it freed; --cache clears the cache too", () => {
     const root = project();
     fs.mkdirSync(path.join(root, ".lucent/native/cpp"), { recursive: true });
     fs.writeFileSync(path.join(root, ".lucent/native/cpp/big.cpp"), "x".repeat(2_000_000));
     const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cache-"));
     fs.mkdirSync(path.join(cache, "sdk/ios/key"), { recursive: true });
     fs.writeFileSync(path.join(cache, "sdk/ios/key/UIKit.json"), "{}");
+    // Every entry Lucent keeps there, and a file of someone else's beside them.
+    for (const entry of [
+      "memo/v1",
+      "swift-modules/Kit-1",
+      "spm/pkg-1",
+      "declarations",
+      "jvm-sources",
+    ])
+      fs.mkdirSync(path.join(cache, entry), { recursive: true });
+    fs.writeFileSync(path.join(cache, "pruned"), "");
+    fs.writeFileSync(path.join(cache, "notes.txt"), "mine");
 
     const r = lucent(["clean", "--root", root], { LUCENT_CACHE_DIR: cache });
     expect(r.status).toBe(0);
@@ -159,8 +170,8 @@ describe("lucent clean", () => {
 
     const withCache = lucent(["clean", "--cache", "--root", root], { LUCENT_CACHE_DIR: cache });
     expect(withCache.out).toMatch(/nothing to remove in the project/);
-    expect(withCache.out).toMatch(/removed the SDK cache/);
-    expect(fs.existsSync(path.join(cache, "sdk"))).toBe(false);
+    expect(withCache.out).toMatch(/removed the cache/);
+    expect(fs.readdirSync(cache)).toEqual(["notes.txt"]);
   });
 });
 

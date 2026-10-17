@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pruneStaleCache } from "@lucent-lang/bindgen";
+import { CACHE_ENTRIES, cacheRoot, pruneStaleCache } from "@lucent-lang/bindgen";
 import type { Invocation } from "../args.ts";
 
 /** Bytes under `dir`. */
@@ -16,8 +16,10 @@ const mb = (bytes: number) => `${(bytes / 1e6).toFixed(1)} MB`;
 
 /**
  * `lucent clean`: removes .lucent/ (the next build starts over); --cache
- * also the SDK cache, or with --stale only what other Lucent versions
- * wrote to it (this one never reads it).
+ * also the cache Lucent shares between projects, each of its entries
+ * (CACHE_ENTRIES: SDK bindings, memos, compiled Swift modules and
+ * packages, declarations, compiled Kotlin and Java), or with --stale only
+ * what other Lucent versions wrote to it (this one never reads it).
  */
 export function run({ root, flags, out }: Invocation): number {
   const t = out.theme;
@@ -39,16 +41,19 @@ export function run({ root, flags, out }: Invocation): number {
         : `${t.dim(t.symbols.off)} nothing stale in the SDK cache`,
     );
   } else if (flags.cache) {
-    const cache = path.join(
-      process.env.LUCENT_CACHE_DIR ||
-        path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache"), "lucent"),
-      "sdk",
-    );
-    const freed = size(cache);
-    fs.rmSync(cache, { recursive: true, force: true });
-    removed.push({ path: cache, bytes: freed });
+    // Its entries alone: LUCENT_CACHE_DIR may name a directory that holds more.
+    const root = cacheRoot();
+    let freed = 0;
+    for (const entry of CACHE_ENTRIES) {
+      const dir = path.join(root, entry);
+      if (!fs.existsSync(dir)) continue;
+      const bytes = size(dir);
+      fs.rmSync(dir, { recursive: true, force: true });
+      removed.push({ path: dir, bytes });
+      freed += bytes;
+    }
     out.print(
-      `${t.success(t.symbols.ok)} removed the SDK cache  ${t.dim(`${mb(freed)}, ${cache.replace(os.homedir(), "~")}; SDK modules are extracted again on first use`)}`,
+      `${t.success(t.symbols.ok)} removed the cache  ${t.dim(`${mb(freed)}, ${root.replace(os.homedir(), "~")}; SDK bindings, compiled Swift and Kotlin and generated declarations are made again on first use`)}`,
     );
   }
   if (out.json) out.data({ removed });

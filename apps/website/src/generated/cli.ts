@@ -159,7 +159,7 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
     "flags": [
       {
         "flag": "--cache",
-        "description": "Also remove the SDK bindings cache"
+        "description": "Also remove the cache projects share: SDK bindings, compiled Swift and Kotlin, generated declarations"
       },
       {
         "flag": "--stale",

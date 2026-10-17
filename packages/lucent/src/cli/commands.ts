@@ -175,7 +175,11 @@ export const commands: CommandSpec[] = [
     json: "clean",
     summary: "Remove the generated .lucent/ (the next build starts over)",
     flags: [
-      { name: "cache", description: "Also remove the SDK bindings cache" },
+      {
+        name: "cache",
+        description:
+          "Also remove the cache projects share: SDK bindings, compiled Swift and Kotlin, generated declarations",
+      },
       {
         name: "stale",
         description: "With --cache: remove only what other Lucent versions wrote to the SDK cache",

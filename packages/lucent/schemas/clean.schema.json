@@ -7,7 +7,7 @@
   "properties": {
     "removed": {
       "type": "array",
-      "description": "What was removed: .lucent, and with --cache the SDK cache",
+      "description": "What was removed: .lucent, and with --cache each of the cache's entries",
       "items": {
         "type": "object",
         "required": ["path", "bytes"],
