@@ -255,6 +255,20 @@ describe("the native package's ios-extensions.json", () => {
     expect(() => ext.readExtensionTargets(root)).toThrow("of format 2");
   });
 
+  it("is read from the package LUCENT_OUT names, as Metro and autolinking find it", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-app-"));
+    fs.mkdirSync(path.join(root, "out"), { recursive: true });
+    fs.writeFileSync(path.join(root, "out/ios-extensions.json"), JSON.stringify(manifest));
+    const previous = process.env.LUCENT_OUT;
+    process.env.LUCENT_OUT = "out";
+    try {
+      expect(ext.readExtensionTargets(root)).toEqual(manifest);
+    } finally {
+      if (previous === undefined) delete process.env.LUCENT_OUT;
+      else process.env.LUCENT_OUT = previous;
+    }
+  });
+
   it("is what the Expo config plugin's Xcode project mod adds", () => {
     expect(plugin({ name: "app", slug: "app", ios: {} }).mods?.ios?.xcodeproj).toBeDefined();
   });

@@ -15,7 +15,7 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
       },
       {
         "flag": "--out <dir>",
-        "description": "Where to write the native package (default: .lucent/native)"
+        "description": "Where to write the native package (default: LUCENT_OUT, else .lucent/native)"
       },
       {
         "flag": "--frozen",

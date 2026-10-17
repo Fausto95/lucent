@@ -49,7 +49,7 @@ Compile the project's modules and write the native package (.lucent/native); ski
 | --- | --- |
 | `--force` | Rebuild even when nothing changed |
 | `--platforms <list>` | Targets for platform code: ios, android, host (default: the SDKs installed) |
-| `--out <dir>` | Where to write the native package (default: .lucent/native) |
+| `--out <dir>` | Where to write the native package (default: LUCENT\_OUT, else .lucent/native) |
 | `--frozen` | Fail unless the SDKs and SDK symbols are the ones lucent-sdk.lock.json records, with every target it lists (CI, releases) |
 
 With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-build---json).

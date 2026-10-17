@@ -15,6 +15,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { nativePackage } = require("../metro/native-package.cjs");
 
 /** Directories the CLI's module search skips (compiler's findLucentFiles). */
 const SKIP = new Set(["node_modules", "ios", "android"]);
@@ -59,11 +60,12 @@ function staleness(root, out) {
 
 /**
  * The dependency entry for the native package of the app at `root`
- * (react-native.config.js's __dirname), built first when it must be.
- * LUCENT_AUTOLINK_BUILD=0 never builds here.
+ * (react-native.config.js's __dirname), built first when it must be: the
+ * project's .lucent/native, or the one LUCENT_OUT names, which the build
+ * (the same environment) writes. LUCENT_AUTOLINK_BUILD=0 never builds here.
  */
 function lucentDependency(root, options = {}) {
-  const out = path.join(root, ".lucent", "native");
+  const out = nativePackage(root);
   const why = process.env.LUCENT_AUTOLINK_BUILD === "0" ? undefined : staleness(root, out);
 
   if (why) {

@@ -1,3 +1,4 @@
+import { nativeOut } from "./native-out.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -132,7 +133,7 @@ export interface BuildOptions {
   mode: "build" | "check";
   force?: boolean;
   platforms?: Target[];
-  /** Where to write the native package, relative to the project (default .lucent/native). */
+  /** Where to write the native package, relative to the project (default: LUCENT_OUT, else .lucent/native). */
   out?: string;
   /** Start background SDK extractions for cold modules (a one-off build; a long session extracts as it goes). */
   prefetch?: boolean;
@@ -237,7 +238,7 @@ export async function buildProject(
   if (options.signal?.aborted) return superseded("check");
 
   const sdk = projectSdk(root, native);
-  const outDir = path.resolve(root, options.out ?? ".lucent/native");
+  const outDir = nativeOut(root, options.out);
 
   let lock: SdkUsage | undefined;
   const lockProblem = (detail: string) => {
