@@ -9,7 +9,13 @@
 // and values are lucent_values too. An instance of an exported class is a
 // lucent_object, which an entry gives its caller to own: lucent_release
 // lets it go.
-#pragma once
+//
+// Guarded by a macro, not #pragma once: a pod built as a framework has two
+// copies, its Headers/ one, which the module map names, and the source one
+// lucent_entries.h reaches by its path. #pragma once tells files apart, so
+// both copies' types would be defined in one module.
+#ifndef LUCENT_ENTRY_TYPES_H
+#define LUCENT_ENTRY_TYPES_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -94,3 +100,5 @@ struct lucent_value {
 #ifdef __cplusplus
 }
 #endif
+
+#endif  // LUCENT_ENTRY_TYPES_H
