@@ -146,11 +146,13 @@ export const platformCases: SdkCase[] = [
   },
   {
     name: "view props: onLayout fires with the component's size",
+    // Its first layout may come before its height does (a size waits for the JavaScript thread,
+    // limitations.md): the size it settles at, within 10 s.
     run: () =>
       poll(
         10_000,
         async () => cardLayout(),
-        (got) => got !== "",
+        (got) => got === "laid out",
       ),
     expected: "laid out",
   },
