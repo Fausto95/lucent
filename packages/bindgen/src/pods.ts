@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { lockedPods } from "./provenance.ts";
+import { OWN_SWIFT_MODULE } from "./swift-modules.ts";
 import { frameworkSearchPath } from "./vendored.ts";
 
 /** Where the app's pods put the modules they define, as the Pods xcconfig tells Xcode. */
@@ -188,6 +189,9 @@ function staticSwiftPods(
 
     const settings = readXcconfig(xcconfig);
     const module = settings.get("PRODUCT_MODULE_NAME")?.trim() || target.replace(/\W/g, "_");
+    // Lucent's own pod: its packages' Swift is bound from their sources (OWN_SWIFT_MODULE), and
+    // the Swift a build generates into it calls C entry points no module made here sees.
+    if (module === OWN_SWIFT_MODULE) continue;
     const srcroot = expand(settings.get("PODS_TARGET_SRCROOT") ?? "", {
       PODS_ROOT: pods,
       SRCROOT: pods,

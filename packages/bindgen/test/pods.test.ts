@@ -19,6 +19,7 @@ describe("pods Xcode builds into its products directory", () => {
   const pods = podsSearchPaths(ios)!;
 
   it("finds a Swift pod built as a static library: its target, module and sources", () => {
+    // Not Lucent's own pod (LucentNative), whose packages' Swift is bound from their sources.
     expect(pods.swiftPods).toEqual([
       {
         pod: "dial-kit",
