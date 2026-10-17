@@ -1,7 +1,11 @@
 {
   "ios": {
     "modules": ["UIKit", "Foundation", "AVFoundation", "StoreKit", "CryptoKit"],
-    "errors": {}
+    "errors": {
+      "Foundation|TS2417|override-incompatible|Class static side 'typeof HTTPCookiePropertyKey' incorrectly extends base class static side 'typeof NSObject'.": 1,
+      "Foundation|TS2417|override-incompatible|Class static side 'typeof NSFileVersion' incorrectly extends base class static side 'typeof NSObject'.": 1,
+      "UIKit|TS2320|protocol-merging|Interface 'NSCoder' cannot simultaneously extend types 'NSCoder_UIKit' and 'NSCoder_AVFoundation'.": 1
+    }
   },
   "android": {
     "modules": [

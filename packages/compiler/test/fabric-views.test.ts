@@ -52,8 +52,9 @@ describe("components' Fabric sources in compiles", () => {
 
       const views = [...result.files.keys()].filter((f) => f.includes("/views/")).sort();
 
-      // The Fabric sources and registry, the component's mount, and the iOS host's view class.
-      expect(views).toHaveLength(6);
+      // The Fabric sources and the marker header, the component's mount, and the iOS host's view
+      // class (no registry since #394: each host gives its components' descriptors).
+      expect(views).toHaveLength(5);
       expect(
         views.some((f) => /^ios\/views\/LucentTitle_[0-9a-f]{12}ComponentView\.mm$/.test(f)),
       ).toBe(true);

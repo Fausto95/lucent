@@ -480,6 +480,9 @@ export function name(verbose: boolean): string {
       return verbose ? ProcessInfo.processInfo.processName : "ios";
     case "android":
       return Build.MODEL ?? "";
+    // Where the module runs as JavaScript (decision 0133): a native build leaves the case out.
+    case "web":
+      return "web";
   }
 }
 
@@ -744,7 +747,10 @@ describe("switch (PLATFORM) and PLATFORM === … && …", () => {
     const cpp = r.files.get("android/m_guarded.cpp")!;
     expect(cpp).toContain("android/os/Build");
     expect(cpp).not.toContain("processName");
-    for (const f of [mm, cpp]) expect(f).toContain('LUCENT_STR("mobile")');
+    for (const f of [mm, cpp]) {
+      expect(f).toContain('LUCENT_STR("mobile")');
+      expect(f).not.toContain('LUCENT_STR("web")');
+    }
   });
 
   it.skipIf(!ios || !android || process.platform !== "darwin")(
