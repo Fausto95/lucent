@@ -512,7 +512,8 @@ export async function run(): Promise<string> {
     const { r, cpp } = android(setters, sdk);
 
     expect(r.diagnostics).toEqual([]);
-    expect(r.kotlin?.size ?? 0).toBe(0);
+    // JNI calls the setters: no shim. (The Kotlin a build writes besides is its exports' API.)
+    expect(shimsOf(r)).toEqual([]);
     expect(cpp).toContain('"setPageSize", "(I)V"');
     expect(cpp).toContain('"setLastQuery", "(Ljava/lang/String;)V"');
   });
