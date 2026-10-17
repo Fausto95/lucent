@@ -266,8 +266,8 @@ Without the Android SDK, `ui/toolkit-build.ts` builds Compose bodies
 against stand-ins for `View` and `Context`, as Compose's API comes from
 `lib/sdk`'s schemas: their diagnostics and generated code are checked,
 and compiling the Kotlin and glue waits for Compose's jars and the NDK.
-CI's macOS shards install no Pods, so the Mac Catalyst run tests are
-skipped there.
+CI's macOS shards install the bare example's pods (cached by
+`Podfile.lock`), so the Mac Catalyst run tests run there.
 
 `unknown-library.test.ts` binds and runs a library whose names are drawn
 at random on every run, so nothing in Lucent can know them. On iOS its
