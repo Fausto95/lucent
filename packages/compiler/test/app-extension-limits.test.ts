@@ -6,11 +6,13 @@
  * extension's declaration names that isn't one is LUCENT3019. Compiled
  * against a schema set, on any machine.
  */
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { compile, sdkAvailable } from "../src/index.ts";
+import { symbolGraph } from "../../bindgen/src/ios.ts";
 import { loadSdkModule } from "../src/sdk/schema.ts";
 import { schemaSet } from "./schema-set.ts";
 
@@ -209,6 +211,19 @@ describe.skipIf(!sdkAvailable("ios"))("the iOS SDK's APIs app extensions can't u
     const shared =
       app?.kind === "class" ? app.properties?.find((p) => p.name === "shared") : undefined;
 
-    expect(shared?.extensionUnavailable, JSON.stringify(shared)).toBe(true);
+    // On a failure, the property's symbol in UIKit's symbol graph, with its availability.
+    const graphed = () => {
+      const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], {
+        encoding: "utf8",
+      }).stdout.trim();
+      const g = symbolGraph("UIKit", { modules: ["UIKit"] }, sdk);
+      const symbol = (shared?.symbol ?? "").replace(/^objc:/, "");
+      const found = g.symbols.find((x) => x.identifier.precise === symbol);
+      return JSON.stringify(found ? { availability: found.availability } : `no ${symbol}`);
+    };
+    expect(
+      shared?.extensionUnavailable,
+      shared?.extensionUnavailable ? "" : `${JSON.stringify(shared)}\n${graphed()}`,
+    ).toBe(true);
   }, 600_000);
 });
