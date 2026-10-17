@@ -46,6 +46,9 @@ const quiet: Pattern[] = [
   "scripts/cli-recording.ts",
   "scripts/ci-changes.test.ts",
   "scripts/sync-examples.test.ts",
+  // What the unit-test jobs annotate their failures with.
+  "scripts/test-failures.ts",
+  "scripts/test-failures.test.ts",
   // The no-catalog audit: a unit test, of every file under packages/.
   "scripts/platform-names.ts",
   "scripts/platform-names.test.ts",
