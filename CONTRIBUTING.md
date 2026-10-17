@@ -71,8 +71,8 @@ the runtime or the compiler, and before a release.
 ### What CI runs
 
 A pull request runs the jobs its files can affect: `scripts/ci-changes.ts`
-maps paths to jobs (a docs-only change runs the Linux unit tests; a
-website change adds the website job; a change under `packages/` runs
+maps paths to jobs (a change to `docs/` or the website adds the website
+job to the Linux unit tests; a change under `packages/` runs
 everything but the device runs), and a path it doesn't place runs
 everything. The one check to require is **CI**, which passes when every
 job passed or was skipped. A push to `main` and the nightly run run every

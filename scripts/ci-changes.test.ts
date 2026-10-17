@@ -23,8 +23,8 @@ describe("ci-changes", () => {
     ]);
   });
 
-  it("runs only the unit tests for contributor docs and changesets", () => {
-    expect(plan(["docs/semantics.md", ".changeset/x.md", "SECURITY.md"])).toEqual({
+  it("runs only the unit tests for changesets and community files", () => {
+    expect(plan([".changeset/x.md", "SECURITY.md", ".github/ISSUE_TEMPLATE/bug.yml"])).toEqual({
       runtime: false,
       harnesses: [],
       website: false,
@@ -36,9 +36,24 @@ describe("ci-changes", () => {
   });
 
   it("runs the website for the files its check reads outside apps/website", () => {
-    for (const f of ["ROADMAP.md", "README.md", "packages/lucent/CHANGELOG.md"])
+    for (const f of [
+      "ROADMAP.md",
+      "README.md",
+      "packages/lucent/CHANGELOG.md",
+      // A page is built from it; every docs/ file's links into the site are checked.
+      "docs/limitations.md",
+      "docs/semantics.md",
+      "benchmarks/results/linux-x64.json",
+      "vercel.json",
+    ])
       expect(plan([f]).website).toBe(true);
     expect(plan(["ROADMAP.md"]).iosTest).toBe(false);
+    expect(plan(["docs/limitations.md"])).toMatchObject({
+      runtime: false,
+      iosTest: false,
+      apps: false,
+    });
+    expect(plan(["docs/limitations.md"]).harnesses).toEqual([]);
   });
 
   it("runs the website alone for the website", () => {
