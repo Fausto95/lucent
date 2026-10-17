@@ -691,7 +691,8 @@ export function createLucentProgram(
         nativeMemberHint(d, checker, direct) ??
         nativeAttributeHint(d, checker) ??
         initializerFactoryHint(d, checker) ??
-        inheritedInitializerHint(d, checker, direct);
+        inheritedInitializerHint(d, checker, direct) ??
+        propertyFieldHint(d, checker);
       const diagnostic = fromTs(d);
       diagnostics.push(
         hint
@@ -942,6 +943,42 @@ function nativeAttributeHint(
   }
 
   return undefined;
+}
+
+/** TypeScript's error for a field over an accessor of the base class's. */
+const FIELD_OVER_ACCESSOR = 2610;
+
+/**
+ * A field of a Lucent class whose iOS superclass has a property of that
+ * name, which its declarations make an accessor (T112): the superclass
+ * would not see the field. The fix sets the property, or overrides it.
+ */
+function propertyFieldHint(
+  d: ts.Diagnostic,
+  checker: ts.TypeChecker,
+): { message: string; fix: string } | undefined {
+  if (d.code !== FIELD_OVER_ACCESSOR || !d.file || d.start === undefined) return undefined;
+
+  let field: ts.Node | undefined = nodeAt(d.file, d.start);
+  while (field && !ts.isPropertyDeclaration(field) && !ts.isParameter(field)) field = field.parent;
+  if (!field || !field.name || !ts.isIdentifier(field.name)) return undefined;
+
+  const cls = ts.isParameter(field) ? field.parent.parent : field.parent;
+  if (!cls || !ts.isClassLike(cls)) return undefined;
+
+  const type = checker.getTypeAtLocation(cls);
+  const [base] = type.isClassOrInterface() ? checker.getBaseTypes(type) : [];
+  const property = base && checker.getPropertyOfType(base, field.name.text);
+  const declared = property?.declarations?.[0];
+  const owner = declared?.parent;
+  if (!declared || !owner || !sdkModuleOf(declared.getSourceFile())) return undefined;
+
+  const name = field.name.text;
+  const of = ts.isClassLike(owner) && owner.name ? owner.name.text : "its superclass";
+  return {
+    message: `${name} is ${of}'s Objective-C property: a field would hide it from ${of}.`,
+    fix: `set it (this.${name} = …) instead of declaring a field, or override it with get and set accessors`,
+  };
 }
 
 /** TypeScript's errors for an attribute a tag does not take (2769: one per constructor tried). */
