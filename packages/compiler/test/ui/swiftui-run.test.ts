@@ -151,6 +151,8 @@ describe("a SwiftUI component in its iOS host", () => {
         path.join(cpp, "lucent/jsi/convert.cpp"),
         path.join(cpp, "lucent/platform/ios.mm"),
         path.join(cpp, "lucent/platform/ios_ui.mm"),
+        // The view tree a debug build's snapshot shows, which the component view installs.
+        path.join(cpp, "lucent/platform/ios_debug.mm"),
         path.join(rn, "LucentViewRequests.cpp"),
         ...fs
           .readdirSync(rn)
@@ -219,7 +221,11 @@ describe("a SwiftUI component in its iOS host", () => {
         { encoding: "utf8" },
       );
 
-      expect(link.stderr).toBe("");
+      // Xcode 26's SwiftUI auto-links frameworks a program linked by hand may not name or link:
+      // the linker says so, of Apple's frameworks, not of this program.
+      const appleAutoLinks =
+        /^ld: warning: (Could not find or use auto-linked framework 'UIUtilities'|Could not parse or use implicit file '[^']*\/SwiftUICore\.tbd').*\n/gm;
+      expect(link.stderr.replace(appleAutoLinks, "")).toBe("");
 
       const run = runProgram(binary);
 
