@@ -128,6 +128,12 @@ generated from this file.
   `pod install`), an app with components builds twice on Android.
   Prebuild lists components from the iOS build, and the first Gradle
   build reads that list before it writes it.
+- In app extension code, `LUCENT3018` refuses Lucent's own `present()`,
+  `onAppEvent()` and `onSceneEvent()`. It doesn't refuse the SDK's APIs
+  marked unavailable there yet (`NS_EXTENSION_UNAVAILABLE_IOS`, as
+  `UIApplication.shared` is). The SDK's symbol graphs don't carry the
+  marks, so Xcode refuses such a call when it builds the extension
+  ([T133](tasks.md#t133)).
 - App extensions aren't run on a simulator yet ([T133](tasks.md#t133)). A
   widget whose `timeline()` fails shows its placeholder's entry until
   WidgetKit asks again, in 15 minutes. A component's SwiftUI body shows no

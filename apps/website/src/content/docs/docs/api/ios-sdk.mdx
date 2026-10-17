@@ -209,7 +209,7 @@ These fail to compile with `LUCENT1005`:
 
 - A class or member Swift marks `@MainActor` compiles only in code the main thread runs (`LUCENT3006`). That's a `main(() => …)` function, a block or requirement the SDK runs there, a `lucent:ios` callback, and a main-thread class's subclass. Swift `async` members are the exception: they move to the main thread themselves.
 - An API newer than the app's deployment target compiles only under an `available("ios", major, minor)` check (`LUCENT3007`). [Check the OS version](/docs/guides/check-the-os-version/#the-oldest-os-your-app-runs-on) says where the target comes from, and the forms of the check.
-- An API the SDK marks unavailable to app extensions, such as `UIApplication.shared`, fails to compile in app extension code (`LUCENT3018`). That's every module an extension's code reaches through its imports. So do `present()`, `onAppEvent()` and `onSceneEvent()`.
+- `present()`, `onAppEvent()` and `onSceneEvent()` fail to compile in app extension code (`LUCENT3018`). That's every module an extension's code reaches through its imports. An API the SDK marks unavailable to app extensions, such as `UIApplication.shared`, fails when Xcode builds the extension. Lucent doesn't read those marks from the SDK yet.
 
 ## Swift-only APIs
 
