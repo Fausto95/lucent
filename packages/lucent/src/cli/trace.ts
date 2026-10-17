@@ -113,8 +113,12 @@ export interface EffectTotal {
   count: number;
 }
 
+/** The causes whose events, spans or instants, each move bytes: their `value`. */
+const BYTES = new Set(["copy", "alloc"]);
+
 /**
- * Time spent in each cause (spans only), and the bytes copies moved; and
+ * Time spent in each cause (spans), and the bytes copies and allocations
+ * moved, instants among them (`buffer.copy`, `buffer.allocate`); and
  * effect runs by the line each effect is at, the most time first.
  */
 export function summarize(trace: ChromeTrace): {
@@ -125,13 +129,16 @@ export function summarize(trace: ChromeTrace): {
   const sites = new Map<string, EffectTotal>();
 
   for (const e of trace.traceEvents) {
-    if (e.ph !== "X" || !e.cat) continue;
+    if (!e.cat) continue;
+    const span = e.ph === "X";
+    // A byte-moving cause's instants count; other instants mark a moment, not a cost.
+    if (!span && !((e.ph === "i" || e.ph === "I") && BYTES.has(e.cat))) continue;
 
     const total = totals.get(e.cat) ?? { category: e.cat, ms: 0, count: 0 };
-    total.ms += (e.dur ?? 0) / 1000;
+    if (span) total.ms += (e.dur ?? 0) / 1000;
     total.count++;
 
-    const bytes = e.cat === "copy" ? Number(e.args?.value ?? 0) : 0;
+    const bytes = BYTES.has(e.cat) ? Number(e.args?.value ?? 0) : 0;
     if (bytes > 0) total.bytes = (total.bytes ?? 0) + bytes;
 
     totals.set(e.cat, total);
@@ -157,6 +164,14 @@ export function summarize(trace: ChromeTrace): {
     .sort((a, b) => b.ms - a.ms || (a.site < b.site ? -1 : 1));
 
   return { categories, effects };
+}
+
+/** `512 B`, `6.1 KB`, `8.4 MB`. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1e3) return `${bytes} B`;
+  if (bytes < 1e6) return `${(bytes / 1e3).toFixed(1)} KB`;
+
+  return `${(bytes / 1e6).toFixed(1)} MB`;
 }
 
 /** `12 ms`, `0.06 ms`, `4.2 s`. */

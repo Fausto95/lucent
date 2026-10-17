@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Invocation } from "../args.ts";
 import type { BuildRecord } from "../build-graph.ts";
-import { type ChromeTrace, formatMs, mergeTraces, summarize } from "../trace.ts";
+import { type ChromeTrace, formatBytes, formatMs, mergeTraces, summarize } from "../trace.ts";
 
 const HOW =
   "run the app or its tests with LUCENT_TRACE=<file>.json and pass --runtime <file>; on a device, LUCENT_TRACE=platform (iOS, Instruments' os_signpost) or `adb shell setprop debug.lucent.trace 1` (Android, Perfetto's atrace)";
@@ -65,9 +65,10 @@ export function run({ root, flags, out }: Invocation): number {
 
   for (const { name, trace } of runtimes) {
     const summary = summarize(trace);
+    // A cause of instants alone (allocations) has a count, not a time.
     const causes = summary.categories.map(
       (c) =>
-        `${c.category} ${formatMs(c.ms)}${c.bytes ? ` (${(c.bytes / 1e6).toFixed(1)} MB)` : ""}`,
+        `${c.category} ${c.ms > 0 ? formatMs(c.ms) : `${c.count}×`}${c.bytes ? ` (${formatBytes(c.bytes)})` : ""}`,
     );
     const dropped = Number(trace.otherData?.dropped ?? 0);
 

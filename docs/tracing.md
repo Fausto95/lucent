@@ -107,12 +107,13 @@ result in [ui.perfetto.dev](https://ui.perfetto.dev) or
 `chrome://tracing`.
 
 It also prints the build's steps, each runtime trace's time per category
-with the bytes copies moved, and the ten effect sites that took longest:
+with the bytes copies and allocations moved, and the ten effect sites
+that took longest:
 
 ```text
 ✓ wrote .lucent/trace.json  open it in ui.perfetto.dev or chrome://tracing
   build            resolve 12 ms · check 340 ms · generate 25 ms
-  trace.json       entry 3.2 ms · queue 41 ms · run 2.9 ms · effect 4.4 ms · copy 6.1 ms (8.4 MB)
+  trace.json       entry 3.2 ms · queue 41 ms · run 2.9 ms · effect 4.4 ms · copy 6.1 ms (8.4 MB) · alloc 3× (2.1 MB)
                    effect src/rows.lucent.tsx:11  48× 3.1 ms
 ```
 
@@ -139,9 +140,10 @@ steady clock, so the processes share a view, not a timeline.
   boundary are inside `entry` spans, not `copy` events.
 - Not traced: class fields and accessors, exported variables, and the
   main thread's waits for an actor (`enterFromMain`).
-- `lucent trace` sums spans only, and spans nest: an `entry` includes its
-  `lucent-lock`. `buffer.copy` is an instant, so its bytes are left out
-  of the printed totals.
+- `lucent trace` sums spans' time, and spans nest: an `entry` includes
+  its `lucent-lock`. Instants have no time: a `copy` or `alloc` instant
+  (`buffer.copy`, `buffer.allocate`, `buffer.adopt`) adds its bytes and
+  count to its category's total, and other instants mark a moment only.
 
 ## Related logs
 

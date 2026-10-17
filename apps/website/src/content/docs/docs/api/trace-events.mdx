@@ -126,7 +126,7 @@ npx lucent trace --runtime trace.json
 ```sh title="terminal" nocopy
 ✓ wrote .lucent/trace.json  open it in ui.perfetto.dev or chrome://tracing
   build            resolve 1 ms · check 152 ms · generate 37 ms
-  trace.json       entry 0.26 ms · lock 0.03 ms · queue 20.2 ms · run 1.58 ms · completion 1.57 ms · compute 6.84 ms · copy 0.055 ms (0.0 MB)
+  trace.json       entry 0.26 ms · lock 0.03 ms · queue 20.2 ms · run 1.58 ms · completion 1.57 ms · compute 6.84 ms · copy 0.055 ms (8.2 KB) · alloc 2× (4.1 KB)
 ```
 
 `lucent trace` writes one Chrome trace with the last build's steps, from `.lucent/build-record.json`, as the process `lucent build`. Each runtime trace given becomes a process named after its file.
@@ -134,7 +134,8 @@ npx lucent trace --runtime trace.json
 Its flags are on [`lucent trace`](/docs/api/cli/#lucent-trace).
 
 - Without `--runtime`, it writes and prints the last build's steps only. With no build record either, it fails and says how to capture a trace.
-- Each runtime trace's line adds up the time of its spans by category, the bytes `transport.copy` moved, and the events the buffer dropped.
+- Each runtime trace's line adds up the time of its spans by category, and the events the buffer dropped.
+- Copies and allocations add their bytes, `buffer.copy`'s and `buffer.allocate`'s instants among them. A category of instants alone shows its count, as in `alloc 2×`.
 - Under it come the ten effect sites that took the most time, each with its runs and their total, such as `effect /app/src/rows.lucent.tsx:11  48× 3.1 ms`.
 - A span inside another counts in both totals: a synchronous call's `entry` includes its `lock` wait.
 - Open the file in [ui.perfetto.dev](https://ui.perfetto.dev) or `chrome://tracing`.
