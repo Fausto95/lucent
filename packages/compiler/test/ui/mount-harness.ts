@@ -5,7 +5,11 @@
  * Hermes), and run. The driver names the component's namespace
  * REGISTRATION; what it prints is the run's output.
  */
-import { spawnSync } from "node:child_process";
+import {
+  type SpawnSyncOptionsWithStringEncoding,
+  type SpawnSyncReturns,
+  spawnSync,
+} from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -245,12 +249,91 @@ export function runMounted(
 
   expect(build.stderr).toBe("");
 
-  const run = spawnSync(binary, [], { encoding: "utf8", timeout: 60_000 });
+  const run = runProgram(binary);
 
-  if (run.status !== 0)
-    throw new Error(`the mount run exited with ${run.status}:\n${run.stdout}${run.stderr}`);
+  if (run.status !== 0) throw new Error(`the mount run failed: ${run.failure}`);
 
   fs.rmSync(dir, { recursive: true, force: true });
 
   return run.stdout.trim().split("\n");
+}
+
+/** A run of a program, and what its failure says ("" when it exited with 0). */
+export type ProgramRun = SpawnSyncReturns<string> & { failure: string };
+
+/**
+ * Runs a program a run test built (60 s at most): what it printed, and
+ * what its failure says, for the test's message: its status, or the signal
+ * that ended it and the faulting thread of the crash report macOS wrote.
+ */
+export function runProgram(
+  binary: string,
+  args: string[] = [],
+  opts: Partial<SpawnSyncOptionsWithStringEncoding> = {},
+): ProgramRun {
+  const started = Date.now();
+  const run = spawnSync(binary, args, { timeout: 60_000, ...opts, encoding: "utf8" });
+  if (run.status === 0) return { ...run, failure: "" };
+
+  const how = run.error
+    ? `${run.error.message}${run.signal ? ` (${run.signal})` : ""}`
+    : run.signal
+      ? `ended by ${run.signal}`
+      : `exited with ${run.status}`;
+  const report = run.signal && !run.error ? crashReport(path.basename(binary), started) : undefined;
+
+  return {
+    ...run,
+    failure: [`${how}`, report, `stdout:\n${run.stdout}`, `stderr:\n${run.stderr}`]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}
+
+/**
+ * The faulting thread of the crash report macOS wrote for `name` since
+ * `since`, waiting a few seconds for ReportCrash; none when it wrote none.
+ */
+function crashReport(name: string, since: number): string | undefined {
+  const dir = path.join(os.homedir(), "Library/Logs/DiagnosticReports");
+  const wait = new Int32Array(new SharedArrayBuffer(4));
+
+  for (let tries = 0; tries < 20; tries++) {
+    const found = fs.existsSync(dir)
+      ? fs
+          .readdirSync(dir)
+          .filter((f) => f.startsWith(`${name}-`) && f.endsWith(".ips"))
+          .map((f) => path.join(dir, f))
+          .filter((f) => fs.statSync(f).mtimeMs >= since - 1000)
+      : [];
+
+    if (found.length) {
+      try {
+        // An .ips report is a line of JSON, its header, then the report's JSON.
+        const text = fs.readFileSync(found.sort().at(-1)!, "utf8");
+        const report = JSON.parse(text.slice(text.indexOf("\n") + 1)) as {
+          exception?: { type?: string; signal?: string };
+          faultingThread?: number;
+          threads?: { frames?: { imageIndex?: number; imageOffset?: number; symbol?: string }[] }[];
+          usedImages?: { name?: string }[];
+        };
+        const frames = report.threads?.[report.faultingThread ?? 0]?.frames ?? [];
+
+        return [
+          `crash report: ${report.exception?.type ?? "?"} (${report.exception?.signal ?? "?"}), the faulting thread:`,
+          ...frames
+            .slice(0, 24)
+            .map(
+              (f) =>
+                `  ${report.usedImages?.[f.imageIndex ?? -1]?.name ?? "?"} ${f.symbol ?? `+0x${(f.imageOffset ?? 0).toString(16)}`}`,
+            ),
+        ].join("\n");
+      } catch (e) {
+        return `crash report ${found.at(-1)}: unreadable (${(e as Error).message})`;
+      }
+    }
+    Atomics.wait(wait, 0, 0, 500);
+  }
+
+  return undefined;
 }

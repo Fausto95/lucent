@@ -10,6 +10,7 @@ import { componentExports, VIEWS_RUNTIME } from "../../src/ui/proxy.ts";
 import { catalystToolchain, reactCommon } from "./react-native-headers.ts";
 import { components, GAUGE } from "./views-fixture.ts";
 import { buildObjects, compileOnly } from "../parallel-build.ts";
+import { runProgram } from "./mount-harness.ts";
 
 type Props = Record<string, unknown>;
 
@@ -186,13 +187,13 @@ describe("a component's native props", () => {
       }));
 
       for (const mode of ["jsi", "dynamic"]) {
-        const run = spawnSync(binary, [mode], { input: `${lines.join("\n")}\n`, encoding: "utf8" });
+        const run = runProgram(binary, [mode], { input: `${lines.join("\n")}\n` });
         const out = run.stdout
           .trim()
           .split("\n")
           .map((l) => JSON.parse(l) as unknown);
 
-        expect(run.status).toBe(0);
+        expect(run.status, run.failure).toBe(0);
         expect(out).toEqual(expected);
         expect(run.stderr).toContain(`[lucent] ${GAUGE} prop value: expected a number`);
       }

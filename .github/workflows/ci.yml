@@ -78,7 +78,7 @@ jobs:
       - run: pnpm check
         if: matrix.shard == 1
       # Each shard's report keeps its files' times, for config/test-timings.json.
-      - run: pnpm exec vp test run --shard=${{ matrix.shard }}/2 --reporter=default --reporter=json --outputFile.json=unit-test-report.json
+      - run: pnpm exec vp test run --shard=${{ matrix.shard }}/2 --reporter=default --reporter=github-actions --reporter=json --outputFile.json=unit-test-report.json
       # The step's own annotation keeps the end of its output: this one names every failure.
       - name: Failed tests
         if: failure()
@@ -259,7 +259,7 @@ jobs:
         working-directory: apps/bare-example/ios
         run: bundle exec pod install
       - name: Compiler and bindgen tests with the iOS SDK (the Linux job skips them)
-        run: pnpm exec vp test run --shard=${{ matrix.shard }}/3 --reporter=default --reporter=json --outputFile.json=unit-test-report.json
+        run: pnpm exec vp test run --shard=${{ matrix.shard }}/3 --reporter=default --reporter=github-actions --reporter=json --outputFile.json=unit-test-report.json
       - name: Failed tests
         if: failure()
         run: node scripts/test-failures.ts unit-test-report.json

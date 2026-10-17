@@ -11,6 +11,7 @@ import { fabricSources } from "../../src/ui/fabric.ts";
 import { catalystToolchain, reactCommon } from "./react-native-headers.ts";
 import { components, GAUGE, PICKER } from "./views-fixture.ts";
 import { buildObjects, compileOnly } from "../parallel-build.ts";
+import { runProgram } from "./mount-harness.ts";
 
 const toolchain = catalystToolchain();
 
@@ -73,11 +74,11 @@ describe("a component's events", () => {
 
       expect(printed + build.stderr).toBe("");
 
-      const run = spawnSync(binary, { encoding: "utf8" });
+      const run = runProgram(binary);
 
       expect(run.stderr).toBe("");
       expect(run.stdout.trim().split("\n")).toEqual(EXPECTED);
-      expect(run.status).toBe(0);
+      expect(run.status, run.failure).toBe(0);
 
       fs.rmSync(dir, { recursive: true, force: true });
     },
