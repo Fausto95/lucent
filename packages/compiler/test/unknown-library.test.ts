@@ -1,11 +1,12 @@
 /**
  * A native library Lucent has never seen, bound and run by rule (T28): its
  * module, class, callback, generic and async names are drawn at random on
- * every run, so nothing in Lucent can know them.
+ * every run, so nothing in Lucent can know them. Its views too, with their
+ * props, events and children (T152).
  *
  * fixtures/unknown-library holds the library and the app code using it.
- * "QXN"/"qxn" is replaced by the run's random prefix everywhere, file and
- * directory names included.
+ * "QXN"/"qxn"/"Qxn" is replaced by the run's random prefix everywhere
+ * (`ZABC`, `zabc`, `Zabc`), file and directory names included.
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -14,10 +15,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 import { androidJars, sdkAvailable } from "@lucent-lang/bindgen";
-import { classpathFile } from "../../bindgen/test/java-fixtures.ts";
+import { classpathFile, javaJar } from "../../bindgen/test/java-fixtures.ts";
 import { compileKotlin, kotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
 import { android } from "./android-harness.ts";
-import { compile, type SdkOptions } from "../src/index.ts";
+import { compile, runtimeDir, type SdkOptions } from "../src/index.ts";
+import { fakeAndroid } from "./fake-android.ts";
 import { glueErrors, jdk, jvmRun } from "./jni-harness.ts";
 import {
   compileErrors,
@@ -30,6 +32,11 @@ import {
   xcode,
 } from "./swift-harness.ts";
 import { canRunMounted, runMounted } from "./ui/mount-harness.ts";
+import {
+  assembledReleases,
+  compileErrors as headerErrors,
+  hostToolchains,
+} from "./ui/react-native-headers.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(here, "fixtures/unknown-library");
@@ -41,7 +48,9 @@ const prefix = `Z${crypto
   .replace(/\d/g, (d) => "QRSTUVWXYZ"[+d]!)
   .toUpperCase()}`;
 const lower = prefix.toLowerCase();
-const rename = (text: string) => text.replaceAll("QXN", prefix).replaceAll("qxn", lower);
+const capital = lower[0]!.toUpperCase() + lower.slice(1);
+const rename = (text: string) =>
+  text.replaceAll("QXN", prefix).replaceAll("Qxn", capital).replaceAll("qxn", lower);
 
 /** The fixture under this run's names, in a fresh directory. */
 function randomized(): string {
@@ -457,3 +466,185 @@ describe("an unknown library's view on iOS", () => {
     600_000,
   );
 });
+
+/**
+ * The Android classes the panel library builds on, standing in for
+ * android.jar: a View made from a Context, and a ViewGroup that takes
+ * children at an index.
+ */
+const VIEW_STAND_INS = {
+  "android/content/Context.java": "package android.content;\npublic abstract class Context {}\n",
+  "android/view/View.java":
+    "package android.view;\npublic class View {\n  public View(android.content.Context context) {}\n}\n",
+  "android/view/ViewGroup.java": `package android.view;
+public abstract class ViewGroup extends View {
+  public ViewGroup(android.content.Context context) { super(context); }
+  public void addView(View child, int index) {}
+  public void removeView(View view) {}
+}
+`,
+};
+
+/** The newest React Native release assembled with JNI's headers, which an Android build compiles against. */
+const release = assembledReleases()
+  .filter((r) => r.jni)
+  .at(-1);
+
+/**
+ * The panel library (Java on the stand-ins) and the app's meter, a
+ * component of its views, compiled for Android: bound as android.jar
+ * would be, on any host with a JDK.
+ */
+function meter() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-unknown-panels-"));
+  const sdk = fakeAndroid(dir, VIEW_STAND_INS);
+  if (!sdk) return undefined;
+
+  const library = path.join(root, "android", `${lower}panels`);
+  const jar = javaJar(
+    path.join(dir, "panels.jar"),
+    Object.fromEntries(
+      fs
+        .readdirSync(library)
+        .map((f) => [`dev/${lower}/panels/${f}`, fs.readFileSync(path.join(library, f), "utf8")]),
+    ),
+    sdk.bind,
+  );
+  const files = fs.readdirSync(path.join(root, "meter"));
+
+  fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
+  for (const f of files) fs.copyFileSync(path.join(root, "meter", f), path.join(dir, f));
+
+  const r = compile(
+    files.map((f) => path.join(dir, f)),
+    {
+      platforms: ["android"],
+      sdk: {
+        android: {
+          jars: sdk.bind,
+          classpath: classpathFile(path.join(dir, "android-classpath.json"), [jar]),
+        },
+      },
+    },
+  );
+  return { r, dir };
+}
+
+const field = (name: string, type: object, optional = false) => ({ name, type, optional });
+
+describe.skipIf(!jdk || !fakeAndroid(os.tmpdir(), {}))(
+  "an unknown library's views on Android",
+  () => {
+    it("binds its views' props, event and children by rule, in a component of the app's types", () => {
+      const { r, dir } = meter()!;
+      expect(r.diagnostics).toEqual([]);
+
+      // The JSX each view takes, explained by the rule and the class giving it.
+      const declarations = new Map(r.types ?? []).get(`android/dev.${lower}.panels.d.ts`) ?? "";
+      for (const [prop, rule] of [
+        [
+          `${lower}Reading?: ${prefix}Reading | null`,
+          `${prefix}Gauge.set${capital}Reading: a setter taking one value`,
+        ],
+        [
+          `${lower}Marks?: number[] | null`,
+          `${prefix}Gauge.set${capital}Marks: a setter taking one value`,
+        ],
+        [
+          `${lower}Label?: string | null`,
+          `${prefix}Gauge.set${capital}Label: a setter taking one value`,
+        ],
+        [
+          `on${prefix}Turn?: (arg0: ${prefix}Reading | null, arg1: number) => void`,
+          `${prefix}Gauge.setOn${prefix}TurnListener: a listener with one method (${prefix}TurnListener.on${prefix}Turn)`,
+        ],
+      ]) {
+        expect(declarations).toContain(prop);
+        expect(declarations).toContain(rule);
+      }
+
+      // The component: the app's record, union and array props, a record event, React children.
+      expect(r.components).toEqual([
+        expect.objectContaining({
+          export: `${prefix}Meter`,
+          props: [
+            field(`${lower}Scale`, {
+              k: "object",
+              fields: [
+                field(`${lower}From`, { k: "number" }),
+                field(`${lower}Marks`, { k: "array", element: { k: "number" } }),
+              ],
+            }),
+            field(`${lower}Mode`, { k: "enum", values: [`${lower}Coarse`, `${lower}Fine`] }, true),
+            field(`${lower}Labels`, { k: "array", element: { k: "string" } }),
+          ],
+          events: [
+            expect.objectContaining({
+              name: `on${capital}Turned`,
+              params: [
+                field("turned", {
+                  k: "object",
+                  fields: [
+                    field(`${lower}Level`, { k: "number" }),
+                    field(`${lower}Label`, { k: "string" }),
+                    field(`${lower}Steps`, { k: "number" }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+          children: { optional: true },
+          platforms: {
+            android: expect.objectContaining({
+              root: { module: `dev.${lower}.panels`, name: `${prefix}Panel` },
+            }),
+          },
+        }),
+      ]);
+
+      // Its setup calls the library by the names the rules found, and its glue compiles.
+      const setup = r.files.get("android/m_meter.cpp") ?? "";
+      for (const name of [
+        `set${capital}Reading`,
+        `set${capital}Marks`,
+        `set${capital}Label`,
+        `setOn${prefix}TurnListener`,
+        "addView",
+      ])
+        expect(setup).toContain(`"${name}"`);
+      expect(glueErrors(r, dir, "android/m_meter.cpp")).toBe("");
+    }, 600_000);
+
+    it.skipIf(!release)(
+      `compiles the component with its mount and host, as Android builds it (React Native ${release?.version})`,
+      () => {
+        const { r, dir } = meter()!;
+        const out = path.join(dir, "out");
+        for (const [f, text] of r.files) {
+          fs.mkdirSync(path.dirname(path.join(out, f)), { recursive: true });
+          fs.writeFileSync(path.join(out, f), text);
+        }
+        const units = [...r.files.keys()]
+          .filter((f) => f.endsWith(".cpp") && !f.endsWith("lucent_identity.cpp"))
+          .map((f) => path.join(out, f));
+        const android = hostToolchains(release!).android!;
+
+        expect(
+          headerErrors(
+            {
+              command: android.command,
+              args: [
+                ...android.args,
+                "-Wno-unused-variable",
+                `-I${path.join(runtimeDir(), "native/android/include")}`,
+              ],
+            },
+            path.join(out, "android"),
+            units,
+          ),
+        ).toBe("");
+      },
+      900_000,
+    );
+  },
+);
