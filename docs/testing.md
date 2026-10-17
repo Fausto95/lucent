@@ -267,7 +267,17 @@ CI's macOS shards install no Pods, so the Mac Catalyst run tests are
 skipped there.
 
 `unknown-library.test.ts` binds and runs a library whose names are drawn
-at random on every run, so nothing in Lucent can know them.
+at random on every run, so nothing in Lucent can know them. On iOS its
+dial mounts with props, events and commands. Its Android views need only
+a JDK, through `fake-android.ts`: a gauge's props and listener, and a
+panel's children, in a component of the app's own types. Their glue
+compiles against the newest assembled React Native release.
+
+`scripts/platform-names.test.ts` holds every platform name Lucent's code
+says to the
+[fixed platform anchors](design/contracts.md#fixed-platform-anchors).
+`node scripts/platform-names.ts` lists each name, the files saying it,
+and what the audit finds.
 
 ## React Native releases
 

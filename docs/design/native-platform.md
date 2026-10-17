@@ -55,8 +55,9 @@ dependency makes its declarations available without a Lucent release.
 
 A small fixed platform surface is allowed: JSI, Fabric, JNI, ARC, view
 identity on each platform, and the app lifecycle. These are integration
-points, not an API list. [T152](../tasks.md#t152) records each such name
-with its reason, and a test fails on a new one.
+points, not an API list. The
+[fixed platform anchors](contracts.md#fixed-platform-anchors) record each
+such name with its reason, and a test fails on a new one.
 
 So facts come from metadata or stay unknown: a method named `addListener`
 doesn't prove how its listener is removed. Syntax is derived by rule, and

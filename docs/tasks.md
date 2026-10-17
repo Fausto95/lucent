@@ -67,7 +67,7 @@ what became of each one that is still linked or was still open.
 | **Production candidate** |                                                            |                                                                      |
 | [T150](#t150)            | Reference ports for each parity row                        | waiting; each port names its needs                                   |
 | [T151](#t151)            | Lifetime, concurrency and Fabric stress validation         | in progress (#385): host stress runs                                 |
-| [T152](#t152)            | The no-catalog audit                                       | ready                                                                |
+| [T152](#t152)            | The no-catalog audit                                       | done (2026-10-17)                                                    |
 | [T153](#t153)            | Benchmarks against Nitro and Expo Modules                  | ready                                                                |
 | [T154](#t154)            | Guides for every parity row, and migration guides          | waiting; needs T150                                                  |
 | [T155](#t155)            | The production-candidate gate                              | waiting; needs every other task but T135                             |
@@ -1804,18 +1804,24 @@ simulator and emulator.
 **Goal:** Show that no behavior depends on a list of SDKs, classes or
 packages, views and extensions included.
 
-- **Status:** ready.
+- **Status:** done (2026-10-17).
 - **Area:** bindings, compiler, verification.
 - **Needs:** nothing.
 - **Verify:** V1, V4.
-- **Where:** `packages/`, `packages/compiler/test/fixtures`.
+- **Where:** `packages/`, `packages/compiler/test/fixtures`,
+  `scripts/platform-names.ts`.
 
-- [ ] The unknown-library tests extended to views, props, events and
-      children.
-- [ ] Every framework, class or package name in compiler, runtime, schema
+- [x] The unknown-library tests extended to views, props, events and
+      children: a random library's gauge and panel, bound by rule in a
+      component of the app's record, union and array types, on any host
+      with a JDK; the glue compiles against React Native's headers. On
+      iOS the dial still mounts with props, events and commands alone.
+- [x] Every framework, class or package name in compiler, runtime, schema
       and build logic is listed, each classified as a language, ABI or
-      platform anchor with its reason.
-- [ ] A test fails when a new name appears outside that list.
+      platform anchor (or a person's example) with its reason: the
+      [fixed platform anchors](design/contracts.md#fixed-platform-anchors).
+- [x] A test fails when a new name appears outside that list, and when a
+      row covers nothing (`scripts/platform-names.test.ts`).
 
 **Done when:** the list is recorded in [contracts.md](design/contracts.md)
 and the test runs in CI.
