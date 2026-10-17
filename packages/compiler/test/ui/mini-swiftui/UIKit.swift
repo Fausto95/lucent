@@ -2,6 +2,10 @@
 // the Swift a SwiftUI body generates uses of it, so that the Swift
 // type-checks where Xcode is missing.
 @_exported import Foundation
+// CGSize's members are CoreGraphics' on Apple's platforms; Linux's Foundation has them.
+#if canImport(CoreGraphics)
+@_exported import CoreGraphics
+#endif
 
 open class UIColor {
   public static let clear = UIColor()

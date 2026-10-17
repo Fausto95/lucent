@@ -34,12 +34,20 @@ function aar(cache: string, name = "mmkv"): string {
     "prefab/prefab.json": JSON.stringify({ name, schema_version: 2, dependencies: [] }),
     "prefab/modules/mmkv/module.json": "{}",
     "prefab/modules/mmkv/include/MMKV/MMKV.h": "#pragma once\nint mmkv_count(void);\n",
-    "classes.jar": "",
   });
+  const zip = (to: string, cwd: string) => {
+    const r = spawnSync("zip", ["-qr", to, "."], { cwd });
+    if (r.status !== 0) throw new Error(String(r.stderr));
+  };
+
+  // A jar with no classes: a build binds an AAR's classes where an Android SDK is installed.
+  const jar = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-aar-jar-"));
+  write(jar, { "META-INF/MANIFEST.MF": "Manifest-Version: 1.0\n" });
+  zip(path.join(dir, "classes.jar"), jar);
+
   const file = path.join(cache, "files-2.1/com.tencent/mmkv/1.3.14/abc123/mmkv-1.3.14.aar");
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const r = spawnSync("zip", ["-qr", file, "."], { cwd: dir });
-  if (r.status !== 0) throw new Error(String(r.stderr));
+  zip(file, dir);
   return file;
 }
 
@@ -190,7 +198,7 @@ describe.skipIf(!zip || !clang)("building an app whose extension includes a pref
       env: { ...process.env, NO_COLOR: "1" },
     });
     expect(r.stdout + r.stderr).not.toMatch(/error|✗/i);
-    expect(r.status).toBe(0);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
 
     const cmake = fs.readFileSync(path.join(root, ".lucent/native/android/packages.cmake"), "utf8");
     expect(cmake).toContain("find_package(mmkv-core REQUIRED CONFIG) # com.tencent:mmkv");

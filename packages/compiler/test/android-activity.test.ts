@@ -147,13 +147,16 @@ describe.skipIf(!sdkAvailable("android"))("the current Activity, results and lif
     const java = path.join(runtimeDir(), "native/android/src/main/java/dev/lucent");
     const sources = fs.readdirSync(java).map((f) => path.join(java, f));
     expect(sources.map((f) => path.basename(f)).sort()).toEqual([
+      "EntryCompletion.java",
       "LucentActivities.java",
       "LucentBack.java",
       "LucentChildren.java",
+      "LucentException.java",
       "LucentExecutor.java",
       "LucentFlexView.java",
       "LucentHostView.java",
       "LucentInitializer.java",
+      "LucentInstance.java",
       "LucentLaunch.java",
       "LucentPackage.java",
       "LucentReact.java",
