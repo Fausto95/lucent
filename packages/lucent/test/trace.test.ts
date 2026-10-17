@@ -25,6 +25,17 @@ function runtimeTrace(): ChromeTrace {
     args: { context: 2, ...args },
   });
 
+  const instant = (name: string, cat: string, ts: number, args = {}) => ({
+    name,
+    cat,
+    ph: "i",
+    ts,
+    s: "t",
+    pid: 1,
+    tid: 3,
+    args: { context: 2, ...args },
+  });
+
   return {
     traceEvents: [
       span("measure", "entry", 100, 900, { id: 7, site: "/app/src/stats.lucent.ts:12" }),
@@ -32,6 +43,11 @@ function runtimeTrace(): ChromeTrace {
       span("run", "run", 520, 300, { id: 7 }),
       span("compute.wait", "compute", 600, 150, { id: 9, detail: "edges" }),
       span("transport.copy", "copy", 540, 60, { value: 8388608, count: 1 }),
+      // Instants, as the runtime writes them (trace.cpp): copies' and allocations' bytes count.
+      instant("buffer.copy", "copy", 610, { value: 1024 }),
+      instant("buffer.allocate", "alloc", 620, { value: 4096 }),
+      instant("buffer.adopt", "alloc", 630, { value: 2048 }),
+      instant("channel.dropped", "queue", 640, { id: 3, value: 2 }),
       { name: "correlation", cat: "flow", ph: "s", id: 7, ts: 100, pid: 1, tid: 3 },
     ],
     displayTimeUnit: "ms",
@@ -90,7 +106,7 @@ describe("merged traces", () => {
     expect(names).toEqual(expect.arrayContaining(["lucent build", "app"]));
   });
 
-  it("sums the time a trace spent in each cause", () => {
+  it("sums the time a trace spent in each cause, and the bytes copies and allocations moved", () => {
     const summary = summarize(runtimeTrace());
 
     expect(summary.categories).toEqual([
@@ -98,7 +114,9 @@ describe("merged traces", () => {
       { category: "queue", ms: 0.4, count: 1 },
       { category: "run", ms: 0.3, count: 1 },
       { category: "compute", ms: 0.15, count: 1 },
-      { category: "copy", ms: 0.06, count: 1, bytes: 8388608 },
+      // The transport's span and a buffer's instant copy alike.
+      { category: "copy", ms: 0.06, count: 2, bytes: 8388608 + 1024 },
+      { category: "alloc", ms: 0, count: 2, bytes: 4096 + 2048 },
     ]);
   });
 });
@@ -149,7 +167,7 @@ describe("lucent trace", () => {
     expect(r.out).toMatch(/wrote \.lucent\/trace\.json/);
     expect(r.out).toMatch(/build +.*check/);
     expect(r.out).toMatch(/app-trace\.json +entry 0\.9 ms · queue 0\.4 ms/);
-    expect(r.out).toMatch(/copy 0\.06 ms \(8\.4 MB\)/);
+    expect(r.out).toMatch(/copy 0\.06 ms \(8\.4 MB\) · alloc 2× \(6\.1 KB\)/);
 
     const trace = JSON.parse(fs.readFileSync(path.join(root, ".lucent/trace.json"), "utf8"));
     expect(trace.traceEvents.some((e: { cat: string }) => e.cat === "build")).toBe(true);

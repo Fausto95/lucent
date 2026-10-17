@@ -72,7 +72,7 @@ what became of each one that is still linked or was still open.
 | [T154](#t154)            | Guides for every parity row, and migration guides          | waiting; needs T150                                                  |
 | [T155](#t155)            | The production-candidate gate                              | waiting; needs every other task but T135                             |
 | [T156](#t156)            | CI runs what the docs say it runs                          | done (2026-10-17)                                                    |
-| [T157](#t157)            | Small fixes the docs rewrite found                         | ready                                                                |
+| [T157](#t157)            | Small fixes the docs rewrite found                         | in progress (#391)                                                   |
 | [T158](#t158)            | An edit loop within its budget                             | ready                                                                |
 
 ## Gates
@@ -1950,14 +1950,15 @@ Found while rewriting [testing.md](testing.md):
 **Goal:** Fix the small defects and stale comments the rewrite found in
 code.
 
-- **Status:** ready.
+- **Status:** in progress (#391).
 - **Area:** compiler, runtime, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V3.
 - **Where:** as listed.
 
-- [ ] `lucent trace`'s summary skips instants, so `buffer.copy` bytes
-      never reach the copy totals (`cli/trace.ts`).
+- [x] `lucent trace`'s summary skips instants, so `buffer.copy` bytes
+      never reach the copy totals (`cli/trace.ts`): `copy` and `alloc`
+      instants add their bytes and count now (#391).
 - [ ] Autolinking always reads `.lucent/native`, while Metro honours
       `LUCENT_OUT` (`autolink/index.cjs`, `metro/native-package.cjs`).
 - [ ] `debugger` is reported as "LastStatement statements" (`ir/cpp.ts`).
