@@ -178,6 +178,7 @@ describe.skipIf(!ios)("platform modules", () => {
       project({ "plain.lucent.ts": "export function one(): number { return 1; }\n" }),
     );
     expect([...r.files.keys()].sort()).toEqual([
+      "LucentExports.swift",
       "lucent_app.h",
       "lucent_bindings.cpp",
       "lucent_entries.cpp",
