@@ -8,6 +8,7 @@
 #include <functional>
 #include <initializer_list>
 #include <memory>
+#include <mutex>
 #include <variant>
 
 #include "../array.h"
@@ -360,19 +361,32 @@ inline void throwIfError(NSError* e) {
 
 // --- blocks ----------------------------------------------------------------------------
 
+/// The lock of the process's object tables (cachedObject, subclassObjects):
+/// each package's code runs on its actor's thread, so packages use them at
+/// once, as the main thread does.
+inline std::mutex& objectTablesLock() {
+  static std::mutex lock;
+  return lock;
+}
+
 /// One Objective-C object per `key` (a Lucent object) while the object is
-/// alive: `make` creates it. Callers hold the Lucent lock. Each `Table`
-/// has its own: a Lucent object's Objective-C and Swift delegates differ.
+/// alive: `make` creates it, outside the lock (making one may make
+/// another). Any thread. Each `Table` has its own: a Lucent object's
+/// Objective-C and Swift delegates differ.
 template <int Table = 0>
 id cachedObject(const void* key, id (^make)(void)) {
   static NSMapTable* objects = [NSMapTable strongToWeakObjectsMapTable];
   NSValue* k = [NSValue valueWithPointer:key];
-  id o = [objects objectForKey:k];
-  if (!o) {
-    o = make();
-    [objects setObject:o forKey:k];
+  {
+    std::lock_guard<std::mutex> held(objectTablesLock());
+    if (id o = [objects objectForKey:k]) return o;
   }
-  return o;
+  id made = make();
+  std::lock_guard<std::mutex> held(objectTablesLock());
+  // Made meanwhile on another thread (a key is one object's, which one actor owns): the first stays.
+  if (id o = [objects objectForKey:k]) return o;
+  [objects setObject:made forKey:k];
+  return made;
 }
 
 // --- Lucent classes extending Objective-C classes ------------------------------------
@@ -382,16 +396,19 @@ id cachedObject(const void* key, id (^make)(void)) {
 
 /// The native object of each Lucent object extending an Objective-C class,
 /// by the Lucent object's address; held weakly, as the native one holds it.
+/// Read and written under objectTablesLock().
 inline NSMapTable* subclassObjects() {
   static NSMapTable* objects = [NSMapTable strongToWeakObjectsMapTable];
   return objects;
 }
 
 inline void adoptSubclassObject(const void* lucent, id object) {
+  std::lock_guard<std::mutex> held(objectTablesLock());
   [subclassObjects() setObject:object forKey:[NSValue valueWithPointer:lucent]];
 }
 
 inline id subclassObject(const void* lucent) {
+  std::lock_guard<std::mutex> held(objectTablesLock());
   return [subclassObjects() objectForKey:[NSValue valueWithPointer:lucent]];
 }
 
