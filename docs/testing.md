@@ -334,6 +334,14 @@ developer would; an Expo app's config plugin adds them. After the build,
 the check finds each piece in the merged manifest, the plugin's
 resources or the app's privacy bundle.
 
+The package also has native inputs: Swift and Kotlin its module calls,
+an SDK framework, an iOS resource, and an Android string resource and
+asset. The Android Release build runs R8, which the bare template leaves
+off. After it, the check finds the resource in the app, and the asset and
+string resource in the APK. R8's mapping must keep the package's Kotlin
+class under its name, which JNI calls it by. The app's check calls the
+Swift or the Kotlin.
+
 `--check` runs that build with `device-check.ts`: on the simulator it
 boots, or on the emulator already running. The app calls the scaffolded
 modules, mounts the scaffolded component and a probe that answers

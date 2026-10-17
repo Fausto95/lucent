@@ -7,7 +7,10 @@
  * kind `lucent new module` scaffolds and a component (`lucent new view`),
  * and an App.tsx that checks them, checks the release with `lucent
  * doctor`, then builds: `lucent build`, and the platform's own Release
- * build (xcodebuild for the iOS simulator, Gradle's assembleRelease).
+ * build (xcodebuild for the iOS simulator, Gradle's assembleRelease with
+ * R8). A Lucent package it depends on brings a pod, native configuration,
+ * and native inputs (T145): Swift and Kotlin its module calls, a framework,
+ * resources and assets, which the Release build must carry.
  *
  * `--check` then runs the built app (scripts/device-check.ts): on the iOS
  * simulator it boots, or on the Android emulator already running. The app
@@ -30,6 +33,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { ZipArchive } from "../packages/bindgen/src/zip.ts";
 import { REQUIREMENTS } from "../packages/lucent/src/cli/doctor.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -97,12 +101,24 @@ export const GRADLE_PLUGIN = [
   "com.google.gms:google-services:4.4.2",
 ] as const;
 
+/** What the package's own Swift and Kotlin answer, which its Lucent module returns (no quote: aapt2 reads it too). */
+export const GREETING = "hello from the package sources";
+
+/** The package's resource and asset, by the names the app's bundle and APK carry them under. */
+export const RESOURCE = "window-kit.txt";
+export const ASSET = "window-kit-asset.txt";
+/** The package's Android string resource. */
+export const STRING_RESOURCE = "window_kit_greeting";
+/** The class of the package's Kotlin, which JNI calls by name: R8 keeps it as it is. */
+export const KOTLIN_CLASS = "dev.lucent.windowkit.WindowKit";
+
 /**
- * The package's lucent.json: a pod, and a piece of each kind of native
+ * The package's lucent.json: a pod, a piece of each kind of native
  * configuration (T115) the app's build takes with no step of its own, or,
- * in a bare app, the one `lucent build` names: a privacy manifest, the apps
- * it queries, a feature it doesn't require, meta-data its option fills,
- * and a Gradle plugin.
+ * in a bare app, the one `lucent build` names (a privacy manifest, the apps
+ * it queries, a feature it doesn't require, meta-data its option fills, a
+ * Gradle plugin), and native inputs (T145): Swift and Kotlin sources, an
+ * SDK framework, an iOS resource, and Android resources and assets.
  */
 export function packageConfiguration(): object {
   return {
@@ -110,12 +126,18 @@ export function packageConfiguration(): object {
     ios: {
       pods: { [PACKAGE_POD]: "~> 1.0" },
       privacy: { accessedAPIs: { NSPrivacyAccessedAPICategoryUserDefaults: ["CA92.1"] } },
+      nativeSources: ["native/ios"],
+      frameworks: ["CoreHaptics"],
+      resources: [`assets/${RESOURCE}`],
     },
     android: {
       queries: { packages: ["com.android.chrome"] },
       features: { "android.hardware.camera": false },
       metaData: { [META_DATA]: "{{key}}" },
       gradlePlugins: { [GRADLE_PLUGIN[0]]: GRADLE_PLUGIN[1] },
+      nativeSources: ["native/android"],
+      resources: ["res"],
+      assets: ["assets/android"],
     },
   };
 }
@@ -137,14 +159,46 @@ export function packageFiles(): Record<string, string> {
     "packages/lucent-window-kit/lucent.json": `${JSON.stringify(packageConfiguration(), null, 2)}\n`,
     // The app's own lucent.json sets the package's option.
     "lucent.json": `${JSON.stringify({ packages: { "lucent-window-kit": { key: OPTION_VALUE } } }, null, 2)}\n`,
-    "packages/lucent-window-kit/src/kit.lucent.ts": `// What the package's pod answers on iOS, through the module its Objective-C class is in.
+    "packages/lucent-window-kit/src/kit.lucent.ts": `// What the package's pod answers on iOS, through the module its Objective-C class is in,
+// and what its own Swift and Kotlin say (its native sources, which the app's build compiles).
 import { PLATFORM } from "lucent:platform";
 import { LWKAnswer } from "lucent:ios/${PACKAGE_POD}";
+import { WindowKitGreeting } from "lucent:ios/LucentNative";
+import { WindowKit } from "lucent:android/dev.lucent.windowkit";
 
 export function kitAnswer(): number {
   if (PLATFORM === "ios") return LWKAnswer.answer();
   return 42;
 }
+
+export function kitGreeting(): string {
+  if (PLATFORM === "ios") return WindowKitGreeting.greeting();
+  return WindowKit.greeting();
+}
+`,
+    "packages/lucent-window-kit/native/ios/WindowKitGreeting.swift": `import CoreHaptics
+
+/** The package's own Swift, which LucentNative builds, beside an SDK framework it links. */
+public final class WindowKitGreeting {
+  public static func greeting() -> String {
+    _ = CHHapticEngine.capabilitiesForHardware().supportsHaptics
+    return "${GREETING}"
+  }
+}
+`,
+    "packages/lucent-window-kit/native/android/dev/lucent/windowkit/WindowKit.kt": `@file:JvmName("WindowKit")
+
+package dev.lucent.windowkit
+
+/** The package's own Kotlin, which the Lucent library builds and R8 keeps for JNI. */
+fun greeting(): String = "${GREETING}"
+`,
+    [`packages/lucent-window-kit/assets/${RESOURCE}`]: "The package's iOS resource\n",
+    [`packages/lucent-window-kit/assets/android/${ASSET}`]: "The package's Android asset\n",
+    "packages/lucent-window-kit/res/values/window_kit.xml": `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="${STRING_RESOURCE}">${GREETING}</string>
+</resources>
 `,
     [`pods/${PACKAGE_POD}/${PACKAGE_POD}.podspec`]: `Pod::Spec.new do |s|
   s.name = "${PACKAGE_POD}"
@@ -309,6 +363,91 @@ function checkConfiguration(dir: string, app: AppKind, platform: Platform): void
   console.log("• the package's queries, feature, meta-data and Gradle plugin are in the build");
 }
 
+/** The file of the app's android/ that turns R8 on for its Release build. */
+export const R8_FILE: Record<AppKind, string> = {
+  bare: "app/build.gradle",
+  expo: "gradle.properties",
+};
+
+/**
+ * That file with R8 on: the bare template's switch (off in it), Expo's
+ * property (on in its template, set again in case it changes).
+ */
+export function withR8(app: AppKind, text: string): string {
+  if (app === "bare") {
+    if (/^def enableProguardInReleaseBuilds = true$/m.test(text)) return text;
+    const off = /^def enableProguardInReleaseBuilds = false$/m;
+    if (!off.test(text))
+      throw new Error("the app's build.gradle has no enableProguardInReleaseBuilds");
+    return text.replace(off, "def enableProguardInReleaseBuilds = true");
+  }
+
+  const property = /^android\.enableMinifyInReleaseBuilds=.*$/m;
+  return property.test(text)
+    ? text.replace(property, "android.enableMinifyInReleaseBuilds=true")
+    : `${text.replace(/\n*$/, "\n")}android.enableMinifyInReleaseBuilds=true\n`;
+}
+
+/**
+ * What the Android Release build lacks of the package's native inputs,
+ * and of R8: the APK's asset and string resource, R8's mapping, and the
+ * package's Kotlin class under its own name, which JNI calls it by. Empty
+ * when it has them all.
+ */
+export function androidInputGaps(
+  entries: string[],
+  resources: Buffer,
+  mapping: string | undefined,
+): string[] {
+  const gaps: string[] = [];
+  if (!entries.includes(`assets/${ASSET}`))
+    gaps.push(`the APK has no assets/${ASSET}, the package's asset`);
+  // A resource's name is in resources.arsc's key pool, in UTF-8 or UTF-16.
+  if (
+    !resources.includes(Buffer.from(STRING_RESOURCE, "utf8")) &&
+    !resources.includes(Buffer.from(STRING_RESOURCE, "utf16le"))
+  )
+    gaps.push(`the APK's resources have no string ${STRING_RESOURCE}, the package's resource`);
+  if (mapping === undefined) gaps.push("R8 wrote no mapping: the Release build wasn't shrunk");
+  else if (!mapping.includes(`${KOTLIN_CLASS} -> ${KOTLIN_CLASS}:`))
+    gaps.push(
+      `R8 renamed or removed ${KOTLIN_CLASS}, the package's Kotlin, which JNI calls by name`,
+    );
+  return gaps;
+}
+
+/** What the iOS Release build's app lacks of the package's native inputs: its resource, at the bundle's root. */
+export function iosInputGaps(files: string[]): string[] {
+  return files.includes(RESOURCE) ? [] : [`the app has no ${RESOURCE}, the package's resource`];
+}
+
+/** Fails the run for native inputs of the package the Release build lacks (androidInputGaps, iosInputGaps). */
+function checkNativeInputs(dir: string, app: AppKind, platform: Platform): void {
+  const built = appIdentity(app, dir);
+  if (platform === "ios") {
+    const gaps = iosInputGaps(fs.readdirSync(built.ios));
+    if (gaps.length)
+      throw new Error(`the iOS build lacks the package's inputs:\n${gaps.join("\n")}`);
+    console.log(
+      `• the package's resource is in the app, and its Swift and framework built into it`,
+    );
+    return;
+  }
+
+  const apk = new ZipArchive(built.android);
+  const mapping = path.join(dir, "android/app/build/outputs/mapping/release/mapping.txt");
+  const gaps = androidInputGaps(
+    apk.names(),
+    apk.read("resources.arsc") ?? Buffer.alloc(0),
+    fs.existsSync(mapping) ? fs.readFileSync(mapping, "utf8") : undefined,
+  );
+  if (gaps.length)
+    throw new Error(`the Android build lacks the package's inputs:\n${gaps.join("\n")}`);
+  console.log(
+    "• R8 shrank the build, keeping the package's Kotlin; its resource and asset are in the APK",
+  );
+}
+
 /** The Podfile with the package's pod installed from its path, in the app's target. */
 export function podLine(podfile: string): string {
   const line = `  pod '${PACKAGE_POD}', :path => '../pods/${PACKAGE_POD}'`;
@@ -365,7 +504,7 @@ import { Badge } from "lucent:views/badge";
 import { start, watch } from "./src/counter.lucent";
 import { hello } from "./src/device.lucent";
 import { report } from "./src/window-check.lucent";
-import { kitAnswer } from "lucent-window-kit/src/kit.lucent";
+import { kitAnswer, kitGreeting } from "lucent-window-kit/src/kit.lucent";
 import { WindowProbe } from "./src/window-probe.lucent";
 
 type Probe = { ping(): Promise<string> };
@@ -407,6 +546,7 @@ export default function App() {
       ["events-module", events],
       ["component", () => mounted(probe)],
       ["package-pod", async () => kitAnswer() === 42],
+      ["package-sources", async () => kitGreeting() === "${GREETING}"],
     ];
     void (async () => {
       let passed = 0;
@@ -630,6 +770,9 @@ function buildNative(dir: string, app: AppKind, platform: Platform): void {
       throw new Error("lucent build named no Gradle line for the package's plugin");
     if (added.length)
       console.log(`• added the Gradle lines lucent build named to ${added.join(", ")}`);
+    // A Release build as apps ship them: shrunk by R8.
+    const r8 = path.join(dir, "android", R8_FILE[app]);
+    fs.writeFileSync(r8, withR8(app, fs.readFileSync(r8, "utf8")));
     sh(
       "./gradlew",
       ["assembleRelease", "-PreactNativeArchitectures=x86_64", "--no-daemon"],
@@ -638,6 +781,7 @@ function buildNative(dir: string, app: AppKind, platform: Platform): void {
   }
 
   checkConfiguration(dir, app, platform);
+  checkNativeInputs(dir, app, platform);
 }
 
 if (import.meta.main) {

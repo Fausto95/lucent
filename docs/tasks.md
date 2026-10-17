@@ -63,7 +63,7 @@ what became of each one that is still linked or was still open.
 | [T142](#t142)            | C++ libraries, extension callbacks and borrowed bytes      | in progress (#357 to #375): all but lucent-mmkv, which needs devices |
 | [T143](#t143)            | Typed Kotlin and Java sources in packages                  | done (2026-10-16)                                                    |
 | [T144](#t144)            | A web target for shared modules                            | done (2026-10-17)                                                    |
-| [T145](#t145)            | The package distribution matrix                            | in progress (#383): workspaces and upgrades                          |
+| [T145](#t145)            | The package distribution matrix                            | done (2026-10-17)                                                    |
 | **Production candidate** |                                                            |                                                                      |
 | [T150](#t150)            | Reference ports for each parity row                        | waiting; each port names its needs                                   |
 | [T151](#t151)            | Lifetime, concurrency and Fabric stress validation         | ready                                                                |
@@ -1694,7 +1694,9 @@ now its Kotlin and Java as the Java packages they declare.
 **Goal:** Lucent packages install, build and upgrade the ways real apps
 use them.
 
-- **Status:** in progress: workspaces and upgrades (#383).
+- **Status:** done (2026-10-17): workspaces and upgrades (#383); Release
+  builds and native inputs in the window apps (#384), whose first run is
+  CI's nightly window job.
 - **Area:** tooling, verification.
 - **Needs:** nothing.
 - **Verify:** V5, V6.
@@ -1707,10 +1709,14 @@ use them.
       the workspace (#383).
 - [x] An upgrade from the previous release of `@lucent-lang/lucent`, and a
       clean rebuild after it: the same files (#383).
-- [ ] Release builds: Android with R8, iOS with the Release
-      configuration, and a package's native resources and assets in both.
-- [ ] A package's native inputs (sources, resources, frameworks) built in
-      a real Xcode project and Gradle build, not only checked.
+- [x] Release builds: Android with R8, iOS with the Release
+      configuration, and a package's native resources and assets in both
+      (`window-app.ts`: the APK's asset and string resource, the app's
+      resource, R8's mapping keeping the package's Kotlin, #384).
+- [x] A package's native inputs (sources, resources, frameworks) built in
+      a real Xcode project and Gradle build, not only checked:
+      `lucent-window-kit`'s Swift, Kotlin and CoreHaptics, called by the
+      window app's check (#384).
 
 **Done when:** each case runs in the smoke install or the window job.
 

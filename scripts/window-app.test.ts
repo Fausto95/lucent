@@ -7,17 +7,25 @@ import { missingGradlePlugins } from "../packages/lucent/src/cli/project.ts";
 import {
   addNamedGradleLines,
   androidConfigurationGaps,
+  androidInputGaps,
   appIdentity,
+  ASSET,
   checkFiles,
   GRADLE_PLUGIN,
+  GREETING,
   googleServices,
+  iosInputGaps,
+  KOTLIN_CLASS,
   META_DATA,
   OPTION_VALUE,
   PACKAGE_POD,
   packageConfiguration,
   packageFiles,
   podLine,
+  RESOURCE,
+  STRING_RESOURCE,
   windowApps,
+  withR8,
 } from "./window-app.ts";
 
 describe("the window's apps", () => {
@@ -116,6 +124,9 @@ describe("the package's native configuration in a window app", () => {
       "features",
       "metaData",
       "gradlePlugins",
+      "nativeSources",
+      "resources",
+      "assets",
     ]);
     expect(JSON.parse(files["lucent.json"]!)).toEqual({
       packages: { "lucent-window-kit": { key: OPTION_VALUE } },
@@ -185,6 +196,81 @@ describe("the package's native configuration in a window app", () => {
     ).toEqual([
       `the merged manifest has no ${META_DATA} meta-data of ${OPTION_VALUE}`,
       `${GRADLE_PLUGIN[0]} wrote no google_app_id: the app's build does not apply it`,
+    ]);
+  });
+});
+
+describe("the package's native inputs in a window app's Release build", () => {
+  it("are Swift and Kotlin its module calls, a framework, a resource and an asset", () => {
+    const files = packageFiles();
+    const kit = "packages/lucent-window-kit";
+
+    expect(packageConfiguration()).toMatchObject({
+      ios: {
+        nativeSources: ["native/ios"],
+        frameworks: ["CoreHaptics"],
+        resources: [`assets/${RESOURCE}`],
+      },
+      android: {
+        nativeSources: ["native/android"],
+        resources: ["res"],
+        assets: ["assets/android"],
+      },
+    });
+    for (const f of [
+      "native/ios/WindowKitGreeting.swift",
+      "native/android/dev/lucent/windowkit/WindowKit.kt",
+      `assets/${RESOURCE}`,
+      `assets/android/${ASSET}`,
+    ])
+      expect(files[`${kit}/${f}`]).toBeDefined();
+    expect(files[`${kit}/res/values/window_kit.xml`]).toContain(
+      `<string name="${STRING_RESOURCE}">`,
+    );
+    expect(files[`${kit}/src/kit.lucent.ts`]).toContain('from "lucent:ios/LucentNative"');
+    expect(files[`${kit}/src/kit.lucent.ts`]).toContain(
+      'from "lucent:android/dev.lucent.windowkit"',
+    );
+    expect(checkFiles()["App.tsx"]).toContain(
+      `["package-sources", async () => kitGreeting() === "${GREETING}"]`,
+    );
+  });
+
+  it("is shrunk by R8, which the bare template leaves off and Expo's turns on", () => {
+    const bare = "def enableProguardInReleaseBuilds = false\nandroid {\n}\n";
+    expect(withR8("bare", bare)).toBe("def enableProguardInReleaseBuilds = true\nandroid {\n}\n");
+    expect(withR8("bare", withR8("bare", bare))).toBe(withR8("bare", bare));
+    expect(() => withR8("bare", "android {\n}\n")).toThrow(/no enableProguardInReleaseBuilds/);
+
+    expect(withR8("expo", "a=1\nandroid.enableMinifyInReleaseBuilds=false\n")).toBe(
+      "a=1\nandroid.enableMinifyInReleaseBuilds=true\n",
+    );
+    expect(withR8("expo", "a=1\n")).toBe("a=1\nandroid.enableMinifyInReleaseBuilds=true\n");
+  });
+
+  it("finds each input in the APK and the app, and names the ones they lack", () => {
+    const arsc = Buffer.concat([Buffer.from([0, 1]), Buffer.from(STRING_RESOURCE, "utf8")]);
+    const mapping = `${KOTLIN_CLASS} -> ${KOTLIN_CLASS}:\n    java.lang.String greeting() -> greeting\n`;
+
+    expect(androidInputGaps([`assets/${ASSET}`, "classes.dex"], arsc, mapping)).toEqual([]);
+    expect(
+      androidInputGaps(
+        ["classes.dex"],
+        Buffer.from(STRING_RESOURCE, "utf16le"),
+        `${KOTLIN_CLASS} -> a.a:\n`,
+      ),
+    ).toEqual([
+      `the APK has no assets/${ASSET}, the package's asset`,
+      `R8 renamed or removed ${KOTLIN_CLASS}, the package's Kotlin, which JNI calls by name`,
+    ]);
+    expect(androidInputGaps([`assets/${ASSET}`], Buffer.alloc(0), undefined)).toEqual([
+      `the APK's resources have no string ${STRING_RESOURCE}, the package's resource`,
+      "R8 wrote no mapping: the Release build wasn't shrunk",
+    ]);
+
+    expect(iosInputGaps(["Info.plist", RESOURCE])).toEqual([]);
+    expect(iosInputGaps(["Info.plist"])).toEqual([
+      `the app has no ${RESOURCE}, the package's resource`,
     ]);
   });
 });
