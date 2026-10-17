@@ -8,8 +8,9 @@
  * builds for (`long` and `size_t` are 64-bit on 64-bit iOS and Android), so
  * a declaration has one Lucent type everywhere.
  */
-import { spawnSync } from "node:child_process";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 /** A C type. */
@@ -84,6 +85,7 @@ export interface Node {
 }
 
 export interface Location {
+  offset?: number;
   file?: string;
   spellingLoc?: Location;
   expansionLoc?: Location;
@@ -164,7 +166,10 @@ export function cLinkage(
   return { ok: true, functions: out };
 }
 
-/** clang's JSON AST of `header` in `language`, or its errors. Throws when clang cannot run. */
+/**
+ * clang's JSON AST of `header` in `language`, as readDump keeps it, or its
+ * errors. Throws when clang cannot run.
+ */
 export function dumpAst(
   header: string,
   language: string[],
@@ -181,15 +186,159 @@ export function dumpAst(
     header,
   ];
 
-  const r = spawnSync(clang, args, { encoding: "utf8", maxBuffer: 256 << 20 });
+  // A file, not a pipe: the dump of a C++ header is hundreds of megabytes.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-ast-"));
+  const dump = path.join(dir, "ast.json");
 
-  if (r.error)
-    throw new Error(
-      `${clang} could not run (${r.error.message}): reading a C header needs clang; set LUCENT_CLANG to its path`,
-    );
-  if (r.status !== 0) return { ok: false, error: r.stderr.trim() };
+  try {
+    const out = fs.openSync(dump, "w");
+    let r: SpawnSyncReturns<string>;
+    try {
+      r = spawnSync(clang, args, {
+        stdio: ["ignore", out, "pipe"],
+        encoding: "utf8",
+        maxBuffer: 64 << 20,
+      });
+    } finally {
+      fs.closeSync(out);
+    }
 
-  return { ok: true, unit: JSON.parse(r.stdout) as Node };
+    if (r.error)
+      throw new Error(
+        `${clang} could not run (${r.error.message}): reading a C header needs clang; set LUCENT_CLANG to its path`,
+      );
+    if (r.status !== 0) return { ok: false, error: r.stderr.trim() };
+
+    return { ok: true, unit: readDump(dump, fs.realpathSync(header)) };
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const SPACE = 0x20;
+const NEWLINE = 0x0a;
+const COMMA = 0x2c;
+const QUOTE = 0x22;
+const OFFSET = Buffer.from('"offset": ');
+const FILE = Buffer.from('"file": ');
+const KIND = Buffer.from('"kind": ');
+const NAME = Buffer.from('"name": ');
+
+/**
+ * The translation unit of the JSON AST clang dumped to `file`, read one
+ * top-level declaration at a time: a C++ header that includes the standard
+ * library dumps hundreds of megabytes, more than one string holds. A
+ * namespace none of `own`'s locations are in is kept as what followFiles
+ * needs of it, its kind and name and the file its last location names;
+ * every other declaration is kept as clang printed it.
+ *
+ * clang prints two spaces an indent and never breaks a string across
+ * lines: a top-level declaration is the lines from `    {` to `    }`, and
+ * a location names its file on the line after its offset.
+ */
+export function readDump(file: string, own: string): Node {
+  const fd = fs.openSync(file, "r");
+
+  try {
+    const inner: Node[] = [];
+    const owned = new Map<string, boolean>();
+    const isOwn = (f: string | undefined) => {
+      if (f === undefined) return false;
+      let o = owned.get(f);
+      if (o === undefined) owned.set(f, (o = sameFile(f, own)));
+      return o;
+    };
+
+    /** The file the last location named, as followFiles follows it. */
+    let current: string | undefined;
+    /** The top-level declaration being read: where it starts, and what it is. */
+    let decl:
+      | { start: number; kind?: string; name?: string; own: boolean; moved: boolean }
+      | undefined;
+    /** The indent of the line before, when it is a location's offset. */
+    let offsetAt = -1;
+
+    const value = (l: Buffer, from: number): string =>
+      JSON.parse(l.toString("utf8", from, l[l.length - 1] === COMMA ? l.length - 1 : l.length));
+
+    const end = (stop: number) => {
+      const d = decl!;
+      decl = undefined;
+
+      if (d.kind === "NamespaceDecl" && !d.own) {
+        inner.push({
+          kind: d.kind,
+          ...(d.name !== undefined && { name: d.name }),
+          ...(d.moved && { loc: { offset: 0, file: current } }),
+        });
+        return;
+      }
+
+      const text = Buffer.alloc(stop - d.start);
+      fs.readSync(fd, text, 0, text.length, d.start);
+      inner.push(JSON.parse(text.toString("utf8")) as Node);
+    };
+
+    const line = (l: Buffer, at: number) => {
+      let i = 0;
+      while (i < l.length && l[i] === SPACE) i++;
+
+      const after = offsetAt;
+      offsetAt = -1;
+
+      if (i === 4 && l.length === 5 && l[4] === 0x7b) {
+        decl = { start: at, own: isOwn(current), moved: false };
+        return;
+      }
+      if (i === 4 && l[4] === 0x7d && decl) return end(at + 5);
+      if (l[i] !== QUOTE) return;
+
+      if (l.indexOf(OFFSET, i) === i) offsetAt = i;
+      else if (i === after && l.indexOf(FILE, i) === i) {
+        current = value(l, i + FILE.length);
+        if (decl) {
+          decl.moved = true;
+          decl.own ||= isOwn(current);
+        }
+      } else if (decl && i === 6) {
+        if (decl.kind === undefined && l.indexOf(KIND, i) === i)
+          decl.kind = value(l, i + KIND.length);
+        else if (decl.name === undefined && l.indexOf(NAME, i) === i)
+          decl.name = value(l, i + NAME.length);
+      }
+    };
+
+    const chunk = Buffer.alloc(1 << 20);
+    let carry = Buffer.alloc(0);
+    // The file's offset of carry's first byte.
+    let pos = 0;
+
+    for (;;) {
+      const n = fs.readSync(fd, chunk, 0, chunk.length, pos + carry.length);
+      if (n === 0) break;
+
+      const text = carry.length
+        ? Buffer.concat([carry, chunk.subarray(0, n)])
+        : chunk.subarray(0, n);
+      let i = 0;
+      for (let j = text.indexOf(NEWLINE); j >= 0; j = text.indexOf(NEWLINE, i)) {
+        line(text.subarray(i, j), pos + i);
+        i = j + 1;
+      }
+
+      pos += i;
+      carry = Buffer.from(text.subarray(i));
+    }
+
+    if (decl || !inner.length)
+      throw new Error(
+        `${file} is not clang's JSON AST as Lucent reads it: top-level declarations from \`    {\` to \`    }\``,
+      );
+
+    return { kind: "TranslationUnitDecl", inner };
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 let clangFound: string | undefined;

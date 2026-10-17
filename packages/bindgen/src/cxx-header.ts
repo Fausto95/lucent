@@ -104,7 +104,7 @@ export interface CxxHeader {
 }
 
 /** The fields of clang's JSON AST a C++ header's declarations have, beyond a C header's. */
-interface CxxNode extends Node {
+export interface CxxNode extends Node {
   inner?: CxxNode[];
   tagUsed?: string;
   isImplicit?: boolean;
