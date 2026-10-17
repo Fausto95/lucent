@@ -195,6 +195,15 @@ check corpora against JavaScript: BigInt and number formatting against
 Node, the reactive graph against `reactive/reference.ts`. `run_binary.sh`
 fails a test on its status or on a sanitizer report in its output.
 
+`stress_test.cpp` is the runtime's stress run (T151). Native operations'
+registration, completion and cancellation race from four threads, and a
+success races its owner's shutdown. A settlement's continuation re-enters
+its context to complete, start and abort operations. Then come 1,000
+subscribe and cancel cycles, and 1,000 mount and dispose cycles on the
+main context, after warmup. Their owned counts (`debug::resources()`)
+must return to their baseline (P7). `LUCENT_STRESS_ITERATIONS` sets the
+races' rounds (300 by default).
+
 `executor_test.cpp` is the executor bench: 1080p frames at 60 Hz, run on
 an executor as a camera's delegate is, into a `latest` channel, while a
 synchronous call holds the module's actor for 500 ms. It fails if the
@@ -219,7 +228,10 @@ packages/runtime/test/jni/run.sh   # needs a JDK; passes with a note without one
 ```
 
 `jsi/run.sh` checks the host's lifetime across runtimes, a hand-written
-module, and the loader's check of the build identity. `jni/run.sh` runs
+module, and the loader's check of the build identity. Its stress run
+reloads four runtimes alive at once forty times, with work in flight in
+each. Its sanitizer runs need `CXX=g++ CC=gcc` where clang has no
+sanitizer runtime. `jni/run.sh` runs
 the JNI glue (`platform/android.cpp`, built with `LUCENT_JNI_HOST`) on a
 desktop JVM under `-Xcheck:jni`. Any JVM warning fails it. No CI job runs
 `jni/run.sh`.

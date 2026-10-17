@@ -66,7 +66,7 @@ what became of each one that is still linked or was still open.
 | [T145](#t145)            | The package distribution matrix                            | done (2026-10-17)                                                    |
 | **Production candidate** |                                                            |                                                                      |
 | [T150](#t150)            | Reference ports for each parity row                        | waiting; each port names its needs                                   |
-| [T151](#t151)            | Lifetime, concurrency and Fabric stress validation         | ready                                                                |
+| [T151](#t151)            | Lifetime, concurrency and Fabric stress validation         | in progress (#385): host stress runs                                 |
 | [T152](#t152)            | The no-catalog audit                                       | ready                                                                |
 | [T153](#t153)            | Benchmarks against Nitro and Expo Modules                  | ready                                                                |
 | [T154](#t154)            | Guides for every parity row, and migration guides          | waiting; needs T150                                                  |
@@ -1772,25 +1772,28 @@ Ports already in the repository: `lucent-secure-store`, `lucent-haptics`,
 **Goal:** Races, cycles and recycling hold up under stress, on host,
 simulator and emulator.
 
-- **Status:** ready.
+- **Status:** in progress: the host's stress runs (#385); the device
+  runs wait for the simulator and emulator.
 - **Area:** runtime, views, verification.
 - **Needs:** nothing.
 - **Verify:** V3, V5, V7.
 - **Where:** `packages/runtime/test`, `scripts/device-check.ts`,
   `rn/LucentModule.cpp`.
 
-- [ ] Registration, completion and cancellation races, synchronous
-      re-entry and late outcomes, under TSan.
-- [ ] Several runtimes alive at once, and reloads while work is in flight.
-- [ ] 1,000 mount and dispose, and subscribe and cancel, cycles after
-      warmup: owned counts return to baseline (P7).
+- [x] Registration, completion and cancellation races, synchronous
+      re-entry and late outcomes, under TSan (`stress_test.cpp`, #385).
+- [x] Several runtimes alive at once, and reloads while work is in flight
+      (`runtimesReloadWithWorkInFlight` in `jsi/host_test.cpp`, #385).
+- [x] 1,000 mount and dispose, and subscribe and cancel, cycles after
+      warmup: owned counts return to baseline (P7), on the host (#385).
 - [ ] Hosts and views recycled while commands, events and measurements
       are in flight.
 - [ ] Background and foreground, and Activity recreation, on the
       emulator, with the actors' platform glue.
 - [ ] Debug builds: cycle reports reach LogBox on the simulator, and the
-      leak count runs after every module's teardown, not before
-      (`LucentModule.cpp` posts it to one shared actor).
+      leak count runs after every module's teardown, not before: it waits
+      for every actor now (`Actor::afterEveryActor`, #385); LogBox waits
+      for the simulator.
 
 **Done when:** each stress run passes in CI.
 

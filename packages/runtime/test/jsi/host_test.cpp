@@ -15,7 +15,9 @@
 #include <deque>
 #include <functional>
 #include <future>
+#include <cstdlib>
 #include <memory>
+#include <vector>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -1402,6 +1404,60 @@ static void reloadsStopModuleWork() {
   }
 }
 
+/// Stress (T151): four runtimes alive at once, each with work in flight (a
+/// callback, a subscription, a native operation, a timer loop and a call
+/// waiting on module work), reloaded one after another, forty times: by a
+/// new runtime (with tasks waiting) or by a new host on the same one. Each
+/// reload ends the work started in its runtime, the others' going on, and
+/// every result for a gone runtime is released on the module context.
+static void runtimesReloadWithWorkInFlight() {
+  constexpr int RUNTIMES = 4;
+  const char* n = std::getenv("LUCENT_STRESS_ITERATIONS");
+  const int rounds = n ? std::atoi(n) / 5 : 40;
+  newGate();
+  m_t::releases.reset();
+  m_t::workCleanups = 0;
+  m_t::workAborted = 0;
+  m_t::tickerEnded = 0;
+  const int startedBefore = m_t::started;
+
+  std::vector<std::unique_ptr<JsThread>> js;
+  for (int i = 0; i < RUNTIMES; i++) {
+    js.push_back(std::make_unique<JsThread>());
+    install(*js.back());
+  }
+
+  int started = 0;
+  for (int round = 0; round < rounds; round++) {
+    for (auto& t : js) {
+      t->eval("mods.t.listen(); mods.t.ticker().catch(() => {}); mods.t.later(1).catch(() => {});");
+      started++;
+    }
+    // The async calls have started on the module context (in order: the timer loop first): in flight.
+    CHECK(within(5000, [&] { return m_t::started.load() == startedBefore + started; }));
+
+    auto& reloaded = js[static_cast<size_t>(round % RUNTIMES)];
+    if (round % 2 == 0) {
+      reloaded->destroyRuntime(true);
+      reloaded = std::make_unique<JsThread>();
+    }
+    install(*reloaded);
+  }
+
+  // The runtimes go: what is still in flight ends with them.
+  for (auto& t : js) t->destroyRuntime();
+  CHECK(within(5000, [&] { return m_t::workCleanups.load() == 3 * started; }));
+  CHECK(within(5000, [&] { return m_t::workAborted.load() == 3 * started; }));
+  CHECK(within(5000, [&] { return m_t::tickerEnded.load() == started; }));
+  CHECK(m_t::started == startedBefore + started);
+
+  // The calls waiting on module work finish for gone runtimes and hosts.
+  openGate();
+  CHECK(within(5000, [&] { return m_t::releases.count.load() == started; }));
+  CHECK(m_t::releases.onLucentThread == started);
+  js.clear();
+}
+
 /// A result that cannot cross to JavaScript, whatever it throws, rejects
 /// the promise JavaScript waits for; a void callback's arguments that
 /// cannot cross are reported. Neither escapes the JS thread's task.
@@ -2499,6 +2555,7 @@ int main() {
   listenersEndWithTheirRuntime();
   observersHearJavaScriptsListeners();
   reloadsStopModuleWork();
+  runtimesReloadWithWorkInFlight();
   resultsThatCannotCrossReject();
   returnedBytesMoveWhenNothingElseHoldsThem();
   lentBytesAreJavaScriptsUntilTheCallEnds();

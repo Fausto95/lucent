@@ -1,7 +1,9 @@
 #include "scheduler.h"
 
+#include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -346,6 +348,27 @@ size_t Actor::pendingWorkOfAll() {
   size_t n = 0;
   for (Actor* actor : all) n += actor->pendingWork();
   return n;
+}
+
+void Actor::afterEveryActor(Job f) {
+  std::vector<Actor*> started;
+  {
+    Actors& a = actors();
+    std::lock_guard<std::mutex> g(a.m);
+    for (auto& actor : a.all)
+      if (actor.get() != &shared() && actor->started()) started.push_back(actor.get());
+  }
+
+  // Each actor's own turn says it has run what came before it; the last one
+  // posts `f` after what the shared actor has queued meanwhile.
+  auto remaining = std::make_shared<std::atomic<size_t>>(started.size() + 1);
+  auto job = std::make_shared<Job>(std::move(f));
+  auto arrive = [remaining, job] {
+    if (remaining->fetch_sub(1, std::memory_order_acq_rel) == 1) shared().post(std::move(*job));
+  };
+
+  for (Actor* actor : started) actor->post(arrive);
+  arrive();
 }
 
 Actor* Actor::current() {
