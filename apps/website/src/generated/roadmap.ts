@@ -250,7 +250,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "A web target for shared modules, with web twins for platform code."
       },
       {
-        "status": "in progress",
+        "status": "done",
         "text": "Monorepos, upgrades and Release builds, tested as a matrix."
       },
       {

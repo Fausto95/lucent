@@ -127,16 +127,16 @@ is written in TypeScript against the SDK, so each row is a task.
 
 ## Distribution and tooling
 
-| Capability                               | Nitro              | Expo Modules            | Lucent                                             | Task                  |
-| ---------------------------------------- | ------------------ | ----------------------- | -------------------------------------------------- | --------------------- |
-| Bare and Expo apps                       | ✅                 | ✅                      | ✅                                                 | —                     |
-| A tested window of React Native releases | RN 0.75 and later  | One RN per SDK          | 🟡 built nightly, not run                          | [T140](tasks.md#t140) |
-| Monorepos, upgrades, Release builds      | ✅                 | ✅                      | 🟡 workspaces and upgrades; Release builds to come | [T145](tasks.md#t145) |
-| Builds from Xcode alone                  | ✅                 | ✅                      | 🟡 needs Metro or `pod install`                    | [T141](tasks.md#t141) |
-| A library template                       | ✅ `nitrogen init` | ✅ `create-expo-module` | ✅ `lucent create --template library`              | —                     |
-| Prebuilt binaries                        | —                  | ✅ Expo's own modules   | ✅ the runtime core                                | —                     |
-| Errors in the editor                     | TypeScript only    | —                       | ✅                                                 | —                     |
-| Crashes that point at the source         | Native lines       | Native lines            | ✅ `.lucent.ts` lines                              | —                     |
+| Capability                               | Nitro              | Expo Modules            | Lucent                                  | Task                  |
+| ---------------------------------------- | ------------------ | ----------------------- | --------------------------------------- | --------------------- |
+| Bare and Expo apps                       | ✅                 | ✅                      | ✅                                      | —                     |
+| A tested window of React Native releases | RN 0.75 and later  | One RN per SDK          | 🟡 built nightly, not run               | [T140](tasks.md#t140) |
+| Monorepos, upgrades, Release builds      | ✅                 | ✅                      | ✅ workspaces, upgrades, Release builds | —                     |
+| Builds from Xcode alone                  | ✅                 | ✅                      | 🟡 needs Metro or `pod install`         | [T141](tasks.md#t141) |
+| A library template                       | ✅ `nitrogen init` | ✅ `create-expo-module` | ✅ `lucent create --template library`   | —                     |
+| Prebuilt binaries                        | —                  | ✅ Expo's own modules   | ✅ the runtime core                     | —                     |
+| Errors in the editor                     | TypeScript only    | —                       | ✅                                      | —                     |
+| Crashes that point at the source         | Native lines       | Native lines            | ✅ `.lucent.ts` lines                   | —                     |
 
 ## Not part of parity
 
