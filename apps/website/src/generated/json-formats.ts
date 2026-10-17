@@ -576,7 +576,7 @@ export const jsonOutputs: { command: string; file: string; description: string; 
             "field": "removed",
             "type": "object[]",
             "required": true,
-            "description": "What was removed: .lucent, and with --cache the SDK cache"
+            "description": "What was removed: .lucent, and with --cache each of the cache's entries"
           },
           {
             "field": "removed[].path",

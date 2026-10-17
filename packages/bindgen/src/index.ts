@@ -77,7 +77,7 @@ export {
   type JsxForm,
   jsxForm,
 } from "./call-form.ts";
-export { cacheRoot } from "./cache.ts";
+export { CACHE_ENTRIES, cacheRoot } from "./cache.ts";
 export { lockedPods, sourcesHash } from "./provenance.ts";
 export { buildSourceSchema, isScalarProtocol } from "./swift-source.ts";
 export { boundValue } from "./source-plan.ts";

@@ -72,7 +72,7 @@ what became of each one that is still linked or was still open.
 | [T154](#t154)            | Guides for every parity row, and migration guides          | waiting; needs T150                                                  |
 | [T155](#t155)            | The production-candidate gate                              | waiting; needs every other task but T135                             |
 | [T156](#t156)            | CI runs what the docs say it runs                          | done (2026-10-17)                                                    |
-| [T157](#t157)            | Small fixes the docs rewrite found                         | in progress (#391 to #396)                                           |
+| [T157](#t157)            | Small fixes the docs rewrite found                         | done (2026-10-17)                                                    |
 | [T158](#t158)            | An edit loop within its budget                             | ready                                                                |
 
 ## Gates
@@ -1950,7 +1950,7 @@ Found while rewriting [testing.md](testing.md):
 **Goal:** Fix the small defects and stale comments the rewrite found in
 code.
 
-- **Status:** in progress (#391 to #396).
+- **Status:** done (2026-10-17): #391 to #397.
 - **Area:** compiler, runtime, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V3.
@@ -1979,8 +1979,10 @@ code.
       five other headers still named "the Lucent lock", and do not now.
       `platform/ios.h`'s said its tables' callers held it, which per
       package actors no longer give: a race, fixed with a lock (#396).
-- [ ] `lucent clean --cache` leaves `memo/`, `swift-modules/`, `spm/` and
-      `declarations/`: remove them or say why they stay.
+- [x] `lucent clean --cache` leaves `memo/`, `swift-modules/`, `spm/` and
+      `declarations/`: remove them or say why they stay. It removes each
+      entry bindgen's `CACHE_ENTRIES` names (`jvm-sources/` too), and
+      nothing else under the root (#397).
 
 **Done when:** each item is fixed or recorded as intended.
 

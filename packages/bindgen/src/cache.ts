@@ -16,6 +16,26 @@ export function cacheRoot(dir?: string): string {
   return path.join(process.env.XDG_CACHE_HOME ?? path.join(os.homedir(), ".cache"), "lucent");
 }
 
+/**
+ * What Lucent keeps under the cache root, each made again when it is
+ * missing: SDK bindings (`sdk`, provider.ts), memos of files' hashes and
+ * indexes (`memo`), compiled Swift modules and Swift packages
+ * (`swift-modules`, swift-modules.ts; `spm`, swift-packages.ts), generated
+ * declarations (`declarations`, the compiler's declaration-cache.ts), a
+ * package's compiled Kotlin and Java (`jvm-sources`, jvm-sources.ts), and
+ * when stale entries were last pruned (`pruned`). `lucent clean --cache`
+ * removes these, and nothing else under the root.
+ */
+export const CACHE_ENTRIES = [
+  "sdk",
+  "memo",
+  "swift-modules",
+  "spm",
+  "declarations",
+  "jvm-sources",
+  "pruned",
+] as const;
+
 /** A short hash of `parts`, for file names and keys. */
 export const hash = (parts: string[]) =>
   crypto.createHash("sha256").update(parts.join("\n")).digest("hex").slice(0, 16);
