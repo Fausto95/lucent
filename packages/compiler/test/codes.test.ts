@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { Codes, compile, docsUrl, Explanations, sdkAvailable } from "../src/index.ts";
 
-function compileExample(files: Record<string, string>) {
+function compileExample(files: Record<string, string>, build?: "ios" | "android") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-explain-"));
   const paths = Object.entries(files).map(([name, source]) => {
     const file = path.join(dir, name);
@@ -12,7 +12,10 @@ function compileExample(files: Record<string, string>) {
     fs.writeFileSync(file, source);
     return file;
   });
-  return compile(paths.filter((f) => /\.lucent\.tsx?$/.test(f)));
+  return compile(
+    paths.filter((f) => /\.lucent\.tsx?$/.test(f)),
+    build ? { platforms: [build] } : undefined,
+  );
 }
 
 describe("explanations", () => {
@@ -30,12 +33,12 @@ describe("explanations", () => {
   describe.each(Object.entries(Explanations))("%s", (code, e) => {
     const missing = e.sdk && !sdkAvailable(e.sdk);
     it.skipIf(missing || e.internal)("its wrong example reports it", () => {
-      const r = compileExample(e.wrong);
+      const r = compileExample(e.wrong, e.build);
       const reported = e.severity === "warning" ? (r.warnings ?? []) : r.diagnostics;
       expect(reported.map((d) => d.code)).toContain(code);
     });
     it.skipIf(missing)("its right example compiles", () => {
-      const r = compileExample(e.right);
+      const r = compileExample(e.right, e.build);
       expect(r.diagnostics).toEqual([]);
       expect(r.warnings ?? []).toEqual([]);
     });
