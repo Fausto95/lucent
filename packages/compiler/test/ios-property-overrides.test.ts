@@ -97,7 +97,14 @@ describe("a Lucent class overriding its iOS base's properties", () => {
       ),
     );
 
+    // TypeScript refuses a field over an accessor; Lucent says why, and the way around it.
     const field = program("  title: string | null = null;");
-    expect(field.messages.map((m) => m[1]).join("\n")).toMatch(/title/);
+    expect(field.r.diagnostics.map((d) => [d.code, d.message, d.fix])).toEqual([
+      [
+        "LUCENT9001",
+        "TS2610: 'title' is defined as an accessor in class 'KITView', but is overridden here in 'Badge' as an instance property. title is KITView's Objective-C property: a field would hide it from KITView.",
+        "set it (this.title = …) instead of declaring a field, or override it with get and set accessors",
+      ],
+    ]);
   });
 });

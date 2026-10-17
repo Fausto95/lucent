@@ -152,7 +152,8 @@ export async function run(): Promise<string> {
         "Chore: Job extends Operation, an iOS class: Lucent classes cannot extend it in turn",
       ],
     ]);
-    // A field where the base has a property: the base would not see it.
+    // A field where the base has a property: the base would not see it. Its declarations make
+    // the property an accessor (T112), so TypeScript refuses the field, with the way around it.
     expect(
       refused(`import { Operation } from "lucent:ios/Foundation";
 class Named extends Operation {
@@ -164,8 +165,8 @@ export async function run(): Promise<string> {
 `),
     ).toEqual([
       [
-        "LUCENT1005",
-        "Named.name: Operation has a property of that name; set it (this.name = …) instead of declaring a field",
+        "LUCENT9001",
+        "TS2610: 'name' is defined as an accessor in class 'Operation', but is overridden here in 'Named' as an instance property. name is Operation's Objective-C property: a field would hide it from Operation.",
       ],
     ]);
     // Swift classes need a Swift subclass.
