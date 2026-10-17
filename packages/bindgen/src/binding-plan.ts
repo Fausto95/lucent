@@ -1246,9 +1246,12 @@ function objcRule(t: SchemaType, place: Place, ctx: Context): string | undefined
 }
 
 /**
- * Swift shims: scalars, enums as their case index, and objects (C structs
- * as their bytes, enums with payloads as their case's dictionary). What
- * would need a Swift optional of a scalar, or a closure, does not cross yet.
+ * Swift shims: scalars (an optional one as an NSNumber), strings, data,
+ * dates and objects; closures as Objective-C blocks; tuples, collections
+ * and async sequences of those; enums as their case index, C structs as
+ * their bytes, and enums with payloads as their case's dictionary. What
+ * doesn't cross says why: closures of other values, optional C structs,
+ * optional enums with payloads, collections of collections in a tuple.
  */
 function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefined {
   const not = (what: string) => `${what} cannot cross to Swift yet`;

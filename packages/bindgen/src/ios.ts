@@ -51,12 +51,14 @@ import {
 } from "./swift.ts";
 
 /**
- * Binding schemas for Clang modules (Apple frameworks, and Objective-C pods
- * later), from the Swift view of each module that `swift-symbolgraph-extract`
- * produces: Swift names, optionals, `throws`, `@MainActor`, availability, and
- * clang USRs that carry the Objective-C selectors. Enum values come from
- * clang, which symbol graphs do not include. Swift-only declarations (Swift
- * shims, M2.3) and closures (M2.2/M2.3) are listed as skipped.
+ * Binding schemas for Clang and Swift modules (Apple frameworks, pods and a
+ * package's own Swift), from the Swift view of each module that
+ * `swift-symbolgraph-extract` produces: Swift names, optionals, `throws`,
+ * `@MainActor`, availability, and clang USRs that carry the Objective-C
+ * selectors. Enum values come from clang, which symbol graphs do not
+ * include. Swift-only declarations are bound too, called through generated
+ * `@_cdecl` shims (swift.ts), and closures as blocks; what a binding plan
+ * refuses is listed as skipped, with its reason.
  */
 export interface IosOptions {
   modules: string[];

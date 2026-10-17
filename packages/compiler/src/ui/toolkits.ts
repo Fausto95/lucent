@@ -1,15 +1,16 @@
 /**
  * The declarative view toolkits a platform's components may draw with
- * (`lucent:<toolkit>`), each the platform's own. Internal, like lucent:ui:
- * their modules resolve only when compiles generate views.
+ * (`lucent:<toolkit>`), each the platform's own: SwiftUI on iOS, Compose on
+ * Android. Experimental, as lucent:ui is while views are in preview.
  *
  * A component draws with one by returning its body, JSX of the toolkit's
  * elements, written in a file of the toolkit's platform
- * (`*.ios.lucent.tsx`: SwiftUI). That file's JSX is the toolkit's: its
- * module declares the JSX namespace (the program resolves the implicit JSX
- * runtime import of each file to its platform's toolkit). The component's
- * root, the object the host shows, is the toolkit's. Plain data, no
- * imports: the program, the analyses and the emitters all read it.
+ * (`*.ios.lucent.tsx`: SwiftUI). The program resolves each file's implicit
+ * JSX runtime import to its platform's toolkit, whose module declares the
+ * JSX namespace; JSX of the platform's own view classes (`<UILabel>`) is
+ * native JSX instead (emit/native-jsx.ts). The component's root, the
+ * object the host shows, is the toolkit's. Plain data, no imports: the
+ * program, the analyses and the emitters all read it.
  */
 import type { Platform } from "../sdk/schema.ts";
 
@@ -24,7 +25,9 @@ export interface Toolkit {
   /**
    * The native module its declarations are generated from, written as
    * source (bindgen's `sdkSourceModule`), with the type of what a body
-   * returns; none: they are written by hand (`lib/sdk/<name>.d.ts`).
+   * returns. None: its module's own declarations are written by hand
+   * (`lib/sdk/<name>.d.ts`), and Compose's come from the schemas Lucent
+   * ships (`lib/sdk/compose.schemas.json.gz`, ui/compose-dts.ts).
    */
   readonly source?: { readonly module: string; readonly view: string };
 }

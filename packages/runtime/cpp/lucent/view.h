@@ -206,6 +206,7 @@ void setViewTree(std::function<std::string(const NativeRef&)> write);
 /**
  * A debug build's snapshot, as JSON: what the runtime owns, live
  * (debug.h), and each live mount with its view's tree. Main thread.
+ * JavaScript gets it as `__lucentDebug.snapshot()` (jsi/host.cpp).
  */
 std::string debugSnapshot();
 

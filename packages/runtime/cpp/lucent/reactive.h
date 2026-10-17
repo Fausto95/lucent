@@ -4,7 +4,7 @@
 // Everything runs on that context and nothing else: every call from another
 // thread throws std::logic_error (handles may be copied anywhere, but the
 // last copy of a computed value or an effect must go there too), and
-// nothing waits for the Lucent lock or the JavaScript thread. The rules
+// nothing waits for an actor or the JavaScript thread. The rules
 // (docs/architecture.md, under reactive.h; test/reactive/reference.ts is
 // their executable statement):
 //

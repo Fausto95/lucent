@@ -1,7 +1,7 @@
 // Lucent runtime — tracing.
 //
 // Structured events that say why something was slow: how long a job waited
-// for its owner before it ran, how long a call waited for the Lucent lock,
+// for its owner before it ran, how long a call waited for its module's actor,
 // how long a compute task waited for a worker, ran and waited to be
 // delivered, how many bytes a copy moved. Events that belong together (a
 // JS call, the job it posted, its completion) share a correlation id; a
@@ -35,7 +35,7 @@ namespace lucent::trace {
 enum class Category : uint8_t {
   /// A call from JavaScript into Lucent code.
   Entry,
-  /// Waiting for the Lucent lock.
+  /// Waiting for an actor: its lock, which its module's code holds.
   Lock,
   /// A posted job waiting for its owner to run it.
   Queue,

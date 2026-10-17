@@ -1,4 +1,5 @@
-// Globals available to Lucent modules beyond the ES2022 library. Only the
+// Globals available to Lucent modules beyond the ES2024 library (and
+// esnext's disposable and collection additions, program.ts). Only the
 // Lucent compiler loads this file; React Native, Node and the DOM declare
 // compatible versions, so the same source type-checks in an app's editor.
 
