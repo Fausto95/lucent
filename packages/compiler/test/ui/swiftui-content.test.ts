@@ -71,15 +71,15 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
     // A callback's parameter is the closure's; the setup's function gets the values it is given.
     expect(swift).toContain(".onHover { over in model.actions(0, [over]) }");
     expect(swift).toContain('Button("One") { model.actions(1, ["one", 1]) }');
-    // What the setup computes for an argument is a value of the model, as anywhere in the body.
-    expect(swift).toMatch(
-      /\.onTapGesture \{ model\.actions\(1, \[model\.title\d+, model\.value\d+\]\) \}/,
-    );
+    // A call with what the setup computes is an action of its own: the body computes the values
+    // (in C++, with the rest of it), which the action calls the function with.
+    expect(swift).toContain('Text("two").onTapGesture { model.actions(2) }');
 
     const glue = generated(built.result, /^ios\/m_counter\.mm$/);
 
     expect(glue).toMatch(/->list\.push_back\(lucent::swiftui::action\(hovered\)\);/);
     expect(glue).toMatch(/->list\.push_back\(lucent::swiftui::action\(pick\)\);/);
+    expect(glue).toMatch(/action\(lucent::Fn<void\(\)>\(.*\[f = pick, arg0 = \w+, arg1 = \w+\]/);
     expect(swiftErrors(built)).toBe("");
   }, 300_000);
 

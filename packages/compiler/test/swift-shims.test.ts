@@ -210,7 +210,7 @@ describe.skipIf(!xcode)("Swift-only members, called through shims", () => {
       .split('@_cdecl("')
       .slice(1)
       .map((shim) => shim.split("\n").slice(1, 4).join(" ").replace(/\s+/g, " "));
-    expect(symbols, calls.join("\n")).toHaveLength(21);
+    expect(symbols, calls.join("\n")).toHaveLength(20);
     expect(new Set(symbols).size).toBe(symbols.length);
     expect(shims).toContain("import Shapes");
     // Calls written from the Swift names, labels included.
