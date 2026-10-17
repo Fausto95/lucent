@@ -268,6 +268,10 @@ public func withAnimation<Result>(_ animation: Animation? = .default, _ body: ()
 
 // --- what generated Swift holds its state in (Combine's and SwiftUI's) ---------------
 
+// Combine's, where there is one (Apple's platforms, whose Foundation names them too).
+#if canImport(Combine)
+@_exported import Combine
+#else
 public protocol ObservableObject: AnyObject {}
 
 @propertyWrapper
@@ -275,6 +279,7 @@ public struct Published<Value> {
   public var wrappedValue: Value
   public init(wrappedValue: Value) { self.wrappedValue = wrappedValue }
 }
+#endif
 
 @propertyWrapper
 public struct ObservedObject<ObjectType: ObservableObject> {
