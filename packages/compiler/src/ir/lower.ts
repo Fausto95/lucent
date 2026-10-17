@@ -22,7 +22,7 @@ import {
   parameterSymbol,
   symbolOf,
 } from "../analysis/scopes.ts";
-import { Codes, fail, replacing } from "../diagnostics.ts";
+import { Codes, fail, replacing, syntaxWords } from "../diagnostics.ts";
 import { bigintLiteralValue } from "../lowering/literals.ts";
 import {
   holdsJsValue,
@@ -912,7 +912,7 @@ class Lowerer {
 
     const lower = STATEMENTS[s.kind] as ((s: ts.Statement, lw: Lowerer) => void) | undefined;
 
-    if (!lower) this.unsupported(s, `${ts.SyntaxKind[s.kind]} statements`);
+    if (!lower) this.unsupported(s, `${syntaxWords(s.kind)} statements`);
 
     lower(s, this);
   }
@@ -1821,7 +1821,7 @@ class Lowerer {
   leaf(node: ts.Expression, hint?: LType): ValueId {
     const host = this.host.leaves;
 
-    if (!host) this.unsupported(node, `${ts.SyntaxKind[node.kind]} expressions`);
+    if (!host) this.unsupported(node, `${syntaxWords(node.kind)} expressions`);
 
     const { operands, args } = this.operands();
 

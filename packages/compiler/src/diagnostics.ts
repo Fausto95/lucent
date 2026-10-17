@@ -21,6 +21,27 @@ export interface Diagnostic {
   quickFix?: QuickFix;
 }
 
+/**
+ * A syntax kind's own name: `DebuggerStatement`, where ts.SyntaxKind[kind]
+ * gives the marker sharing its value (`LastStatement`). The kind's name is
+ * declared before its markers, so it is the first name of that value.
+ */
+export function syntaxName(kind: ts.SyntaxKind): string {
+  const names = ts.SyntaxKind as unknown as Record<string, number>;
+  return Object.keys(names).find((k) => names[k] === kind && !/^\d/.test(k)) ?? String(kind);
+}
+
+/**
+ * A syntax kind in a message's words, without its node class: `debugger`
+ * (DebuggerStatement), `tagged template` (TaggedTemplateExpression).
+ */
+export function syntaxWords(kind: ts.SyntaxKind): string {
+  return syntaxName(kind)
+    .replace(/(?<=.)(Statement|Expression)$/, "")
+    .replace(/(?<=[a-z])(?=[A-Z])/g, " ")
+    .toLowerCase();
+}
+
 /** Text replaced in a file: `length` characters at offset `start` become `text`. */
 export interface TextEdit {
   start: number;
