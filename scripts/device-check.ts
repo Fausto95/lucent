@@ -796,7 +796,11 @@ async function main(): Promise<boolean> {
   device.install();
   const held = target.download ? holdDownload() : undefined;
   try {
-    for (const screen of target.screens) if (!(await check(target, device, screen))) return false;
+    for (const screen of target.screens)
+      if (!(await check(target, device, screen))) {
+        if (held) await diagnoseDownload(device);
+        return false;
+      }
     // Both, whatever the first says: each says something of its own.
     const pushed = target.push ? await silentPush(target, device) : true;
     const downloaded = held ? await backgroundDownload(target, device) : true;
@@ -804,6 +808,37 @@ async function main(): Promise<boolean> {
   } finally {
     held?.kill();
   }
+}
+
+/** Temporary (T137): what the system said of the background session, as an annotation. */
+async function diagnoseDownload(device: Device): Promise<void> {
+  const status = await heldStatus();
+  const grab = (text: string) =>
+    (device.mentions?.(text) ?? "")
+      .split("\n")
+      .filter((l) => l.trim() && !l.includes("log run noninteractively"))
+      .slice(-14)
+      .map((l) => (l.length > 260 ? `${l.slice(0, 259)}…` : l));
+  const launchctl = spawnSync("xcrun", ["simctl", "spawn", "booted", "launchctl", "list"], {
+    encoding: "utf8",
+  });
+  const services = (launchctl.stdout ?? "")
+    .split("\n")
+    .filter((l) => /nsurlsession|networkd|symptoms/i.test(l));
+  const lines = [
+    `held download: ${status.trim()}`,
+    `launchctl: ${services.join(" | ") || `none (${launchctl.status})`}`,
+    "BackgroundSession:",
+    ...grab("BackgroundSession"),
+    "nsurlsessiond:",
+    ...grab("nsurlsessiond"),
+    "background transfer:",
+    ...grab("background transfer"),
+  ];
+  console.log(lines.join("\n"));
+  const text = lines.join("\n").slice(0, 3800);
+  const escaped = text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  if (process.env.GITHUB_ACTIONS) console.log(`::error title=Download diagnosis::${escaped}`);
 }
 
 /** The held download's port: the Platform screen's HELD_DOWNLOAD names it. */
