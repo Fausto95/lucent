@@ -10,7 +10,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { compile } from "../src/index.ts";
+import { compile, sdkAvailable } from "../src/index.ts";
+import { loadSdkModule } from "../src/sdk/schema.ts";
 import { schemaSet } from "./schema-set.ts";
 
 const KIT = {
@@ -198,4 +199,16 @@ export function ping(): void {
       "LUCENT3019 lucent.json's ios.appExtensions RichPush names rich#Rich, but lucent-push has no module lucent-push/rich",
     ]);
   });
+});
+
+// What the iOS SDK marks (NS_EXTENSION_UNAVAILABLE_IOS), as its symbol graph says: LUCENT3018's
+// explanation refuses UIApplication.shared in an app extension's code.
+describe.skipIf(!sdkAvailable("ios"))("the iOS SDK's APIs app extensions can't use", () => {
+  it("are marked in its schema, UIApplication.shared among them", () => {
+    const app = loadSdkModule("ios", "UIKit").types.find((t) => t.name === "UIApplication");
+    const shared =
+      app?.kind === "class" ? app.properties?.find((p) => p.name === "shared") : undefined;
+
+    expect(shared?.extensionUnavailable, JSON.stringify(shared)).toBe(true);
+  }, 600_000);
 });
