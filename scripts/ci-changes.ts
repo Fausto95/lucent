@@ -31,7 +31,6 @@ const everything: Pattern[] = [
 
 /** Files no job reads beyond the unit tests (which always run). */
 const quiet: Pattern[] = [
-  "docs/",
   "assets/",
   ".changeset/",
   ".vscode/",
@@ -42,11 +41,11 @@ const quiet: Pattern[] = [
   "LICENSE",
   ".gitignore",
   ".git-blame-ignore-revs",
-  "vercel.json",
   "config/test-timings.json",
   "scripts/test-timings.ts",
   "scripts/cli-recording.ts",
   "scripts/ci-changes.test.ts",
+  "scripts/sync-examples.test.ts",
   // The no-catalog audit: a unit test, of every file under packages/.
   "scripts/platform-names.ts",
   "scripts/platform-names.test.ts",
@@ -86,10 +85,16 @@ const areas = {
   ],
   // The website's check also reads the roadmap, the changelog and the
   // READMEs (scripts/website.ts), and the examples its pages include.
+  // What the website's check reads: a page is built from docs/limitations.md, the
+  // benchmark tables from benchmarks/results/, and every docs/ file's links into the
+  // site are checked, as are vercel.json's redirects.
   website: [
     "apps/website/",
     "scripts/website.ts",
     "scripts/website/",
+    "docs/",
+    "benchmarks/results/",
+    "vercel.json",
     "ROADMAP.md",
     "README.md",
     "CONTRIBUTING.md",

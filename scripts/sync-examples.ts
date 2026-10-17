@@ -19,15 +19,22 @@
  * App.tsx, App.web.tsx and src/ are rewritten whole: a file removed from the source
  * leaves no copy behind. Unit tests (*.test.ts) stay out.
  *
- *   node scripts/sync-examples.ts
+ *   node scripts/sync-examples.ts           # writes both apps
+ *   node scripts/sync-examples.ts --check   # writes nothing; fails naming each file that differs
+ *
+ * sync-examples.test.ts runs the check with the unit tests.
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { LUCENT_EXTENSION, moduleNameOf } from "../packages/compiler/src/index.ts";
 import { cases, referenceRun } from "../packages/compiler/test/e2e/run.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+/** Whether to compare what the sync writes with what the apps have, writing nothing. */
+const check = process.argv.includes("--check");
 
 const shared = "scripts/example-app";
 
@@ -81,23 +88,61 @@ for (const c of single) {
   expected[c.name] = printed.split("\n").filter((l, i, a) => i < a.length - 1 || l !== "");
 }
 
+/** What the sync writes in an app, whole. */
+const GENERATED = ["src", "App.tsx", "App.web.tsx"];
+
+const drift: string[] = [];
+
 for (const app of apps) {
   const appDir = path.join(root, app.dir);
-  const src = path.join(appDir, "src");
+  // A check writes the app's generated files elsewhere, to compare.
+  const target = check ? fs.mkdtempSync(path.join(os.tmpdir(), "lucent-sync-")) : appDir;
+  const src = path.join(target, "src");
 
-  fs.rmSync(src, { recursive: true, force: true });
-  fs.rmSync(path.join(appDir, "App.tsx"), { force: true });
-  fs.rmSync(path.join(appDir, "App.web.tsx"), { force: true });
+  for (const f of GENERATED) fs.rmSync(path.join(target, f), { recursive: true, force: true });
 
-  installTree(shared, appDir);
-  if (app.overlay) installTree(app.overlay, appDir);
+  installTree(shared, target);
+  if (app.overlay) installTree(app.overlay, target);
 
   installCases(src);
   installBench(src);
   installCompare(appDir, src);
   installPixels(src);
 
-  console.log(`✓ ${app.dir}: ${single.length} cases`);
+  if (check) {
+    drift.push(...differences(target, appDir).map((f) => `${app.dir}/${f}`));
+    fs.rmSync(target, { recursive: true, force: true });
+  } else console.log(`✓ ${app.dir}: ${single.length} cases`);
+}
+
+if (check && drift.length) {
+  console.error(
+    `✗ the example apps differ from their sources in ${drift.length} files: run \`node scripts/sync-examples.ts\`\n  ${drift.slice(0, 20).join("\n  ")}${drift.length > 20 ? `\n  … and ${drift.length - 20} more` : ""}`,
+  );
+  process.exitCode = 1;
+} else if (check) console.log(`✓ both example apps match their sources (${single.length} cases)`);
+
+/** The generated files of `actual` that differ from `expected`'s: changed, missing or extra. */
+function differences(expected: string, actual: string): string[] {
+  const files = (dir: string): Map<string, Buffer> => {
+    const out = new Map<string, Buffer>();
+    const walk = (rel: string): void => {
+      const abs = path.join(dir, rel);
+      if (!fs.existsSync(abs)) return;
+      if (fs.statSync(abs).isDirectory())
+        for (const e of fs.readdirSync(abs)) walk(path.posix.join(rel, e));
+      else out.set(rel, fs.readFileSync(abs));
+    };
+    for (const f of GENERATED) walk(f);
+    return out;
+  };
+  const want = files(expected);
+  const have = files(actual);
+
+  return [...new Set([...want.keys(), ...have.keys()])]
+    .filter((f) => !want.get(f)?.equals(have.get(f) ?? Buffer.alloc(0)) || !have.has(f))
+    .sort()
+    .map((f) => `${f}${!have.has(f) ? " (missing)" : !want.has(f) ? " (not generated)" : ""}`);
 }
 
 /**
