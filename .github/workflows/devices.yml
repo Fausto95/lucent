@@ -84,7 +84,9 @@ jobs:
         run: bundle exec pod install
       # FORCE_BUNDLING embeds the bundle in the Debug build too: the app takes it when its check
       # that Metro runs (6 seconds for /status, at launch) times out, as it did on a simulator
-      # still busy from its boot ("No script URL provided").
+      # still busy from its boot ("No script URL provided"). The build is signed, as Xcode signs
+      # one for the simulator by default ("Sign to Run Locally"): the background transfer daemon
+      # refuses an unsigned app's background URL session (T137).
       - name: Build for the simulator
         working-directory: apps/bare-example/ios
         timeout-minutes: 35
@@ -93,7 +95,7 @@ jobs:
           xcodebuild -workspace BareExample.xcworkspace -scheme BareExample \
             -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO FORCE_BUNDLING=1 build | tee build.log | tail -n 200 || {
+            -derivedDataPath build FORCE_BUNDLING=1 build | tee build.log | tail -n 200 || {
             code=$?
             # The failure's annotation keeps the output's end: the compiler's errors, last.
             echo "The build's errors:"
@@ -213,6 +215,7 @@ jobs:
       - name: Install pods
         working-directory: apps/expo-example/ios
         run: pod install
+      # Signed, as the bare example's build is: its Platform screen starts a background download.
       - name: Build for the simulator
         working-directory: apps/expo-example/ios
         timeout-minutes: 45
@@ -223,7 +226,7 @@ jobs:
           xcodebuild -workspace "$name.xcworkspace" -scheme "$name" \
             -configuration Release -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tee build.log | tail -n 200 || {
+            -derivedDataPath build build | tee build.log | tail -n 200 || {
             code=$?
             echo "The build's errors:"
             grep -E ': (fatal )?error: |^ld: ' build.log | sort -u | head -20 | cut -c1-400

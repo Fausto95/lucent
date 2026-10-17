@@ -19,14 +19,15 @@
  *   3. follows the lines the screen logs, LUCENT_PROGRESS after each check
  *      and LUCENT_SUMMARY with its verdict (`LUCENT_SUMMARY tests 70/70
  *      passed`), before opening the next;
- *   4. on iOS, last, ends the example and sends it a silent push (`simctl
- *      push`), which starts it: its launch module logs LUCENT_PUSH with the
- *      push's marker, or the fetch the simulator hands the push to instead
- *      (FB7625283) (lucent-background-task's push.lucent.ts);
- *   5. on iOS, ends it again and lets the download the Platform screen
+ *   4. on iOS, ends the example and lets the download the Platform screen
  *      started finish (scripts/held-download.ts holds it open until then):
  *      iOS starts the app for the background session's events, and its
- *      launch module logs LUCENT_DOWNLOAD (download.lucent.ts).
+ *      launch module logs LUCENT_DOWNLOAD (lucent-background-task's
+ *      download.lucent.ts);
+ *   5. on iOS, last, ends it again and sends it a silent push (`simctl
+ *      push`), which starts it: its launch module logs LUCENT_PUSH with the
+ *      push's marker, or the fetch the simulator hands the push to instead
+ *      (FB7625283) (push.lucent.ts).
  *
  *   node scripts/device-check.ts ios --app <BareExample.app>
  *   node scripts/device-check.ts android --apk <app-debug.apk>
@@ -807,10 +808,11 @@ async function main(): Promise<boolean> {
   const held = target.download ? holdDownload() : undefined;
   try {
     for (const screen of target.screens) if (!(await check(target, device, screen))) return false;
-    // Both, whatever the first says: each says something of its own.
-    const pushed = target.push ? await silentPush(target, device) : true;
+    // Both, whatever the first says: each says something of its own. The download first: the
+    // push starts the app again, which it may not do as iOS would.
     const downloaded = held ? await backgroundDownload(target, device) : true;
-    return pushed && downloaded;
+    const pushed = target.push ? await silentPush(target, device) : true;
+    return downloaded && pushed;
   } finally {
     held?.kill();
   }
