@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include "lucent/lucent.h"
 #include "lucent/platform/ios.h"
@@ -80,6 +81,31 @@ static void cachedObjectsAreWeak() {
     weak = first;
   }
   CHECK(weak == nil);
+}
+
+/// Each package's code runs on its actor's thread, so the cache is used from
+/// several at once: one object per key, each time, on each of them.
+static void cachedObjectsFromManyThreads() {
+  constexpr int kThreads = 4;
+  constexpr int kKeys = 500;
+  static int keys[kThreads][kKeys];
+  std::atomic<int> mismatches{0};
+  std::vector<std::thread> threads;
+
+  for (int t = 0; t < kThreads; t++)
+    threads.emplace_back([t, &mismatches] {
+      @autoreleasepool {
+        NSMutableArray* held = [NSMutableArray array];
+        for (int i = 0; i < kKeys; i++) {
+          id first = objc::cachedObject<7>(&keys[t][i], ^id { return [NSObject new]; });
+          [held addObject:first];
+          if (objc::cachedObject<7>(&keys[t][i], ^id { return [NSObject new]; }) != first) mismatches++;
+        }
+      }
+    });
+  for (auto& thread : threads) thread.join();
+
+  CHECK(mismatches == 0);
 }
 
 /// An NSError** argument's error is retained once by its Out, and read back.
@@ -307,6 +333,7 @@ static void pixelBuffersAreAdoptedInPlace() {
 int main() {
   blocksReleaseWhatTheyHold();
   cachedObjectsAreWeak();
+  cachedObjectsFromManyThreads();
   errorOutRetainsOnce();
   nativeReferencesAreCounted();
   objectsAreReleasedOnMain();
