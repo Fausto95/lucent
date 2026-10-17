@@ -12,7 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
-import { catalystObjects, macosSdk, quickjsSources } from "./mount-harness.ts";
+import { catalystObjects, macosSdk, quickjsSources, runProgram } from "./mount-harness.ts";
 import { catalystToolchain, reactCommon } from "./react-native-headers.ts";
 import { TOGGLE } from "./swiftui-fixture.ts";
 
@@ -221,10 +221,10 @@ describe("a SwiftUI component in its iOS host", () => {
 
       expect(link.stderr).toBe("");
 
-      const run = spawnSync(binary, [], { encoding: "utf8", timeout: 60_000 });
+      const run = runProgram(binary);
 
-      expect(run.stdout.trim().split("\n"), run.stderr).toEqual(EXPECTED);
-      expect(run.status).toBe(0);
+      expect(run.stdout.trim().split("\n"), run.failure || run.stderr).toEqual(EXPECTED);
+      expect(run.status, run.failure).toBe(0);
       // A command reaching the recycled view: no mount to run it.
       expect(run.stderr).toContain(
         "[lucent] command toggle reached a view with no mount (its setup failed, or it is not mounted yet)",

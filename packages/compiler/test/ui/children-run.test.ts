@@ -9,7 +9,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { CARD, IOS_HOSTED } from "./card-fixture.ts";
-import { catalystObjects, macosSdk, quickjsSources } from "./mount-harness.ts";
+import { catalystObjects, macosSdk, quickjsSources, runProgram } from "./mount-harness.ts";
 import { catalystToolchain, reactCommon } from "./react-native-headers.ts";
 
 const toolchain = catalystToolchain();
@@ -151,15 +151,13 @@ describe("React children in the iOS host", () => {
 
       expect(link.stderr).toBe("");
 
-      const run = spawnSync(binary, [], {
-        encoding: "utf8",
-        timeout: 60_000,
+      const run = runProgram(binary, [], {
         env: { ...process.env, LUCENT_SIZING_TRACE: "1" },
       });
 
       expect(run.stdout.trim().split("\n")).toEqual(EXPECTED);
       expect(slotReports(run.stderr)).toEqual(SLOT_REPORTS);
-      expect(run.status).toBe(0);
+      expect(run.status, run.failure).toBe(0);
       expect(run.stderr).toContain(
         `[lucent] ${registration("Pocket")}'s setup did not put its slot in the view it returned: its React children do not show`,
       );
