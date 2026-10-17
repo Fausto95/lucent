@@ -71,7 +71,7 @@ what became of each one that is still linked or was still open.
 | [T153](#t153)            | Benchmarks against Nitro and Expo Modules                  | ready                                                                |
 | [T154](#t154)            | Guides for every parity row, and migration guides          | waiting; needs T150                                                  |
 | [T155](#t155)            | The production-candidate gate                              | waiting; needs every other task but T135                             |
-| [T156](#t156)            | CI runs what the docs say it runs                          | ready                                                                |
+| [T156](#t156)            | CI runs what the docs say it runs                          | in progress (#387)                                                   |
 | [T157](#t157)            | Small fixes the docs rewrite found                         | ready                                                                |
 
 ## Gates
@@ -1908,7 +1908,7 @@ candidate is documented.
 **Goal:** Every check the docs describe runs where they say it does, and a
 skipped check is reported as skipped.
 
-- **Status:** ready.
+- **Status:** in progress (#387).
 - **Area:** tooling, verification.
 - **Needs:** nothing.
 - **Verify:** V0, V1.
@@ -1923,11 +1923,12 @@ Found while rewriting [testing.md](testing.md):
       compare with bytecode, not with source.
 - [ ] The Mac Catalyst run tests get the pods they need in the `ios-test`
       shards, instead of being skipped.
-- [ ] `packages/runtime/test/jni/run.sh` runs in CI.
+- [x] `packages/runtime/test/jni/run.sh` runs in CI, plain and with
+      ASan and UBSan, and fails there without a JDK rather than skip.
 - [ ] A change to `docs/limitations.md` alone runs the website check,
       which builds a page from it.
-- [ ] The four runtime tests that call their binary directly go through
-      `run_binary`, so the sanitizers check them.
+- [x] The four runtime tests that call their binary directly go through
+      `run_binary`, so the sanitizers check them (the executor bench too).
 - [ ] A check fails when the example apps' copies of the e2e cases drift
       from `node scripts/sync-examples.ts`.
 - [ ] CONTRIBUTING.md and `devices.yml` say device runs are nightly and
