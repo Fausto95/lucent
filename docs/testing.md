@@ -457,7 +457,8 @@ times the boundary, and measures the generated objects and install time.
 body-edit builds, a check, editor diagnostics and the edited unit's C++.
 `--check` holds each p95 to `scripts/bench-build-budgets.json`. In CI,
 with `--shared-runner`, a time over its budget is a warning: times move
-with the runner's CPU. P5 is missed today ([T158](tasks.md#t158)).
+with the runner's CPU. P5 is missed today, and why is in
+[T158](tasks.md#t158).
 
 `node scripts/bench-publish.ts <results.json>` copies a run to
 `benchmarks/results/`. Comparisons with Nitro and Expo Modules are
