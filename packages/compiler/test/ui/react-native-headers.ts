@@ -141,9 +141,26 @@ export function iosHostToolchain(): Toolchain | undefined {
 }
 
 /**
+ * The configuration of React Native's prebuilt core in the Pods: Debug, as
+ * `pod install` leaves it, until an app's Release build swaps the Release
+ * one in (React Native's replace-rncore-version.js records which). Its
+ * classes' layout follows it: a Debug core's DebugStringConvertible has
+ * virtual members (RN_DEBUG_STRING_CONVERTIBLE) a Release one lacks.
+ */
+export function prebuiltConfiguration(): "Debug" | "Release" {
+  const marker = path.join(PODS, "React-Core-prebuilt/.last_build_configuration");
+  try {
+    return fs.readFileSync(marker, "utf8").trim() === "Release" ? "Release" : "Debug";
+  } catch {
+    return "Debug";
+  }
+}
+
+/**
  * A compiler and linker for programs that run on this Mac against React
  * Native's prebuilt frameworks (their Mac Catalyst slices) and Hermes,
- * when the Pods hold them. The frameworks are release builds: NDEBUG.
+ * when the Pods hold them, built as the frameworks were: DEBUG=1 against a
+ * Debug core, NDEBUG against a Release one.
  */
 export function catalystToolchain(): Toolchain | undefined {
   if (process.platform !== "darwin" || process.arch !== "arm64") return undefined;
@@ -178,7 +195,7 @@ export function catalystToolchain(): Toolchain | undefined {
       "-isysroot",
       sdk,
       ...common({ view: "cxx", graphics: "ios" }).filter((f) => f !== "-fsyntax-only"),
-      "-DNDEBUG",
+      prebuiltConfiguration() === "Release" ? "-DNDEBUG" : "-DDEBUG=1",
       "-isystem",
       deps,
       "-isystem",
