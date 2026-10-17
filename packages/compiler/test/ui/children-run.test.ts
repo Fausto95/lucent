@@ -110,6 +110,8 @@ describe("React children in the iOS host", () => {
         path.join(cpp, "lucent/jsi/convert.cpp"),
         path.join(cpp, "lucent/platform/ios.mm"),
         path.join(cpp, "lucent/platform/ios_ui.mm"),
+        // The view tree a debug build's snapshot shows, which the component view installs.
+        path.join(cpp, "lucent/platform/ios_debug.mm"),
         path.join(rn, "LucentViewRequests.cpp"),
         ...fs
           .readdirSync(rn)

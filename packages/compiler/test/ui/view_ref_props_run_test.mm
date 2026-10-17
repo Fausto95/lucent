@@ -128,7 +128,7 @@ void run() {
     auto id = [&](const Player& p) {
       return std::to_string(static_cast<long long>(lucent::views::instanceIds().idOf(kNext, p)));
     };
-    auto p1 = commit(parser, empty, R"({"p0": )" + id(first) + R"(, "p2": [])");
+    auto p1 = commit(parser, empty, R"({"p0": )" + id(first) + R"(, "p2": []})");
     auto p2 = commit(parser, p1, R"({"p0": )" + id(second) + R"(, "p1": [)" + id(first) + "]}");
     auto m = view::Mount::create(*p1, emit);
 
