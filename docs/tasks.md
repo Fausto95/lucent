@@ -1504,7 +1504,9 @@ and its Lucent handler runs.
   release, and CI compiles against each release's headers (#190, #191,
   #194, #195, #200, as T75). `lucent create` starts on 0.87 and SDK 57
   (#204), then on 0.88 and SDK 58 when they joined the window (#363). window.yml builds ten fresh apps nightly and runs each on the
-  simulator or the emulator, all green on 2026-10-12.
+  simulator or the emulator, all green on 2026-10-12. On 2026-10-17 the
+  five Android apps ran green and the five iOS ones failed to build:
+  Lucent read its own pod as a Swift pod to bind (#419).
 - **Area:** tooling, verification.
 - **Needs:** nothing.
 - **Verify:** V5, V6.
