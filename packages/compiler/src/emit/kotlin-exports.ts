@@ -286,7 +286,12 @@ function nativeOf(
   };
 }
 
-/** A call of native `name` (on `on`) with `args`; through awaitEntry for an async one. */
+/**
+ * A call of native `name` (on `on`) with `args`; through awaitEntry for an
+ * async one. Returned, its result's type is the function's; an async one
+ * that gives nothing is a statement, so it names `Unit` itself: Kotlin
+ * infers no type argument from a statement.
+ */
 function callNative(api: EntryApi, on: string | undefined, name: string, args: kt.Expr[]): kt.Expr {
   const callee = on ? kt.member(kt.name(on), name) : kt.name(name);
   const call = (more: kt.Expr[]) =>
@@ -299,6 +304,7 @@ function callNative(api: EntryApi, on: string | undefined, name: string, args: k
         qualifiedName("dev.lucent.app.awaitEntry"),
         [],
         kt.lambda(["done"], [kt.exprStmt(call([kt.name("done")]))]),
+        api.ret ? undefined : [kt.type("Unit")],
       )
     : call([]);
 }
