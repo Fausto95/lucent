@@ -408,6 +408,11 @@ taps, its recognizers are on the component's own view, the Fabric view's
 contentView),
 and it lays out in a react-native-screens stack's screen.
 
+On iOS the run then ends the app and sends it a silent push (`xcrun simctl
+push`, `content-available: 1`), which iOS starts it for. The handler
+`lucent-background-task`'s launch module subscribes logs `LUCENT_PUSH` with
+the push's marker ([T137](tasks.md#t137)).
+
 Each screen opens in an app started for it, on Android as on iOS. A deep
 link that navigated the running app (React Native 0.88's bare Debug build)
 made it lose views it had mounted: they stopped taking updates ("Unable to

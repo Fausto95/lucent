@@ -14,6 +14,7 @@ import {
   lastVerdict,
   parseTarget,
   pickSimulator,
+  pushHeard,
   screenText,
 } from "./device-check.ts";
 
@@ -94,6 +95,22 @@ describe("lastScreen", () => {
     expect(lastScreen(log)).toBe("tests");
     expect(lastScreen(log.split("\n").slice(0, 2).join("\n"))).toBe("media");
     expect(lastScreen("nothing yet")).toBeUndefined();
+  });
+});
+
+describe("pushHeard", () => {
+  it("finds the launch module's line for the push with the marker", () => {
+    const log = [
+      'BareExample[1:2] [Lucent] LUCENT_PUSH heard {"aps":{"content-available":1},"marker":"lucent-ended-1"}, in a process started for it',
+      'BareExample[1:2] [Lucent] LUCENT_PUSH heard {"marker":"lucent-background-2"}',
+    ].join("\n");
+    expect(pushHeard(log, "lucent-ended-1")).toBe(
+      'LUCENT_PUSH heard {"aps":{"content-available":1},"marker":"lucent-ended-1"}, in a process started for it',
+    );
+    expect(pushHeard(log, "lucent-background-2")).toBe(
+      'LUCENT_PUSH heard {"marker":"lucent-background-2"}',
+    );
+    expect(pushHeard(log, "lucent-ended-3")).toBeUndefined();
   });
 });
 
@@ -392,6 +409,7 @@ describe("parseTarget", () => {
         { id: "libraries", launchArgs: ["-lucentTab", "lab/libraries"] },
       ],
       metro: true,
+      push: true,
     });
     expect(parseTarget(["android", "--apk", "app-debug.apk"])).toMatchObject({
       id: "com.bareexample",
@@ -402,6 +420,7 @@ describe("parseTarget", () => {
         { id: "libraries", url: "lucentbare://lab/libraries" },
       ],
       metro: true,
+      push: false,
     });
   });
 
@@ -420,6 +439,7 @@ describe("parseTarget", () => {
         { id: "libraries", launchArgs: ["-lucentTab", "lab/libraries"] },
       ],
       metro: false,
+      push: true,
     });
     expect(parseTarget(["android", "--apk", "app-release.apk", "--example", "expo"])).toMatchObject(
       {
@@ -460,6 +480,7 @@ describe("parseTarget", () => {
       process: "LucentWindow",
       screens: [{ id: "tests", launchArgs: [] }],
       metro: false,
+      push: false,
     });
     expect(parseTarget(["ios", "--app", "build/LucentWindow.app", "--id", "x.y"]).process).toBe(
       "LucentWindow",

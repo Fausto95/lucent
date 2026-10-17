@@ -18,7 +18,10 @@
  *      nobody is there to confirm it);
  *   3. follows the lines the screen logs, LUCENT_PROGRESS after each check
  *      and LUCENT_SUMMARY with its verdict (`LUCENT_SUMMARY tests 70/70
- *      passed`), before opening the next.
+ *      passed`), before opening the next;
+ *   4. on iOS, last, ends the example and sends it a silent push (`simctl
+ *      push`), which starts it: its launch module logs LUCENT_PUSH with the
+ *      push's marker (lucent-background-task's push.lucent.ts).
  *
  *   node scripts/device-check.ts ios --app <BareExample.app>
  *   node scripts/device-check.ts android --apk <app-debug.apk>
@@ -88,6 +91,13 @@ export function lastScreen(log: string): string | undefined {
   let found: string | undefined;
   for (const m of log.matchAll(/LUCENT_(?:PROGRESS|SUMMARY) (\S+) /g)) found = m[1];
   return found;
+}
+
+/** The line a launch module logged for the silent push with `marker`: `LUCENT_PUSH heard {…}`. */
+export function pushHeard(log: string, marker: string): string | undefined {
+  for (const m of log.matchAll(/LUCENT_PUSH heard [^\n]*/g))
+    if (m[0].includes(marker)) return m[0].trim();
+  return undefined;
 }
 
 /** Why each failed check of `screen` failed, as the screen logged it: `closures: line 3 …`. */
@@ -365,6 +375,8 @@ export interface Target {
   screens: Screen[];
   /** Whether the build loads its bundle from Metro (a Debug build). */
   metro: boolean;
+  /** Whether a silent push to the ended app is checked last (an example, on iOS). */
+  push: boolean;
 }
 
 /**
@@ -413,6 +425,7 @@ export function parseTarget(argv: string[]): Target {
       process: app.process,
       screens,
       metro,
+      push: platform === "ios",
     };
   }
   return {
@@ -422,6 +435,7 @@ export function parseTarget(argv: string[]): Target {
     process: values.process ?? path.basename(artifact).replace(/\.(app|apk)$/, ""),
     screens: [{ id: "tests", launchArgs: [] }],
     metro,
+    push: false,
   };
 }
 const seconds = (name: string, fallback: number) => Number(process.env[name] ?? fallback) * 1000;
@@ -498,6 +512,14 @@ interface Device {
   unloaded?(): boolean;
   /** Before opening the app again: Metro made reachable again, the app stopped, its log cleared. */
   reset?(): void;
+  /** Ends the app as iOS ends one it suspended, which it may start again: not as a person quits it. */
+  end?(): void;
+  /** Starts the app with no screen to open, then puts another app in front of it. */
+  background?(): void;
+  /** Sends the app a push with this payload (JSON). */
+  push?(payload: string): void;
+  /** The system's lines that name `text` (iOS: SpringBoard's and the push daemon's too). */
+  mentions?(text: string): string;
 }
 
 /** A Debug build's app gave up on loading its bundle: React Native's red box says so. */
@@ -533,6 +555,27 @@ function ios(target: Target): Device {
   const reports = path.join(process.env.HOME ?? "", "Library/Logs/DiagnosticReports");
   return {
     install: () => sh("xcrun", ["simctl", "install", sim.udid, target.artifact]),
+    // A simulator's apps are this Mac's processes: SIGKILL ends one as iOS does under memory
+    // pressure. iOS starts no app again for a push once a person quit it (`simctl terminate`, maybe).
+    end: () => {
+      const r = spawnSync("xcrun", ["simctl", "spawn", sim.udid, "launchctl", "list"], {
+        encoding: "utf8",
+      });
+      const pid = r.status === 0 ? iosAppPid(r.stdout, target.id) : undefined;
+      if (pid) process.kill(pid, "SIGKILL");
+      else sh("xcrun", ["simctl", "terminate", sim.udid, target.id], true);
+    },
+    background: () => {
+      sh("xcrun", ["simctl", "launch", "--terminate-running-process", sim.udid, target.id]);
+      spawnSync("sleep", ["15"]);
+      sh("xcrun", ["simctl", "launch", sim.udid, "com.apple.Preferences"], true);
+    },
+    push: (payload) => {
+      const file = path.join(outDir(), "push.json");
+      fs.writeFileSync(file, payload);
+      sh("xcrun", ["simctl", "push", sim.udid, target.id, file]);
+    },
+    mentions: (text) => show(`eventMessage CONTAINS "${text}"`),
     open: (screen) =>
       console.log(
         sh("xcrun", [
@@ -735,7 +778,67 @@ async function main(): Promise<boolean> {
   const device = platform === "ios" ? ios(target) : android(target);
   device.install();
   for (const screen of target.screens) if (!(await check(target, device, screen))) return false;
-  return true;
+  return target.push ? silentPush(target, device) : true;
+}
+
+/** How long a pushed app has to log its handler's line. */
+const PUSH_MS = seconds("DEVICE_CHECK_PUSH_S", 60);
+
+/**
+ * A silent push to the ended app, which iOS starts for it (T137): its
+ * launch module logs LUCENT_PUSH with the push's marker. When none comes,
+ * the same push to the app in the background says whether the simulator
+ * delivers silent pushes at all, and the run fails with both outcomes.
+ */
+async function silentPush(target: Target, device: Device): Promise<boolean> {
+  const heard = async (how: string): Promise<string | undefined> => {
+    const marker = `lucent-${how}-${Date.now()}`;
+    device.push!(JSON.stringify({ aps: { "content-available": 1 }, marker }));
+    const until = Date.now() + PUSH_MS;
+    while (Date.now() < until) {
+      await sleep(5000);
+      const line = pushHeard(device.lucent(), marker);
+      if (line) return line;
+    }
+    return undefined;
+  };
+
+  device.end!();
+  for (let i = 0; i < 10 && device.running() !== false; i++) await sleep(1000);
+  const ended = device.running();
+  console.log(`Ended ${target.id} (running: ${ended}); sending it a silent push.`);
+  const line = await heard("ended");
+  if (line) {
+    console.log(line);
+    return true;
+  }
+
+  console.log("No handler ran: sending the app a silent push in the background.");
+  device.background!();
+  await sleep(5000);
+  const inBackground = await heard("background");
+  const log = device.log();
+  fs.writeFileSync(path.join(outDir(), `${target.platform}-device.log`), log);
+  // What the system said of the app around the pushes: whether it launched it, and why not.
+  const system = (device.mentions?.(target.id) ?? "")
+    .split("\n")
+    .filter((l) => /push|notification|launch|background|terminat/i.test(l))
+    .slice(-15)
+    .map((l) => (l.length > 240 ? `${l.slice(0, 239)}…` : l));
+  const app = appLines(log, 40, 240, target);
+  console.log(`--- The system's lines about ${target.id}:\n${system.join("\n")}`);
+  console.log(
+    `--- The app's own lines in the device log (the last ${app.length}):\n${app.join("\n")}`,
+  );
+  report(
+    [
+      `Device run (${target.platform}) failed. A silent push to the ended app ran no handler within ${PUSH_MS / 1000} seconds.`,
+      `In the background, the same push ${inBackground ? `ran it: ${inBackground}` : "ran none either"}.`,
+      `The app was ${ended === false ? "not running" : "still running"} when the first push went.`,
+    ],
+    { app: [...system, ...app], metro: [] },
+  );
+  return false;
 }
 
 /** Opens `screen` and waits for its verdict: true when every check passed, else a report of why not. */
