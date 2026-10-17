@@ -102,7 +102,11 @@ void run() {
   auto p1 = commit(parser, empty, R"({"p0": "Play", "p1": ["Pause"], "e0": true})");
   std::shared_ptr<meter::Mount> mount;
 
-  host([&] { mount = meter::Mount::create(*p1, record(first)); });
+  // Where events go, as a host routes them: to the emitter of the view's current commit.
+  auto emitter = std::make_shared<meter::Emit>(record(first));
+  auto route = [emitter](const meter::Event& event) { (*emitter)(event); };
+
+  host([&] { mount = meter::Mount::create(*p1, route); });
 
   UIButton* button = (UIButton*)lucent::objc::unwrap(mount->view());
   __weak UIButton* made = button;
@@ -123,8 +127,9 @@ void run() {
   toggle(button);
   say("toggled: sent " + list(first) + ", " + titles(button) + since());
 
-  // A new emitter: the callback setup subscribed stays, events follow the route.
-  mount->setEmit(record(second));
+  // A new emitter, as a commit gives the view one: the callback setup subscribed stays, events
+  // follow the route.
+  *emitter = record(second);
   toggle(button);
   say("new emitter: first " + list(first) + ", second " + list(second) + since());
 

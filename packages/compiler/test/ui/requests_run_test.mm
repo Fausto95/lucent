@@ -102,9 +102,6 @@ void run() {
   say("late: " + std::to_string(answers.size()) + " answers, events " + list(events) + ", label " +
       label.text.UTF8String);
 
-  // A host that hands a disposed mount a route: nothing takes it.
-  mount->setEmit(emit);
-
   std::vector<std::string> released;
   if (respondHeld.use_count() == respondBase) released.push_back("respond");
   if (emitHeld.use_count() == emitBase) released.push_back("emit");

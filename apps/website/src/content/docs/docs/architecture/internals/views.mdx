@@ -18,7 +18,7 @@ This page covers the compiler's side, in `packages/compiler/src/ui/` and the `em
     m_<module>.h, m_<module>.cpp or .mm     <Export>_Props, <Export>_Commands, <Export>_setup()
     views/<registration>.h, .cpp            props, events, shadow node, descriptor, Mount
     views/<registration>_mount.cpp          the Mount: commits into signals, setup, commands
-    views/lucent_views.h, .cpp              registerComponents(): every descriptor
+    views/lucent_views.h                    a marker: with it, the hosts build
     views/<registration>ComponentView.mm    iOS: the view React Native's renderer creates
     views/<registration>.swift              iOS: a SwiftUI body
     views/<registration>_android.cpp        Android: the mounted component, for the C++ host
@@ -83,9 +83,9 @@ A module's API hash covers its components' contracts, so changing one changes th
 - `Values` holds each prop, missing (never set, or removed) or its value. `Props` derives from `ViewProps`, with the values, which events JavaScript listens to, and `changed()` against the previous commit.
 - One struct per event, and an `EventEmitter` with one `emit` per event. A discrete event dispatches in React Native's discrete category and a continuous one in its continuous category. A coalesced event is dispatched as a unique event, which replaces the view's latest waiting event of its type.
 - The `ShadowNode` is a `HostShadowNode` (`LucentViewSizing.h`), a leaf taking the size its style and flex give it, else its content's. A component taking children gets a `SlotShadowNode` (`LucentViewSlots.h`). Then come the `ComponentDescriptor` and the commands' typed arguments.
-- The `Mount` a platform host drives is declared there too: `create`, `view`, `update`, `setEmit`, `command` and `dispose`.
+- The `Mount` a platform host drives is declared there too: `create`, `view`, `update`, `command` and `dispose`.
 
-`views/lucent_views.h` and `.cpp` hold `registerComponents()`, which adds every component's descriptor.
+`views/lucent_views.h` is a marker: with it, the hosts build. Each component's descriptor reaches the renderer through its own host: its component view's `componentDescriptorProvider` on iOS, the native package's `componentDescriptors` on Android.
 
 ## Setups
 
@@ -120,9 +120,8 @@ A Lucent class given to the platform from a setup is refused, because its method
 
 | Method | What it does |
 | --- | --- |
-| `create` | At committed mount: makes the props' signals and the events' routes to the host's `emit`, then runs setup once, in the mount's scope. `rn/LucentViewValues.h` converts the commit's values. |
+| `create` | At committed mount: makes the props' signals and the events' routes to the host's `emit`, then runs setup once, in the mount's scope. `rn/LucentViewValues.h` converts the commit's values. The host's `emit` sends to the emitter of the view's current commit, so a new emitter needs no call. |
 | `update` | A later commit, from any thread: the changed props and listened-to events, applied as one transaction on the main thread |
-| `setEmit` | A new event emitter; the native subscriptions setup made stay |
 | `command` | A command, after the pending props; a request answers once through `lucent::views::Respond` |
 | `dispose` | Ends the scope: effects, cleanups, subscriptions, routes and the view are released, and requests still owed are rejected |
 

@@ -7,7 +7,7 @@ const header = (registration: string) => sources().get(`views/${registration}.h`
 const source = (registration: string) => sources().get(`views/${registration}.cpp`) ?? "";
 
 describe("Fabric sources", () => {
-  it("are a header and a source per component, and the registry", () => {
+  it("are a header and a source per component, and the hosts' marker header", () => {
     expect([...sources().keys()]).toEqual([
       `views/${CAPTION}.h`,
       `views/${CAPTION}.cpp`,
@@ -18,20 +18,17 @@ describe("Fabric sources", () => {
       `views/${PICKER}.h`,
       `views/${PICKER}.cpp`,
       "views/lucent_views.h",
-      "views/lucent_views.cpp",
     ]);
   });
 
-  it("name each component by its registration: namespace, renderer name, registry entry", () => {
+  it("name each component by its registration: namespace and renderer name", () => {
     expect(header(GAUGE)).toContain(`namespace lucent::views::${GAUGE} {`);
     expect(source(GAUGE)).toContain(`extern const char ComponentName[] = "${GAUGE}";`);
 
-    const registry = sources().get("views/lucent_views.cpp") ?? "";
-
-    expect(registry).toContain(
-      `registry->add(facebook::react::concreteComponentDescriptorProvider<${CAPTION}::ComponentDescriptor>());`,
-    );
-    expect(registry).toContain(`${GAUGE}::ComponentDescriptor`);
+    // A marker the hosts build by: each component registers itself, through its own host.
+    const marker = sources().get("views/lucent_views.h") ?? "";
+    expect(marker).toContain("Each registers itself.");
+    expect(marker).not.toContain("registerComponents");
   });
 
   it("lay out a component taking children as their Yoga container, any other as a measured leaf", () => {

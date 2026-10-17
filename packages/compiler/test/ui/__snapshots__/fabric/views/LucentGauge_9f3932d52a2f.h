@@ -161,8 +161,6 @@ struct Mount {
   lucent::NativeRef view() const;
   // A later commit, from any thread: what changed, applied in one transaction on the main thread (at once when called there).
   void update(const Props& props, const Props& previous);
-  // Main thread: where events go from now on; the native subscriptions setup made stay.
-  void setEmit(Emit emit);
   // Main thread: a command, after the pending props; a request's answer goes to `respond`.
   void command(const Command& command, lucent::views::Respond respond);
   // Main thread, at unmount or recycle: the mount's scope ends (effects, cleanups, subscriptions); later calls do nothing.
