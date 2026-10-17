@@ -108,7 +108,15 @@ export function miniSwiftUI(): MiniSwiftUI | undefined {
       if (r.status !== 0) throw new Error(`the miniature ${module} does not build:\n${r.stderr}`);
     }
 
+    // Xcode's extractor finds the standard library through an SDK, which swiftc's shim picks.
+    const sdk =
+      process.platform === "darwin"
+        ? spawnSync("xcrun", ["--sdk", "macosx", "--show-sdk-path"], {
+            encoding: "utf8",
+          }).stdout.trim()
+        : "";
     const g = run(extract, [
+      ...(sdk ? ["-sdk", sdk] : []),
       "-module-name",
       "SwiftUI",
       "-target",
