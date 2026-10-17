@@ -131,7 +131,7 @@ function workspace(manager: "pnpm" | "yarn" | "npm"): string {
       : {}),
     ...(manager === "yarn"
       ? {
-          ".yarnrc.yml": `nodeLinker: node-modules\nnpmRegistryServer: "${registry}"\nenableTelemetry: false\n`,
+          ".yarnrc.yml": `nodeLinker: node-modules\nnpmRegistryServer: "${registry}"\nenableTelemetry: false\n# Yarn forbids a new lockfile under CI by default: the matrix makes one.\nenableImmutableInstalls: false\n`,
         }
       : {}),
 
