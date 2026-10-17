@@ -445,6 +445,9 @@ JavaScript in one Hermes runtime, rounds interleaved. JavaScript runs as
 `hermesc -O` bytecode when `$HERMES_DIR/build/bin/hermesc` exists, and
 from source otherwise, with a warning, which flatters Lucent. It also
 times the boundary, and measures the generated objects and install time.
+The native entry points every export has (T130), which Swift and Kotlin
+call it through, are weighed apart from the modules' objects, each against
+a budget of its own.
 
 | Budget                                    | File                                  | `--shared-runner` (CI) |
 | ----------------------------------------- | ------------------------------------- | ---------------------- |

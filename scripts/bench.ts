@@ -27,8 +27,9 @@
  * costs more than its budget times that (scripts/bench-floor-budgets.json).
  *
  * And what the code weighs and costs to start: the kernels' and boundary's
- * generated objects at -O2, and installing Lucent (the host, then every
- * module's exports), against scripts/bench-size-budgets.json. The size is
+ * generated objects at -O2, their native entry points (T130) apart, and
+ * installing Lucent (the host, then every module's exports), against
+ * scripts/bench-size-budgets.json. The size is
  * enforced everywhere; the install time, as a time, is reported on a
  * shared runner.
  *
@@ -44,6 +45,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { ENTRIES_UNIT } from "../packages/compiler/src/emit/entries.ts";
 import { compile, report } from "../packages/compiler/src/index.ts";
 import {
   type BenchmarkResult,
@@ -138,10 +140,17 @@ const objs = await Promise.all(
   ),
 );
 
-// What the generated code weighs, compiled: the objects of the module sources.
-const generatedBytes = objs
-  .filter((_, i) => sources[i]!.startsWith(work))
-  .reduce((sum, o) => sum + fs.statSync(o).size, 0);
+// What the generated code weighs, compiled: the objects of the module sources, and apart, the
+// native entry points every export has (T130), which native code calls them through.
+const weigh = (entries: boolean) =>
+  objs
+    .filter(
+      (_, i) =>
+        sources[i]!.startsWith(work) && (path.basename(sources[i]!) === ENTRIES_UNIT) === entries,
+    )
+    .reduce((sum, o) => sum + fs.statSync(o).size, 0);
+const generatedBytes = weigh(false);
+const entryBytes = weigh(true);
 
 const exe = path.join(work, "bench-host");
 sh(cxx, [
@@ -268,8 +277,8 @@ const crossings = lines.filter((l) => "boundary" in l) as {
 }[];
 const singles = lines.filter((l) => "latency" in l) as { latency: string; samples: number[] }[];
 const installMs = (lines.find((l) => "install" in l) as { install: number }).install;
-/** The generated code's object size and the modules' install time, against scripts/bench-size-budgets.json. */
-const sizeBudgets: { generatedKB: number; installMs: number } = JSON.parse(
+/** The generated code's object sizes and the modules' install time, against scripts/bench-size-budgets.json. */
+const sizeBudgets: { generatedKB: number; entriesKB: number; installMs: number } = JSON.parse(
   fs.readFileSync(path.join(root, "scripts/bench-size-budgets.json"), "utf8"),
 );
 const cpus = os.cpus();
@@ -312,9 +321,13 @@ for (const [name, budget] of Object.entries(floorBudgets)) {
   );
 }
 const generatedKB = generatedBytes / 1024;
+const entriesKB = entryBytes / 1024;
 console.log(`\nsize and startup              measured  budget`);
 console.log(
   `generated objects (-O2)      ${`${generatedKB.toFixed(0)} KB`.padStart(9)}  ${sizeBudgets.generatedKB} KB`,
+);
+console.log(
+  `native entries (-O2)         ${`${entriesKB.toFixed(0)} KB`.padStart(9)}  ${sizeBudgets.entriesKB} KB`,
 );
 console.log(
   `install (host and modules)   ${`${installMs.toFixed(2)} ms`.padStart(9)}  ${sizeBudgets.installMs} ms`,
@@ -324,6 +337,8 @@ if (generatedKB > sizeBudgets.generatedKB)
   failures.push(
     `generated objects: ${generatedKB.toFixed(0)} KB, budget ${sizeBudgets.generatedKB} KB`,
   );
+if (entriesKB > sizeBudgets.entriesKB)
+  failures.push(`native entries: ${entriesKB.toFixed(0)} KB, budget ${sizeBudgets.entriesKB} KB`);
 // A time: a shared runner reports it.
 if (installMs > sizeBudgets.installMs)
   ratios.push(`install: ${installMs.toFixed(2)} ms, budget ${sizeBudgets.installMs} ms`);
@@ -417,6 +432,21 @@ if (jsonFile) {
     benchmarkResult(
       {
         ...base,
+        scenario: "size/entry-objects",
+        implementation: "lucent",
+        metric: "size",
+        unit: "bytes",
+        outputVerified: false,
+        note: "the kernels' and boundary modules' native entry points, -O2",
+      },
+      [entryBytes],
+    ),
+  );
+
+  results.push(
+    benchmarkResult(
+      {
+        ...base,
         scenario: "startup/install",
         implementation: "lucent",
         metric: "latency",
@@ -444,6 +474,8 @@ if (sharedRunner && ratios.length) {
 }
 
 if (rows.some((row) => !row.same) || (check && failures.length)) {
-  console.error(`\n${failures.join("\n")}`);
+  // GitHub shows these on the run: the job's log is long.
+  const prefix = process.env.GITHUB_ACTIONS ? "::error title=Budget::" : "";
+  console.error(`\n${failures.map((f) => `${prefix}${f}`).join("\n")}`);
   process.exit(1);
 }
