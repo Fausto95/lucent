@@ -58,6 +58,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     didReceiveRemoteNotification userInfo: [AnyHashable: Any],
     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
   ) {
+    NSLog("LUCENT_DIAG app delegate didReceiveRemoteNotification, state %ld", application.applicationState.rawValue)
     if !LucentAppDelegate.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler) { completionHandler(.noData) } // lucent:forward
   }
   // lucent:forward end

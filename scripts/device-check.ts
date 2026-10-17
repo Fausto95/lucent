@@ -830,6 +830,22 @@ async function silentPush(target: Target, device: Device): Promise<boolean> {
   console.log(
     `--- The app's own lines in the device log (the last ${app.length}):\n${app.join("\n")}`,
   );
+  {
+    const diag = device
+      .lucent()
+      .split("\n")
+      .filter((l) => l.includes("LUCENT_DIAG") || l.includes("LUCENT_PUSH"))
+      .map((l) => l.replace(/^.*?(LUCENT_)/, "$1").slice(0, 220));
+    const pushd = (device.mentions?.(target.id) ?? "")
+      .split("\n")
+      .filter((l) => !l.includes(`${target.process}[`) && !l.includes("log run noninteractively"))
+      .filter((l) => /push|notification|apsd|SpringBoard|dasd|launch/i.test(l))
+      .slice(-22)
+      .map((l) => (l.length > 200 ? `${l.slice(0, 199)}…` : l));
+    const text = ["LUCENT lines:", ...diag.slice(-16), "System:", ...pushd].join("\n").slice(0, 3900);
+    const escaped = text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+    if (process.env.GITHUB_ACTIONS) console.log(`::error title=Push diagnosis::${escaped}`);
+  }
   report(
     [
       `Device run (${target.platform}) failed. A silent push to the ended app ran no handler within ${PUSH_MS / 1000} seconds.`,

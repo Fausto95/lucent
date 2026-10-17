@@ -245,7 +245,9 @@ Fn<void()> onRemoteNotification(Fn<Promise<String>(String)> listener, Opt<AbortS
   return subscribeTo(AppDelegateEvents::shared().remoteNotification, signal, [listener](Actor& actor, const RemoteNotification& n) {
     // Owed from now, so the merge waits for it, wherever the actor delays it to.
     auto reply = n.answers->reply();
+    NSLog(@"LUCENT_DIAG runtime remoteNotification: entering the subscriber's actor");
     enterFromMain(actor, [listener, payload = n.payload, reply] {
+      NSLog(@"LUCENT_DIAG runtime remoteNotification: in the subscriber's actor");
       try {
         answerWith(reply, listener(payload));
       } catch (...) {
@@ -381,6 +383,8 @@ using namespace lucent::objc;
 
 + (void)application:(UIApplication*)application
     didFinishLaunchingWithOptions:(NSDictionary<UIApplicationLaunchOptionsKey, id>*)launchOptions {
+  NSLog(@"LUCENT_DIAG runtime didFinishLaunching: options %@, state %ld", launchOptions.allKeys,
+        (long)application.applicationState);
   // Launch modules first: they register with the OS before launch ends, and hear what follows.
   lucent_launch();
 
@@ -421,6 +425,8 @@ using namespace lucent::objc;
     didReceiveRemoteNotification:(NSDictionary*)userInfo
           fetchCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler {
   auto& event = AppDelegateEvents::shared().remoteNotification;
+  NSLog(@"LUCENT_DIAG runtime remoteNotification: %d subscriptions, state %ld", (int)event.subscriptions(),
+        (long)application.applicationState);
   if (event.subscriptions() == 0) return NO;
   auto answers = fetchAnswers(completionHandler);
   event.report(RemoteNotification{jsonOf(userInfo), answers});
