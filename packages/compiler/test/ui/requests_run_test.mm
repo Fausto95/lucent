@@ -97,8 +97,10 @@ void run() {
   mount->dispose();
   say("unmounted: " + (answers.size() == 4 ? answers.back() : std::string("no answer")));
 
-  // Its work goes on (JavaScript's promises are not cancelled), but its answer and event go nowhere.
+  // Its work goes on (JavaScript's promises are not cancelled), but its answer and event go nowhere:
+  // until the work has run, two seconds at most (a shared runner's timers may fire late).
   pump(100);
+  for (int i = 0; i < 38 && std::string(label.text.UTF8String) != "ticket 3"; ++i) pump(50);
   say("late: " + std::to_string(answers.size()) + " answers, events " + list(events) + ", label " +
       label.text.UTF8String);
 
