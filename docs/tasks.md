@@ -72,7 +72,7 @@ what became of each one that is still linked or was still open.
 | [T154](#t154)            | Guides for every parity row, and migration guides          | waiting; needs T150                                                  |
 | [T155](#t155)            | The production-candidate gate                              | waiting; needs every other task but T135                             |
 | [T156](#t156)            | CI runs what the docs say it runs                          | done (2026-10-17)                                                    |
-| [T157](#t157)            | Small fixes the docs rewrite found                         | in progress (#391, #392)                                             |
+| [T157](#t157)            | Small fixes the docs rewrite found                         | in progress (#391 to #393)                                           |
 | [T158](#t158)            | An edit loop within its budget                             | ready                                                                |
 
 ## Gates
@@ -1950,7 +1950,7 @@ Found while rewriting [testing.md](testing.md):
 **Goal:** Fix the small defects and stale comments the rewrite found in
 code.
 
-- **Status:** in progress (#391, #392).
+- **Status:** in progress (#391 to #393).
 - **Area:** compiler, runtime, tooling.
 - **Needs:** nothing.
 - **Verify:** V1, V3.
@@ -1963,7 +1963,9 @@ code.
       `LUCENT_OUT` (`autolink/index.cjs`, `metro/native-package.cjs`):
       `lucent build`, autolinking, the Expo plugin and doctor honour it
       too (#392).
-- [ ] `debugger` is reported as "LastStatement statements" (`ir/cpp.ts`).
+- [x] `debugger` is reported as "LastStatement statements" (`ir/cpp.ts`):
+      "debugger statements" now, and every kind by its own name, in
+      words, not a marker sharing its value (`syntaxWords`, #393).
 - [ ] Generated but unused: `registerComponents` (`ui/fabric.ts`), and
       `Mount::setEmit` outside tests.
 - [ ] Stale comments: `bindgen/src/ios.ts`'s header (Swift-only

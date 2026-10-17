@@ -2,7 +2,7 @@ import { cpp } from "@lucent-lang/codegen";
 import { namespaceMember } from "../namespaces.ts";
 import path from "node:path";
 import ts from "typescript";
-import { Codes, CompileError, fail } from "../diagnostics.ts";
+import { Codes, CompileError, fail, syntaxWords } from "../diagnostics.ts";
 import { isPlatformValue, platformGuard } from "../platforms.ts";
 import type { LucentModule } from "../program.ts";
 import {
@@ -1002,7 +1002,7 @@ export class FnEmitter {
       case ts.SyntaxKind.DeleteExpression:
         return this.deleteExpr(node as ts.DeleteExpression);
       default:
-        fail(node, Codes.UnsupportedSyntax, `unsupported expression: ${ts.SyntaxKind[node.kind]}`);
+        fail(node, Codes.UnsupportedSyntax, `unsupported expression: ${syntaxWords(node.kind)}`);
     }
   }
 

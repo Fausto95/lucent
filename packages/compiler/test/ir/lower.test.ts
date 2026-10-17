@@ -153,7 +153,7 @@ describe("lowering to the IR", () => {
     expect(() => lowered(file, "first")).toThrow(IrUnsupported);
 
     expect(() => lowered(file, "first")).toThrow(
-      /does not lower PropertyAccessExpression expressions yet .*:1:54/,
+      /does not lower property access expressions yet .*:1:54/,
     );
   });
 });

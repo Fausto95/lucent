@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import ts from "typescript";
 import { describe, expect, it, vi } from "vite-plus/test";
+import { syntaxName, syntaxWords } from "../src/diagnostics.ts";
 import { compile } from "../src/index.ts";
 import { IrBuildError, IrBuilder } from "../src/ir/build.ts";
 
@@ -95,6 +97,19 @@ describe("diagnostics", () => {
 
   it("rejects top-level statements", () => {
     expect(codes("export function f(): number { return 1; }\nf();")).toContain("LUCENT3002");
+  });
+
+  it("names an unsupported statement by its own kind, not a marker sharing its value", () => {
+    // ts.SyntaxKind[DebuggerStatement] is "LastStatement".
+    const r = compileSource("export function f(): number { debugger; return 1; }");
+    expect(r.diagnostics[0]).toMatchObject({
+      code: "LUCENT1001",
+      message: expect.stringContaining("Lucent does not compile debugger statements yet"),
+    });
+    expect(syntaxName(ts.SyntaxKind.DebuggerStatement)).toBe("DebuggerStatement");
+    expect(syntaxName(ts.SyntaxKind.NumericLiteral)).toBe("NumericLiteral");
+    expect(syntaxWords(ts.SyntaxKind.TaggedTemplateExpression)).toBe("tagged template");
+    expect(syntaxWords(ts.SyntaxKind.MetaProperty)).toBe("meta property");
   });
 
   it("rejects var", () => {

@@ -8,7 +8,7 @@
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { isInside } from "../analysis/scopes.ts";
-import { Codes, fail } from "../diagnostics.ts";
+import { Codes, fail, syntaxName } from "../diagnostics.ts";
 import { intOperand, operand, takenOperand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
 import {
@@ -146,7 +146,7 @@ function nameOf(node: ts.Node): string {
 
   if (ts.isObjectLiteralExpression(node)) return "{…}";
 
-  return ts.SyntaxKind[node.kind];
+  return syntaxName(node.kind);
 }
 
 /**
