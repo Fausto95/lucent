@@ -4,6 +4,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { sdkIdentity } from "@lucent-lang/bindgen";
+import { ENTRIES_HEADER, entriesHeader } from "./emit/entries.ts";
 import { identityScript } from "./emit/identity.ts";
 import { type EmitResult, IDENTITY, LOADER } from "./emit/index.ts";
 import { androidViewFiles, autolinkingConfig } from "./ui/android.ts";
@@ -269,6 +270,12 @@ export function writeNativePackage(
     native?: NativeInputs;
     /** Android's code is built later, by the app's Gradle build (see deferredLibraryGradle). */
     androidDeferred?: boolean;
+    /**
+     * iOS's code is built later, by pod install's build once the packages' pods are installed
+     * (cocoapods/lucent.rb), its entries under generated/ios/ when the program is compiled for
+     * each platform (`split`).
+     */
+    iosDeferred?: { split: boolean };
     /** Gradle `group:artifact` → its prefab package's name, from its AAR (decision 0131). */
     prefabNames?: ReadonlyMap<string, string>;
     /** The app's Xcode project: its deployment target, and the Swift packages it links. */
@@ -314,6 +321,11 @@ export function writeNativePackage(
     want.set(path.join(outDir, "prebuilt", file), content);
   for (const [name, content] of result.files)
     want.set(path.join(outDir, "cpp/generated", name), content);
+  // iOS's entries' header where pod install's build writes it, empty until then: CocoaPods makes
+  // the pod's public headers, which the exports' Swift calls through, from the files it finds.
+  const iosEntries = options.iosDeferred?.split ? `ios/${ENTRIES_HEADER}` : ENTRIES_HEADER;
+  if (options.iosDeferred && !result.files.has(iosEntries))
+    want.set(path.join(outDir, "cpp/generated", iosEntries), entriesHeader([]));
 
   const native = options.native?.manifest;
 
@@ -384,9 +396,10 @@ export function writeNativePackage(
         options.app?.deploymentTarget,
       ]),
       // A program compiled for each platform writes iOS's entries in generated/ios/.
-      entriesHeader: result.files.has("ios/lucent_entries.h")
-        ? "cpp/generated/ios/lucent_entries.h"
-        : "cpp/generated/lucent_entries.h",
+      entriesHeader:
+        result.files.has(`ios/${ENTRIES_HEADER}`) || options.iosDeferred?.split
+          ? `cpp/generated/ios/${ENTRIES_HEADER}`
+          : `cpp/generated/${ENTRIES_HEADER}`,
     }),
   );
 
