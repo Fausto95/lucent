@@ -1462,8 +1462,9 @@ code in a process iOS started for them, with no JavaScript, as
 `expo-notifications`' background tasks do.
 
 - **Status:** in progress: `lucent-background-task` hears silent pushes,
-  and the iOS device runs push to the ended app (#273). Split from
-  [T132](#t132) (2026-10-14).
+  and the iOS device runs push to the ended app, which the simulator starts
+  for it and hands the push to a background fetch (FB7625283) (#273). Split
+  from [T132](#t132) (2026-10-14).
 - **Area:** iOS host, runtime.
 - **Needs:** T110, T132.
 - **Verify:** V1, V4, V5.
@@ -1479,10 +1480,12 @@ Nothing checks it yet.
       identifier and calls the completion handler once its events arrive.
 - [ ] A launch module's `remoteNotification` subscriber gets a
       `content-available` push in a process iOS started for it, and
-      reports its fetch result.
-- [ ] Tests: the simulator delivers a background push (`xcrun simctl
+      reports its fetch result. The simulator hands a simulated push to
+      `performFetch`, with no `userInfo` (FB7625283), so this needs a
+      device ([limitations](limitations.md)).
+- [x] Tests: the simulator delivers a background push (`xcrun simctl
 push`) to the app after it ended, and the device run checks that the
-      handler ran.
+      handler ran: `backgroundFetch`'s, as the simulator delivers it.
 
 **Done when:** a silent push starts the ended app on the simulator in CI,
 and its Lucent handler runs.

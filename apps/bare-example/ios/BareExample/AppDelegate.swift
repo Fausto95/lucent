@@ -64,6 +64,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   // lucent:forward begin
   func application(
     _ application: UIApplication,
+    performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    if !LucentAppDelegate.application(application, performFetchWithCompletionHandler: completionHandler) { completionHandler(.noData) } // lucent:forward
+  }
+  // lucent:forward end
+  // lucent:forward begin
+  func application(
+    _ application: UIApplication,
     handleEventsForBackgroundURLSession identifier: String,
     completionHandler: @escaping () -> Void
   ) {

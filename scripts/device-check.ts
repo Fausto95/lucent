@@ -21,7 +21,8 @@
  *      passed`), before opening the next;
  *   4. on iOS, last, ends the example and sends it a silent push (`simctl
  *      push`), which starts it: its launch module logs LUCENT_PUSH with the
- *      push's marker (lucent-background-task's push.lucent.ts).
+ *      push's marker, or the fetch the simulator hands the push to instead
+ *      (FB7625283) (lucent-background-task's push.lucent.ts).
  *
  *   node scripts/device-check.ts ios --app <BareExample.app>
  *   node scripts/device-check.ts android --apk <app-debug.apk>
@@ -98,6 +99,15 @@ export function pushHeard(log: string, marker: string): string | undefined {
   for (const m of log.matchAll(/LUCENT_PUSH heard [^\n]*/g))
     if (m[0].includes(marker)) return m[0].trim();
   return undefined;
+}
+
+/**
+ * The background fetches lucent-background-task's push module logged: the
+ * simulator hands a simulated silent push to `performFetch`, with no
+ * userInfo, so no marker (FB7625283).
+ */
+export function pushFetches(log: string): string[] {
+  return [...log.matchAll(/LUCENT_PUSH fetched [^\n]*/g)].map((m) => m[0].trim());
 }
 
 /** Why each failed check of `screen` failed, as the screen logged it: `closures: line 3 …`. */
@@ -791,14 +801,21 @@ const PUSH_MS = seconds("DEVICE_CHECK_PUSH_S", 60);
  * delivers silent pushes at all, and the run fails with both outcomes.
  */
 async function silentPush(target: Target, device: Device): Promise<boolean> {
+  // The push's handler, by its marker; or, as the simulator delivers a silent push, a fetch
+  // the module logged after it.
   const heard = async (how: string): Promise<string | undefined> => {
     const marker = `lucent-${how}-${Date.now()}`;
+    const fetches = pushFetches(device.lucent()).length;
     device.push!(JSON.stringify({ aps: { "content-available": 1 }, marker }));
     const until = Date.now() + PUSH_MS;
     while (Date.now() < until) {
       await sleep(5000);
-      const line = pushHeard(device.lucent(), marker);
+      const log = device.lucent();
+      const line = pushHeard(log, marker);
       if (line) return line;
+      const fetched = pushFetches(log);
+      if (fetched.length > fetches)
+        return `${fetched.at(-1)} (the simulator delivers a silent push as a background fetch)`;
     }
     return undefined;
   };
@@ -832,7 +849,7 @@ async function silentPush(target: Target, device: Device): Promise<boolean> {
   );
   report(
     [
-      `Device run (${target.platform}) failed. A silent push to the ended app ran no handler within ${PUSH_MS / 1000} seconds.`,
+      `Device run (${target.platform}) failed. A silent push to the ended app ran no handler within ${PUSH_MS / 1000} seconds: neither remoteNotification's nor backgroundFetch's, as which the simulator delivers one.`,
       `In the background, the same push ${inBackground ? `ran it: ${inBackground}` : "ran none either"}.`,
       `The app was ${ended === false ? "not running" : "still running"} when the first push went.`,
     ],

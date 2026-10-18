@@ -4,10 +4,15 @@
 // the handler 30 seconds, and the fetch result it answers ends the wake.
 // Each push it hears is logged as a LUCENT_PUSH line, which the device runs
 // look for after pushing to the ended app.
+//
+// The simulator hands a simulated push to a background fetch instead
+// (performFetch, with no userInfo: FB7625283), and starts an ended app for
+// it the same way, so the module hears fetches too.
 import { PLATFORM } from "lucent:platform";
 import { onAppEvent } from "lucent:ios";
 
 let heard = 0;
+let fetched = 0;
 let startedForPush = false;
 
 // At launch: the push that started the process comes once the app has finished launching.
@@ -26,12 +31,20 @@ function listen(): boolean {
     console.log(`LUCENT_PUSH heard ${userInfo}${started}`);
     return "newData";
   });
+  onAppEvent("backgroundFetch", async () => {
+    fetched++;
+    console.log(`LUCENT_PUSH fetched ${fetched} in this process`);
+    return "noData";
+  });
   return true;
 }
 
-/** The silent pushes this process heard: "1 heard, started for one" (iOS), "none" on Android. */
+/**
+ * The silent pushes this process heard, and the background fetches:
+ * "1 heard, started for one, 0 fetched" (iOS), "none" on Android.
+ */
 export function pushesHeard(): string {
   if (!listening) return "none";
 
-  return `${heard} heard${startedForPush ? ", started for one" : ""}`;
+  return `${heard} heard${startedForPush ? ", started for one" : ""}, ${fetched} fetched`;
 }

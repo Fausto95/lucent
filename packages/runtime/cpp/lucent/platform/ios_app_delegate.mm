@@ -569,6 +569,11 @@ using namespace lucent::objc;
     completionHandler(UIBackgroundFetchResultNoData);
 }
 
+- (void)application:(UIApplication*)application performFetchWithCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler {
+  if (![LucentAppDelegate application:application performFetchWithCompletionHandler:completionHandler])
+    completionHandler(UIBackgroundFetchResultNoData);
+}
+
 - (void)application:(UIApplication*)application
     handleEventsForBackgroundURLSession:(NSString*)identifier
                       completionHandler:(void (^)(void))completionHandler {

@@ -14,6 +14,7 @@ import {
   lastVerdict,
   parseTarget,
   pickSimulator,
+  pushFetches,
   pushHeard,
   screenText,
 } from "./device-check.ts";
@@ -111,6 +112,21 @@ describe("pushHeard", () => {
       'LUCENT_PUSH heard {"marker":"lucent-background-2"}',
     );
     expect(pushHeard(log, "lucent-ended-3")).toBeUndefined();
+  });
+});
+
+describe("pushFetches", () => {
+  it("lists the fetches the simulator hands its silent pushes to", () => {
+    const log = [
+      "BareExample[1:2] [Lucent] LUCENT_PUSH fetched 1 in this process",
+      'BareExample[1:2] [Lucent] LUCENT_PUSH heard {"marker":"lucent-background-2"}',
+      "BareExample[3:4] [Lucent] LUCENT_PUSH fetched 1 in this process",
+    ].join("\n");
+    expect(pushFetches(log)).toEqual([
+      "LUCENT_PUSH fetched 1 in this process",
+      "LUCENT_PUSH fetched 1 in this process",
+    ]);
+    expect(pushFetches("LUCENT_PROGRESS platform 1/19 ok")).toEqual([]);
   });
 });
 
