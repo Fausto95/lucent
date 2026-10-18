@@ -4,7 +4,14 @@
 // calling a module (T114): the device runs open this screen after the Tests
 // screen, on the simulator and the emulator.
 import { Linking, Platform } from "react-native";
-import { isRegistered, runAsScheduled, schedule, workInBackground } from "lucent-background-task";
+import {
+  download,
+  downloadProgress,
+  isRegistered,
+  runAsScheduled,
+  schedule,
+  workInBackground,
+} from "lucent-background-task";
 import { heard, Pinger, send } from "lucent-broadcast";
 import { cardShown, showAndRestore } from "lucent-fragment";
 import { channelReady, startedAtMs } from "lucent-launch";
@@ -17,6 +24,12 @@ import { nativeCallerCases } from "./nativeCallers";
 import { SCHEME } from "./scheme";
 
 const ios = Platform.OS === "ios";
+
+/**
+ * The download the iOS device runs hold open (scripts/held-download.ts): they
+ * end the app before it finishes, and iOS starts the app again for its events.
+ */
+export const HELD_DOWNLOAD = "http://localhost:8099/download";
 
 /** The screen's card's testID and accessibilityLabel, which cases read from its native view. */
 export const CARD_ID = "lucent-card";
@@ -109,6 +122,20 @@ export const platformCases: SdkCase[] = [
     name: "background task: a run completes, and an expiration stops one",
     run: backgroundRuns,
     expected: "completed, expired",
+  },
+  {
+    name: "background download: a download starts in iOS's background session, and receives",
+    run: async () => {
+      const started = download(HELD_DOWNLOAD);
+      if (started !== "started") return started;
+      // The held download sends its first bytes at once, then holds the rest.
+      return poll(
+        20_000,
+        async () => downloadProgress(),
+        (got) => /^received [1-9]|^failed/.test(got),
+      );
+    },
+    expected: ios ? /^received [1-9]\d* bytes$/ : "none",
   },
   {
     name: "receiver: Android makes a Lucent BroadcastReceiver by its name",

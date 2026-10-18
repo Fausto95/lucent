@@ -11,12 +11,15 @@ background task hears one: a launch module subscribes to
 `remoteNotification`, so a push that starts the app reaches it. The
 simulator hands a simulated push to a background fetch instead
 (`performFetch`, with no `userInfo`: FB7625283), so the module subscribes
-to `backgroundFetch` too.
+to `backgroundFetch` too. A background download's events reach Lucent
+the same way, in the app iOS starts for them once the download ends.
 
 On Android, WorkManager runs a `Worker` written in Lucent.
 
 ```ts
 import {
+  download,
+  downloads,
   isRegistered,
   lastRun,
   pushesHeard,
@@ -26,6 +29,8 @@ import {
 } from "lucent-background-task";
 
 pushesHeard(); // "1 heard, started for one, 0 fetched": a silent push started the app
+download("https://example.com/big.zip"); // "started": iOS downloads it, the app running or not
+downloads(); // "1 finished, 0 failed", in the process iOS started for the events
 isRegistered(); // true: launch registered the handler in time
 schedule(); // "scheduled", or why not
 lastRun(); // "1 runs, last completed"
@@ -39,6 +44,10 @@ workRuns(); // "1 runs"
 - `src/refresh.lucent.ts`: the launch module. It registers the handler,
   runs the work with an `AbortSignal` the task's expiration aborts, and
   reports how the run ended.
+- `src/download.lucent.ts`: a launch module for a background URL session.
+  It answers `backgroundURLSession` for its session, makes the session
+  again by its identifier, and calls `done` once the events have arrived.
+  Its delegate logs each step as a `LUCENT_DOWNLOAD` line.
 - `src/push.lucent.ts`: a launch module that hears silent pushes
   (`remoteNotification`), and background fetches (`backgroundFetch`), as
   which the simulator delivers them, and answers each with its fetch
@@ -52,7 +61,7 @@ workRuns(); // "1 runs"
   WorkManager takes a `Class<? extends ListenableWorker>`.
 - `src/work.ios.lucent.ts` and `src/work.lucent.ts`: iOS's side, which
   has nothing to schedule, and what JavaScript sees on both platforms.
-- `lucent.json`: `"launch": ["refresh", "push"]`, the `Info.plist`
+- `lucent.json`: `"launch": ["refresh", "push", "download"]`, the `Info.plist`
   entries the scheduler and pushes need, `BGTaskSchedulerPermittedIdentifiers`
   and `UIBackgroundModes` (`fetch`, `remote-notification`), and
   WorkManager on Android.
@@ -69,6 +78,8 @@ workRuns(); // "1 runs"
   for each run.
 - A silent push that starts the ended app, and reaches its Lucent handler
   with no JavaScript: on the simulator, as a background fetch.
+- A background download whose events start the ended app, which a launch
+  module hands to the session it makes again.
 
 <!-- evidence: from evidence.json, written by scripts/example-evidence.ts -->
 

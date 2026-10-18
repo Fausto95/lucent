@@ -138,8 +138,8 @@ generated from this file.
   widget whose `timeline()` fails shows its placeholder's entry until
   WidgetKit asks again, in 15 minutes. A component's SwiftUI body shows no
   `Date`: only a widget's does. On iOS, a launch module's
-  `BGTaskScheduler` handler runs without JavaScript. Relaunches for background
-  URL sessions aren't checked yet ([T137](tasks.md#t137)). A silent push
+  `BGTaskScheduler` handler runs without JavaScript. So do a background URL
+  session's events, in the app iOS starts for them. A silent push
   starts the ended app on the simulator, but as a background fetch. The
   simulator hands it to `performFetch`, with no `userInfo` (FB7625283), so
   no device run checks a `remoteNotification` listener's payload.

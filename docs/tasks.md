@@ -56,7 +56,7 @@ what became of each one that is still linked or was still open.
 | [T134](#t134)            | Calls from worklet runtimes                                | in progress (#342–#344): a device run remains                        |
 | [T135](#t135)            | JavaScript tasks from background entry points              | blocked: a decision on whether Lucent offers it                      |
 | [T136](#t136)            | App Intents, Live Activities and Android widget bodies     | waiting; needs T133                                                  |
-| [T137](#t137)            | Relaunches for background URL sessions and silent pushes   | in progress (#273)                                                   |
+| [T137](#t137)            | Relaunches for background URL sessions and silent pushes   | in progress (#273, #276)                                             |
 | **Distribution**         |                                                            |                                                                      |
 | [T140](#t140)            | A window of stable React Native and Expo releases, run     | in progress (#190 to #204, #363 merged)                              |
 | [T141](#t141)            | Builds from Xcode, and a package's pods in Expo apps       | done (2026-10-14)                                                    |
@@ -1463,8 +1463,9 @@ code in a process iOS started for them, with no JavaScript, as
 
 - **Status:** in progress: `lucent-background-task` hears silent pushes,
   and the iOS device runs push to the ended app, which the simulator starts
-  for it and hands the push to a background fetch (FB7625283) (#273). Split
-  from [T132](#t132) (2026-10-14).
+  for it and hands the push to a background fetch (FB7625283) (#273). Its
+  background download's events start the ended app, which the device runs
+  hold open and let finish (#276). Split from [T132](#t132) (2026-10-14).
 - **Area:** iOS host, runtime.
 - **Needs:** T110, T132.
 - **Verify:** V1, V4, V5.
@@ -1473,9 +1474,9 @@ code in a process iOS started for them, with no JavaScript, as
 The app delegate's `backgroundURLSession` and `remoteNotification` events
 exist (T110). A launch module that subscribes to them runs before the app
 finishes launching, so a relaunched process may already deliver them.
-Nothing checks it yet.
+The iOS device runs check both, the push as the simulator delivers it.
 
-- [ ] A launch module's `backgroundURLSession` subscriber, in a process
+- [x] A launch module's `backgroundURLSession` subscriber, in a process
       iOS started for the session, makes the session again by its
       identifier and calls the completion handler once its events arrive.
 - [ ] A launch module's `remoteNotification` subscriber gets a

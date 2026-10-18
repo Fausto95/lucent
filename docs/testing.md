@@ -408,7 +408,15 @@ taps, its recognizers are on the component's own view, the Fabric view's
 contentView),
 and it lays out in a react-native-screens stack's screen.
 
-On iOS the run then ends the app and sends it a silent push (`xcrun simctl
+On iOS the Platform screen also starts a download in a background URL
+session, which `scripts/held-download.ts` holds open. Right after that
+screen, the run ends the app and lets the download finish. iOS starts the app for the session's
+events, and the launch module that makes the session again logs
+`LUCENT_DOWNLOAD events delivered`. The background transfer daemon refuses
+an unsigned app's session (`NSURLErrorDomain` -1), so the device runs build
+the examples signed, as Xcode signs a simulator build by default.
+
+Last, the run ends the app again and sends it a silent push (`xcrun simctl
 push`, `content-available: 1`), which iOS starts it for. The handler
 `lucent-background-task`'s launch module subscribes logs `LUCENT_PUSH` with
 the push's marker ([T137](tasks.md#t137)). The simulator hands a simulated

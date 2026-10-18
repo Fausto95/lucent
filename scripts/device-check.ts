@@ -19,10 +19,15 @@
  *   3. follows the lines the screen logs, LUCENT_PROGRESS after each check
  *      and LUCENT_SUMMARY with its verdict (`LUCENT_SUMMARY tests 70/70
  *      passed`), before opening the next;
- *   4. on iOS, last, ends the example and sends it a silent push (`simctl
+ *   4. on iOS, right after the Platform screen, ends the example and lets
+ *      the download that screen started finish (scripts/held-download.ts
+ *      holds it open until then): iOS starts the app for the background
+ *      session's events, and its launch module logs LUCENT_DOWNLOAD
+ *      (lucent-background-task's download.lucent.ts);
+ *   5. on iOS, last, ends it again and sends it a silent push (`simctl
  *      push`), which starts it: its launch module logs LUCENT_PUSH with the
  *      push's marker, or the fetch the simulator hands the push to instead
- *      (FB7625283) (lucent-background-task's push.lucent.ts).
+ *      (FB7625283) (push.lucent.ts).
  *
  *   node scripts/device-check.ts ios --app <BareExample.app>
  *   node scripts/device-check.ts android --apk <app-debug.apk>
@@ -40,7 +45,7 @@
  * summary also goes to $GITHUB_STEP_SUMMARY and an error annotation. $METRO_LOG
  * names Metro's log, whose end the summary includes.
  */
-import { spawnSync } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -92,6 +97,11 @@ export function lastScreen(log: string): string | undefined {
   let found: string | undefined;
   for (const m of log.matchAll(/LUCENT_(?:PROGRESS|SUMMARY) (\S+) /g)) found = m[1];
   return found;
+}
+
+/** The lines a background session's launch module logged: `LUCENT_DOWNLOAD finished …`. */
+export function downloadLines(log: string): string[] {
+  return [...log.matchAll(/LUCENT_DOWNLOAD [^\n]*/g)].map((m) => m[0].trim());
 }
 
 /** The line a launch module logged for the silent push with `marker`: `LUCENT_PUSH heard {…}`. */
@@ -387,6 +397,12 @@ export interface Target {
   metro: boolean;
   /** Whether a silent push to the ended app is checked last (an example, on iOS). */
   push: boolean;
+  /**
+   * Whether a background download is held open for the Platform screen, and
+   * its events checked once the ended app is started for them (an example,
+   * on iOS).
+   */
+  download: boolean;
 }
 
 /**
@@ -436,6 +452,7 @@ export function parseTarget(argv: string[]): Target {
       screens,
       metro,
       push: platform === "ios",
+      download: platform === "ios",
     };
   }
   return {
@@ -446,6 +463,7 @@ export function parseTarget(argv: string[]): Target {
     screens: [{ id: "tests", launchArgs: [] }],
     metro,
     push: false,
+    download: false,
   };
 }
 const seconds = (name: string, fallback: number) => Number(process.env[name] ?? fallback) * 1000;
@@ -787,8 +805,130 @@ async function main(): Promise<boolean> {
   if (target.metro) await waitForMetro(platform);
   const device = platform === "ios" ? ios(target) : android(target);
   device.install();
-  for (const screen of target.screens) if (!(await check(target, device, screen))) return false;
-  return target.push ? silentPush(target, device) : true;
+  const held = target.download ? holdDownload() : undefined;
+  try {
+    let downloaded = true;
+    for (const screen of target.screens) {
+      if (!(await check(target, device, screen))) return false;
+      // Right after the screen that started it: held the least, and ended by no other
+      // screen's launch in between. The run goes on whatever it says.
+      if (held && screen.id === "platform") downloaded = await backgroundDownload(target, device);
+    }
+    const pushed = target.push ? await silentPush(target, device) : true;
+    return downloaded && pushed;
+  } finally {
+    held?.kill();
+  }
+}
+
+/** The held download's port: the Platform screen's HELD_DOWNLOAD names it. */
+const DOWNLOAD_PORT = 8099;
+
+/** The background session lucent-background-task's download.lucent.ts makes (its SESSION). */
+const DOWNLOAD_SESSION = "dev.lucent.example.downloads";
+
+/** Starts scripts/held-download.ts, which holds the Platform screen's download open. */
+function holdDownload(): ChildProcess {
+  const child = spawn(
+    process.execPath,
+    [path.join(import.meta.dirname, "held-download.ts"), String(DOWNLOAD_PORT)],
+    { stdio: ["ignore", "inherit", "inherit"] },
+  );
+  process.on("exit", () => child.kill());
+  return child;
+}
+
+/** What the held download says of itself: how many came, how many it holds. */
+async function heldStatus(): Promise<string> {
+  try {
+    const res = await fetch(`http://localhost:${DOWNLOAD_PORT}/status`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    return await res.text();
+  } catch (e) {
+    return `no answer (${e instanceof Error ? e.message : String(e)})`;
+  }
+}
+
+/**
+ * How long iOS has to start the ended app for its background session's
+ * events. The simulator took two minutes once (2026-10-17).
+ */
+const DOWNLOAD_MS = seconds("DEVICE_CHECK_DOWNLOAD_S", 300);
+
+/**
+ * A background session's download that ends while the app doesn't run
+ * (T137): the run ends the app, lets the held download finish, and iOS
+ * starts the app for the session's events, which its launch module hands
+ * to the session it makes again, then logs LUCENT_DOWNLOAD events delivered.
+ */
+async function backgroundDownload(target: Target, device: Device): Promise<boolean> {
+  const before = await heldStatus();
+  device.end!();
+  for (let i = 0; i < 10 && device.running() !== false; i++) await sleep(1000);
+  const ended = device.running();
+  await fetch(`http://localhost:${DOWNLOAD_PORT}/release`).catch(() => undefined);
+  const released = new Date();
+  console.log(
+    `Ended ${target.id} (running: ${ended}) and let its download finish at ${released.toISOString()} (${before.trim()}).`,
+  );
+
+  const until = Date.now() + DOWNLOAD_MS;
+  while (Date.now() < until) {
+    await sleep(5000);
+    const lines = downloadLines(device.lucent());
+    if (lines.some((l) => l.startsWith("LUCENT_DOWNLOAD events delivered"))) {
+      const after = Math.round((Date.now() - released.getTime()) / 1000);
+      console.log(`${lines.join("\n")}\n(seen ${after} seconds after the release)`);
+      // How long iOS took, kept where a reader without the job's log sees it.
+      if (process.env.GITHUB_ACTIONS)
+        console.log(
+          `::notice title=Background download::Its events were delivered ${after} seconds after the download finished.`,
+        );
+      return true;
+    }
+  }
+
+  const log = device.log();
+  fs.writeFileSync(path.join(outDir(), `${target.platform}-download.log`), log);
+  const system = (device.mentions?.(target.id) ?? "")
+    .split("\n")
+    .filter((l) => /nsurlsession|background|launch|session|terminat/i.test(l))
+    .slice(-15)
+    .map((l) => (l.length > 240 ? `${l.slice(0, 239)}…` : l));
+  // With the time each came: whether iOS started the app late, or not at all.
+  const lines = device
+    .lucent()
+    .split("\n")
+    .flatMap((l) => {
+      const m = /(\d\d:\d\d:\d\d)\.\d+ .*?(LUCENT_DOWNLOAD .*)$/.exec(l);
+      return m?.[1] && m[2] ? [`${m[1]} ${m[2].trim()}`] : [];
+    });
+  const app = appLines(log, 40, 240, target);
+  // What the background transfer daemon and the schedulers said of the session: whether the
+  // download finished there, and whether they asked to start the app.
+  const daemon = (device.mentions?.(DOWNLOAD_SESSION) ?? "")
+    .split("\n")
+    .filter((l) => /nsurlsessiond|dasd|runningboardd|SpringBoard/.test(l))
+    .slice(-10)
+    .map((l) => (l.length > 220 ? `${l.slice(0, 219)}…` : l));
+  console.log(`--- The system's lines about ${target.id}:\n${system.join("\n")}`);
+  console.log(
+    `--- The app's own lines in the device log (the last ${app.length}):\n${app.join("\n")}`,
+  );
+  report(
+    [
+      `Device run (${target.platform}) failed. A background download's events reached no handler within ${DOWNLOAD_MS / 1000} seconds of the app ending.`,
+      `The held download, before it finished: ${before.trim()}. It was let finish at ${released.toISOString()}.`,
+      `The app was ${ended === false ? "not running" : "still running"} when the download finished.`,
+      lines.length
+        ? `Its launch module logged: ${lines.join("; ")}`
+        : "Its launch module logged nothing.",
+      ...(daemon.length ? ["The system's lines about the session, last:", ...daemon] : []),
+    ],
+    { app: [...system, ...app], metro: [] },
+  );
+  return false;
 }
 
 /** How long a pushed app has to log its handler's line. */
