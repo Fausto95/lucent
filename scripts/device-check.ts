@@ -603,7 +603,10 @@ function ios(target: Target): Device {
       fs.writeFileSync(file, payload);
       sh("xcrun", ["simctl", "push", sim.udid, target.id, file]);
     },
-    mentions: (text) => show(`eventMessage CONTAINS "${text}"`),
+    mentions: (text) =>
+      text === "__wake__"
+        ? show('eventMessage CONTAINS "org.reactjs.native.example.BareExample" OR process == "nsurlsessiond" OR process == "SpringBoard" OR process == "runningboardd" OR process == "dasd"')
+        : show(`eventMessage CONTAINS "${text}"`),
     open: (screen) =>
       console.log(
         sh("xcrun", [
@@ -818,6 +821,32 @@ async function main(): Promise<boolean> {
   }
 }
 
+/** Temporary (T137): what the system said around nsurlsessiond's wake request, as annotations. */
+function wakeDiagnosis(device: Device, level: "error" | "notice"): void {
+  const all = (device.mentions?.("__wake__") ?? "").split("\n");
+  const at = all.findIndex((l) => l.includes("Will request wake of app"));
+  const time = (l: string) => /\d\d:\d\d:\d\d\.\d+/.exec(l)?.[0] ?? "";
+  const noise = /spotlightknowledged|siriactionsd|hindsight|voicedb|Update skipped|Update delivered|ProgressReportingMonitor|log run noninteractively|BGSTHelper|_DASActivity/;
+  const start = at >= 0 ? time(all[at]!) : "";
+  const end = start ? `${start.slice(0, 3)}${String(Math.min(59, Number(start.slice(3, 5)) + 3)).padStart(2, "0")}${start.slice(5)}` : "";
+  const window = at >= 0 ? all.slice(Math.max(0, at - 3)).filter((l) => time(l) <= end) : [];
+  const keep = window
+    .filter((l) => !noise.test(l))
+    .filter((l) => /BareExample|org\.reactjs|wake|launch|deny|denied|refus|delay|background|NDSession|FBSOpen|openApplication|Bootstrap/i.test(l))
+    .map((l) => (l.length > 250 ? `${l.slice(0, 249)}…` : l).replace(/^2026-\d\d-\d\d /, ""));
+  const chunks: string[][] = [[`wake request at ${start || "none"}; ${keep.length} lines kept of ${window.length}`]];
+  for (const l of keep) {
+    const c = chunks[chunks.length - 1]!;
+    if (c.join("\n").length + l.length > 3800) chunks.push([l]);
+    else c.push(l);
+  }
+  if (!process.env.GITHUB_ACTIONS) return;
+  for (const [i, c] of chunks.slice(0, 5).entries()) {
+    const escaped = c.join("\n").replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+    console.log(`::${level} title=Wake diagnosis ${i + 1}::${escaped}`);
+  }
+}
+
 /** The held download's port: the Platform screen's HELD_DOWNLOAD names it. */
 const DOWNLOAD_PORT = 8099;
 
@@ -877,6 +906,7 @@ async function backgroundDownload(target: Target, device: Device): Promise<boole
     if (lines.some((l) => l.startsWith("LUCENT_DOWNLOAD events delivered"))) {
       const after = Math.round((Date.now() - released.getTime()) / 1000);
       console.log(`${lines.join("\n")}\n(seen ${after} seconds after the release)`);
+      wakeDiagnosis(device, "notice");
       // How long iOS took, kept where a reader without the job's log sees it.
       if (process.env.GITHUB_ACTIONS)
         console.log(
@@ -913,6 +943,7 @@ async function backgroundDownload(target: Target, device: Device): Promise<boole
   console.log(
     `--- The app's own lines in the device log (the last ${app.length}):\n${app.join("\n")}`,
   );
+  wakeDiagnosis(device, "error");
   report(
     [
       `Device run (${target.platform}) failed. A background download's events reached no handler within ${DOWNLOAD_MS / 1000} seconds of the app ending.`,
