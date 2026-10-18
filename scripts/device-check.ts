@@ -844,8 +844,11 @@ async function heldStatus(): Promise<string> {
   }
 }
 
-/** How long iOS has to start the ended app for its background session's events. */
-const DOWNLOAD_MS = seconds("DEVICE_CHECK_DOWNLOAD_S", 120);
+/**
+ * How long iOS has to start the ended app for its background session's
+ * events. The simulator took two minutes once (2026-10-17).
+ */
+const DOWNLOAD_MS = seconds("DEVICE_CHECK_DOWNLOAD_S", 300);
 
 /**
  * A background session's download that ends while the app doesn't run
@@ -859,8 +862,9 @@ async function backgroundDownload(target: Target, device: Device): Promise<boole
   for (let i = 0; i < 10 && device.running() !== false; i++) await sleep(1000);
   const ended = device.running();
   await fetch(`http://localhost:${DOWNLOAD_PORT}/release`).catch(() => undefined);
+  const released = new Date();
   console.log(
-    `Ended ${target.id} (running: ${ended}) and let its download finish (${before.trim()}).`,
+    `Ended ${target.id} (running: ${ended}) and let its download finish at ${released.toISOString()} (${before.trim()}).`,
   );
 
   const until = Date.now() + DOWNLOAD_MS;
@@ -868,7 +872,8 @@ async function backgroundDownload(target: Target, device: Device): Promise<boole
     await sleep(5000);
     const lines = downloadLines(device.lucent());
     if (lines.some((l) => l.startsWith("LUCENT_DOWNLOAD events delivered"))) {
-      console.log(lines.join("\n"));
+      const after = Math.round((Date.now() - released.getTime()) / 1000);
+      console.log(`${lines.join("\n")}\n(seen ${after} seconds after the release)`);
       return true;
     }
   }
@@ -880,7 +885,14 @@ async function backgroundDownload(target: Target, device: Device): Promise<boole
     .filter((l) => /nsurlsession|background|launch|session|terminat/i.test(l))
     .slice(-15)
     .map((l) => (l.length > 240 ? `${l.slice(0, 239)}…` : l));
-  const lines = downloadLines(device.lucent());
+  // With the time each came: whether iOS started the app late, or not at all.
+  const lines = device
+    .lucent()
+    .split("\n")
+    .flatMap((l) => {
+      const m = /(\d\d:\d\d:\d\d)\.\d+ .*?(LUCENT_DOWNLOAD .*)$/.exec(l);
+      return m?.[1] && m[2] ? [`${m[1]} ${m[2].trim()}`] : [];
+    });
   const app = appLines(log, 40, 240, target);
   console.log(`--- The system's lines about ${target.id}:\n${system.join("\n")}`);
   console.log(
@@ -889,7 +901,7 @@ async function backgroundDownload(target: Target, device: Device): Promise<boole
   report(
     [
       `Device run (${target.platform}) failed. A background download's events reached no handler within ${DOWNLOAD_MS / 1000} seconds of the app ending.`,
-      `The held download, before it finished: ${before.trim()}.`,
+      `The held download, before it finished: ${before.trim()}. It was let finish at ${released.toISOString()}.`,
       `The app was ${ended === false ? "not running" : "still running"} when the download finished.`,
       lines.length
         ? `Its launch module logged: ${lines.join("; ")}`

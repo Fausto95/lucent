@@ -1474,9 +1474,9 @@ code in a process iOS started for them, with no JavaScript, as
 The app delegate's `backgroundURLSession` and `remoteNotification` events
 exist (T110). A launch module that subscribes to them runs before the app
 finishes launching, so a relaunched process may already deliver them.
-Nothing checks it yet.
+The iOS device runs check both, the push as the simulator delivers it.
 
-- [ ] A launch module's `backgroundURLSession` subscriber, in a process
+- [x] A launch module's `backgroundURLSession` subscriber, in a process
       iOS started for the session, makes the session again by its
       identifier and calls the completion handler once its events arrive.
 - [ ] A launch module's `remoteNotification` subscriber gets a
