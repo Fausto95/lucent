@@ -603,7 +603,10 @@ function ios(target: Target): Device {
       fs.writeFileSync(file, payload);
       sh("xcrun", ["simctl", "push", sim.udid, target.id, file]);
     },
-    mentions: (text) => show(`eventMessage CONTAINS "${text}"`),
+    mentions: (text) =>
+      text === "__daemon__"
+        ? show('process == "nsurlsessiond" OR process == "dasd" OR (process == "runningboardd" AND eventMessage CONTAINS "BareExample")')
+        : show(`eventMessage CONTAINS "${text}"`),
     open: (screen) =>
       console.log(
         sh("xcrun", [
@@ -882,6 +885,17 @@ async function backgroundDownload(target: Target, device: Device): Promise<boole
         console.log(
           `::notice title=Background download::Its events were delivered ${after} seconds after the download finished.`,
         );
+      {
+        const t0 = released.toISOString().slice(11, 19);
+        const all = (device.mentions?.("__daemon__") ?? "").split("\n");
+        const keep = all
+          .filter((l) => (/\d\d:\d\d:\d\d/.exec(l)?.[0] ?? "") >= t0)
+          .filter((l) => /BareExample|org\.reactjs|wake|launch|BackgroundSession|dev\.lucent|Task <|complet|budget|throttl|policy/i.test(l))
+          .map((l) => (l.length > 230 ? `${l.slice(0, 229)}…` : l));
+        const text = [`after ${t0}: ${keep.length} kept`, ...keep.slice(0, 18), "...", ...keep.slice(-10)].join("\n").slice(0, 3900);
+        const escaped = text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+        if (process.env.GITHUB_ACTIONS) console.log(`::notice title=Daemon timeline::${escaped}`);
+      }
       return true;
     }
   }
@@ -913,6 +927,18 @@ async function backgroundDownload(target: Target, device: Device): Promise<boole
   console.log(
     `--- The app's own lines in the device log (the last ${app.length}):\n${app.join("\n")}`,
   );
+  {
+    const t0 = released.toISOString().slice(11, 19);
+    const all = (device.mentions?.("__daemon__") ?? "").split("\n");
+    const after = all.filter((l) => (/\d\d:\d\d:\d\d/.exec(l)?.[0] ?? "") >= t0);
+    const keep = after
+      .filter((l) => !/log run noninteractively/.test(l))
+      .filter((l) => /BareExample|org\.reactjs|wake|launch|BackgroundSession|dev\.lucent|Task <|complet|resum|defer|budget|throttl|policy/i.test(l))
+      .map((l) => (l.length > 230 ? `${l.slice(0, 229)}…` : l));
+    const text = [`after ${t0}: ${after.length} lines, ${keep.length} kept`, ...keep.slice(0, 18), "...", ...keep.slice(-10)].join("\n").slice(0, 3900);
+    const escaped = text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+    if (process.env.GITHUB_ACTIONS) console.log(`::error title=Daemon diagnosis::${escaped}`);
+  }
   report(
     [
       `Device run (${target.platform}) failed. A background download's events reached no handler within ${DOWNLOAD_MS / 1000} seconds of the app ending.`,
