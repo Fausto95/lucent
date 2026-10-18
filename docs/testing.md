@@ -409,8 +409,8 @@ contentView),
 and it lays out in a react-native-screens stack's screen.
 
 On iOS the Platform screen also starts a download in a background URL
-session, which `scripts/held-download.ts` holds open. The run then ends the
-app and lets the download finish. iOS starts the app for the session's
+session, which `scripts/held-download.ts` holds open. Right after that
+screen, the run ends the app and lets the download finish. iOS starts the app for the session's
 events, and the launch module that makes the session again logs
 `LUCENT_DOWNLOAD events delivered`. The background transfer daemon refuses
 an unsigned app's session (`NSURLErrorDomain` -1), so the device runs build
