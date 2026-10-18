@@ -1,9 +1,9 @@
 {
-  "launch": ["refresh"],
+  "launch": ["refresh", "push"],
   "ios": {
     "infoPlist": {
       "BGTaskSchedulerPermittedIdentifiers": ["dev.lucent.example.refresh"],
-      "UIBackgroundModes": ["fetch"]
+      "UIBackgroundModes": ["fetch", "remote-notification"]
     }
   },
   "android": {
