@@ -821,6 +821,9 @@ async function main(): Promise<boolean> {
 /** The held download's port: the Platform screen's HELD_DOWNLOAD names it. */
 const DOWNLOAD_PORT = 8099;
 
+/** The background session lucent-background-task's download.lucent.ts makes (its SESSION). */
+const DOWNLOAD_SESSION = "dev.lucent.example.downloads";
+
 /** Starts scripts/held-download.ts, which holds the Platform screen's download open. */
 function holdDownload(): ChildProcess {
   const child = spawn(
@@ -874,6 +877,11 @@ async function backgroundDownload(target: Target, device: Device): Promise<boole
     if (lines.some((l) => l.startsWith("LUCENT_DOWNLOAD events delivered"))) {
       const after = Math.round((Date.now() - released.getTime()) / 1000);
       console.log(`${lines.join("\n")}\n(seen ${after} seconds after the release)`);
+      // How long iOS took, kept where a reader without the job's log sees it.
+      if (process.env.GITHUB_ACTIONS)
+        console.log(
+          `::notice title=Background download::Its events were delivered ${after} seconds after the download finished.`,
+        );
       return true;
     }
   }
@@ -894,6 +902,13 @@ async function backgroundDownload(target: Target, device: Device): Promise<boole
       return m?.[1] && m[2] ? [`${m[1]} ${m[2].trim()}`] : [];
     });
   const app = appLines(log, 40, 240, target);
+  // What the background transfer daemon and the schedulers said of the session: whether the
+  // download finished there, and whether they asked to start the app.
+  const daemon = (device.mentions?.(DOWNLOAD_SESSION) ?? "")
+    .split("\n")
+    .filter((l) => /nsurlsessiond|dasd|runningboardd|SpringBoard/.test(l))
+    .slice(-10)
+    .map((l) => (l.length > 220 ? `${l.slice(0, 219)}…` : l));
   console.log(`--- The system's lines about ${target.id}:\n${system.join("\n")}`);
   console.log(
     `--- The app's own lines in the device log (the last ${app.length}):\n${app.join("\n")}`,
@@ -906,6 +921,7 @@ async function backgroundDownload(target: Target, device: Device): Promise<boole
       lines.length
         ? `Its launch module logged: ${lines.join("; ")}`
         : "Its launch module logged nothing.",
+      ...(daemon.length ? ["The system's lines about the session, last:", ...daemon] : []),
     ],
     { app: [...system, ...app], metro: [] },
   );
