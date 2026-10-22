@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
-    "@babel/preset-env": "^8.0.6",
+    "@babel/preset-env": "^8.0.7",
     "@babel/runtime": "^7.25.0",
     "@lucent-lang/lucent": "workspace:*",
     "@react-native-community/cli": "20.2.0",
