@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         if: matrix.platform == 'android'
         with:
           distribution: temurin
@@ -95,7 +95,7 @@ jobs:
           script: node scripts/window-app.ts --app ${{ matrix.app }} --release ${{ matrix.release }} --platform android --dir "$RUNNER_TEMP/app" --check
       - name: Keep the logs and the screen
         if: failure()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: window-${{ matrix.app }}-${{ matrix.release }}-${{ matrix.platform }}
           path: |
