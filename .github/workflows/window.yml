@@ -51,12 +51,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         if: matrix.platform == 'android'
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         if: matrix.platform == 'android'
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/sdk-cache
@@ -95,7 +95,7 @@ jobs:
           script: node scripts/window-app.ts --app ${{ matrix.app }} --release ${{ matrix.release }} --platform android --dir "$RUNNER_TEMP/app" --check
       - name: Keep the logs and the screen
         if: failure()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: window-${{ matrix.app }}-${{ matrix.release }}-${{ matrix.platform }}
           path: |
